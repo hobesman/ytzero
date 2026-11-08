@@ -2,7 +2,7 @@ import { isFocusInteraction } from "./src/focusEntry";
 import { lastActivatedVideoTarget, requestTvFocus, TvContentFocusRequests, useTvShellFocus } from "./src/focus";
 import { restoreFocus } from "./src/focusRestoration";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Animated, BackHandler, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
+import { Animated, BackHandler, Platform, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
 import { YtZeroApi } from "./src/api";
 import { deviceLanguage, normalizeLanguage, translator, type Translate } from "./src/i18n";
 import { InstanceScreen } from "./src/screens/InstanceScreen";
@@ -17,14 +17,20 @@ import { deviceStore, legacyDeviceStore } from "./src/deviceStore";
 import { systemProfilesNative } from "./src/systemProfilesNative";
 import { loadSystemProfilesEnabled, saveSystemProfilesEnabled, parseProfilePreference, profilePreference, resolveSystemProfile, type ProfileState, type ProfilePreference } from "./src/systemProfiles";
 import { TvSetupLayout } from "./src/components/TvSetupLayout";
-import { loadOpenDetails, saveOpenDetails, shouldPlayVideo } from "./src/devicePreferences";
+import { loadOpenDetails, loadPhoneLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TvSidebar } from "./src/components/TvSidebar";
 import { TvProfileMenu } from "./src/components/TvProfileMenu";
 import { TvLoadingMark } from "./src/components/TvLoadingMark";
 import { TvLaunchAnimation } from "./src/components/TvLaunchAnimation";
+import { PhoneScale, usePhoneScale } from "./src/components/PhoneScale";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { MiniPlayerHost } from "./src/components/MiniPlayerHost";
 import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
+import { setSessionCookie } from "./src/sessionCookie";
+import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
+import { PhoneApp } from "./src/phone/PhoneApp";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
@@ -88,8 +94,11 @@ function TvQueueTrigger({ trigger, t, nextFocusDown, nextFocusRight, onOpen }: {
     style={styles.queueTrigger} onPress={onOpen} />;
 }
 
+/** Android phones (not TVs) can use the phone design instead of the scaled TV layout. */
+const phoneDesignAvailable = Platform.OS === "android" && !Platform.isTV;
+
 export default function App() {
-  return <TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider>;
+  return <SafeAreaProvider><MiniPlayerHost><TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider></MiniPlayerHost></SafeAreaProvider>;
 }
 
 function TvApp() {
@@ -102,8 +111,17 @@ function TvApp() {
   const returnFocus = useRef<{ current: View | null } | null>(null);
   const cancelFocusReturn = useRef<(() => void) | null>(null);
   const previousScreen = useRef<Screen>("boot");
-  const { width, height } = useWindowDimensions();
   const [screen, setScreen] = useState<Screen>("boot");
+  // Setup screens have phone layouts of their own; everything else is the TV layout, scaled on phones.
+  // Android phones use the phone design by default; Settings can switch to the scaled TV layout.
+  const [phoneDesign, setPhoneDesign] = useState(phoneDesignAvailable);
+  const phoneMode = phoneDesign && phoneDesignAvailable;
+  const [phonePlaying, setPhonePlaying] = useState(false);
+  // Phones: a fullscreen video, and holding portrait after the viewer leaves fullscreen.
+  const [videoFullscreen, setVideoFullscreen] = useState(false);
+  const [portraitHeld, setPortraitHeld] = useState(false);
+  const phoneLayout = usePhoneScale(!phoneMode && screen !== "instance" && screen !== "pair");
+  const { width, height } = phoneLayout.size;
   const backdropController = useMemo(createBackdropController, []);
   const backdropScroll = useRef(new Animated.Value(0)).current;
   const backdropOpacity = useMemo(() => backdropScroll.interpolate({
@@ -135,6 +153,9 @@ function TvApp() {
   contentFocusFallback.current = contentFocusTarget as View | null;
   const [returnDestination, setReturnDestination] = useState<TvBrowseDestination>("/");
   const [detailReturnScreen, setDetailReturnScreen] = useState<DetailReturnScreen>("/");
+  const [playerDocked, setPlayerDocked] = useState(false);
+  const playerDockedRef = useRef(playerDocked);
+  playerDockedRef.current = playerDocked;
   const [contentFocusRequest, setContentFocusRequest] = useState(0);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -155,6 +176,16 @@ function TvApp() {
   const t = useMemo(() => translator(language), [language]);
   const api = useMemo(() => instanceUrl ? new YtZeroApi(instanceUrl, accessToken) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
+  // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
+  const cookieInstance = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = cookieInstance.current;
+    cookieInstance.current = instanceUrl ?? null;
+    void (async () => {
+      if (previous && previous !== instanceUrl) await setSessionCookie(previous, null);
+      if (instanceUrl) await setSessionCookie(instanceUrl, accessToken ?? null);
+    })().catch(() => {});
+  }, [accessToken, instanceUrl]);
   const browsingScreen = screen === "detail" ? detailReturnScreen : screen;
   const shellDestination: TvDestination | null = browsingScreen === "playlist" ? "/followed-playlists" : browsingScreen === "channel" ? returnDestination : browsingScreen === "/settings" || isTvBrowseDestination(browsingScreen) ? browsingScreen : null;
   const hasShell = Boolean(api) && shellDestination !== null;
@@ -182,6 +213,7 @@ function TvApp() {
     setSelectedQueue(context ?? null);
     setAutoplay(shouldPlayVideo(openDetailsRef.current, play));
     setStartPosition(position);
+    setPlayerDocked(false);
     setScreen("detail");
   }, []);
   const openQueueFromTopBar = useCallback(() => {
@@ -274,6 +306,13 @@ function TvApp() {
         return true;
       }
       if (screen === "detail") {
+        // Phones: Back leaves fullscreen, then keeps a playing video going in the mini player.
+        if (phoneMode && videoFullscreen) { setPortraitHeld(true); setVideoFullscreen(false); return true; }
+        if (phoneMode && phonePlaying) {
+          setPlayerDocked(true);
+          setScreen(detailReturnScreen);
+          return true;
+        }
         setSelected(null);
         setScreen(detailReturnScreen);
         return true;
@@ -298,7 +337,7 @@ function TvApp() {
       subscription.remove();
       TVEventControl.disableTVMenuKey();
     };
-  }, [detailReturnScreen, pairingFromSettings, returnDestination, screen]);
+  }, [detailReturnScreen, pairingFromSettings, phoneMode, phonePlaying, returnDestination, screen, videoFullscreen]);
 
   const navigate = useCallback((destination: TvDestination) => {
     setSelectedPlaylistId(null);
@@ -397,9 +436,10 @@ function TvApp() {
     setScreen("boot");
     void (async () => {
       try {
-        const [stored, detailsPreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false)]);
+        const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable)]);
         if (!active) return;
         setOpenDetails(detailsPreference);
+        setPhoneDesign(phonePreference);
         if (!stored.instanceUrl) return setScreen("instance");
         setInstanceUrl(stored.instanceUrl);
         if (!stored.accessToken) {
@@ -540,7 +580,7 @@ function TvApp() {
 
   const openChannel = useCallback((channelId: string) => {
     setVideoActionRequest(null);
-    setSelected(null);
+    if (!playerDockedRef.current) setSelected(null);
     setSelectedChannelId(channelId);
     setContentFocusTarget(null);
     setContentFocusRequest((request) => request + 1);
@@ -561,8 +601,61 @@ function TvApp() {
     setScreen(returnDestination);
   }, [returnDestination]);
 
+  const changePhoneDesign = useCallback(async (value: boolean) => {
+    await savePhoneLayout(deviceStore, value);
+    setPhoneDesign(value);
+  }, []);
+  // The phone design browses in portrait. On a video's page the phone may rotate, and turning it
+  // sideways while the video plays goes fullscreen; leaving fullscreen holds portrait for that video.
+  // The scaled TV layout stays landscape.
+  const videoOpen = screen === "detail" && !playerDocked;
+  const windowSize = useWindowDimensions();
+  useEffect(() => {
+    if (!phoneDesignAvailable) return;
+    setPhoneOrientation(!phoneMode ? "landscape" : !videoOpen ? "portrait" : videoFullscreen ? "landscape" : portraitHeld ? "portrait" : "sensor");
+  }, [phoneMode, portraitHeld, videoFullscreen, videoOpen]);
+  useEffect(() => { setVideoFullscreen(false); setPortraitHeld(false); }, [videoOpen, selected?.video_id]);
+  const immersive = phoneMode && videoOpen && videoFullscreen;
+  useEffect(() => { setPhoneImmersive(immersive); }, [immersive]);
+  useEffect(() => {
+    if (phoneMode && videoOpen && phonePlaying && !videoFullscreen && !portraitHeld && windowSize.width > windowSize.height) setVideoFullscreen(true);
+  }, [phoneMode, phonePlaying, portraitHeld, videoFullscreen, videoOpen, windowSize.height, windowSize.width]);
+  const toggleVideoFullscreen = useCallback(() => {
+    if (videoFullscreen) setPortraitHeld(true);
+    setVideoFullscreen(!videoFullscreen);
+  }, [videoFullscreen]);
+  const openPhoneVideo = useCallback<OpenVideo>((video, context, play, position) => {
+    setDetailReturnScreen("/");
+    setReturnDestination("/");
+    if (screenRef.current !== "detail") setScreen("/");
+    openVideo(video, context, play, position);
+  }, [openVideo]);
+  const phoneSettings = useMemo(() => ({
+    instanceUrl, openDetails, phoneLayout: phoneDesign,
+    onOpenDetailsChange: async (value: boolean) => { await saveOpenDetails(deviceStore, value); setOpenDetails(value); },
+    onPhoneLayoutChange: changePhoneDesign, onChangeInstance: startInstanceChange, onSignOut: signOut,
+  }), [changePhoneDesign, instanceUrl, openDetails, phoneDesign, signOut, startInstanceChange]);
+
+  // Phones: Back minimizes the player and returns to where the video was opened.
+  const dockPlayer = useCallback(() => {
+    setPlayerDocked(true);
+    setScreen(detailReturnScreen);
+  }, [detailReturnScreen]);
+  const expandPlayer = useCallback(() => {
+    const current = screenRef.current;
+    if (current === "channel" || current === "playlist" || isTvBrowseDestination(current)) setDetailReturnScreen(current);
+    setPlayerDocked(false);
+    setScreen("detail");
+  }, []);
+  const closeDockedPlayer = useCallback(() => {
+    setPlayerDocked(false);
+    if (screenRef.current !== "detail") setSelected(null);
+  }, []);
+  useEffect(() => { if (!selected) setPlayerDocked(false); }, [selected]);
+
   let detailContent;
-  if (screen === "detail" && api && selected) {
+  // A minimized player keeps its details screen mounted, hidden, while the viewer browses.
+  if ((screen === "detail" || playerDocked) && api && selected) {
     detailContent = (
       <WatchScreen
         api={api}
@@ -582,6 +675,14 @@ function TvApp() {
         onOpenVideo={openVideo}
         onVideoChange={setVideoUpdate}
         onVideoLongPress={openVideoActions}
+        playerDocked={playerDocked}
+        onDockPlayer={dockPlayer}
+        onExpandPlayer={expandPlayer}
+        onDockedPlayerClosed={closeDockedPlayer}
+        phone={phoneMode}
+        playerFullscreen={videoFullscreen}
+        onToggleFullscreen={toggleVideoFullscreen}
+        onPlayingChange={setPhonePlaying}
       />
     );
 
@@ -646,7 +747,7 @@ function TvApp() {
       canLink: Boolean(profileState?.active.uuid),
       linkedName: profileState?.profiles.find((profile) => profile.uuid === linkedProfile?.profileUuid)?.name ?? null,
       isCurrentLinked: Boolean(profileState?.active.uuid && profileState.active.uuid === linkedProfile?.profileUuid),
-      onEnabledChange: changeSystemProfilesEnabled, onLinkCurrent: linkCurrentProfile }} openDetails={openDetails} onOpenDetailsChange={async (value) => { await saveOpenDetails(deviceStore, value); setOpenDetails(value); }} onPrimaryFocusTarget={setContentFocusTarget} focusRequest={contentFocusRequest} instanceUrl={instanceUrl} profileFocusTarget={profileFocusTarget} t={t} onSignOut={signOut} onChangeInstance={startInstanceChange} />;
+      onEnabledChange: changeSystemProfilesEnabled, onLinkCurrent: linkCurrentProfile }} openDetails={openDetails} onOpenDetailsChange={async (value) => { await saveOpenDetails(deviceStore, value); setOpenDetails(value); }} phoneDesign={phoneDesignAvailable ? phoneDesign : undefined} onPhoneDesignChange={changePhoneDesign} onPrimaryFocusTarget={setContentFocusTarget} focusRequest={contentFocusRequest} instanceUrl={instanceUrl} profileFocusTarget={profileFocusTarget} t={t} onSignOut={signOut} onChangeInstance={startInstanceChange} />;
   } else if (browsingScreen === "/bookmarks" && api) {
     content = (
       <BookmarksScreen
@@ -711,8 +812,12 @@ function TvApp() {
   }
 
   return (
+    <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
+      {phoneMode && hasShell && api && profileState ? <PhoneApp api={api} t={t} language={language} hidden={screen === "detail"}
+        brandName={brandName} brandColor={brandColor} profileName={profileState.active.name} profileColor={profileState.active.avatar_color || colors.accent}
+        navConfig={sidebarNav} sort={feedSort} videoUpdate={videoUpdate} settings={phoneSettings} onOpen={openPhoneVideo} /> : <>
       {screen !== "detail" && browsingScreen === "/" && api
         ? <TvHomeBackdrop api={api} controller={backdropController} height={height} opacity={backdropOpacity} />
         : null}
@@ -761,7 +866,9 @@ function TvApp() {
           </TvGlassVisibility>
         </TvContentFocusRequests.Provider>
       </TVFocusGuideView>
-      {detailContent ? <View key={`${selected?.video_id}:${videoOpenRequest}`} style={StyleSheet.absoluteFill}>
+      </>}
+      {detailContent ? <View key={`${selected?.video_id}:${videoOpenRequest}`} style={[StyleSheet.absoluteFill, screen !== "detail" && styles.hidden]}
+        pointerEvents={screen === "detail" ? "auto" : "none"} accessibilityElementsHidden={screen !== "detail"} importantForAccessibility={screen === "detail" ? "auto" : "no-hide-descendants"}>
         {autoplay ? detailContent : <TvScreenTransition>{detailContent}</TvScreenTransition>}
       </View> : null}
       {api ? (
@@ -789,11 +896,13 @@ function TvApp() {
     {launchVisible ? <TvLaunchAnimation ready={screen !== "boot" || bootError} accessibilityLabel={t("booting")}
       onReveal={() => setLaunchRevealing(true)} onFinish={() => setLaunchVisible(false)} /> : null}
     </View>
+    </PhoneScale>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, width: "100%", height: "100%", backgroundColor: colors.background },
+  phoneRoot: { backgroundColor: colors.background },
   content: { flex: 1 },
   // Preserve list measurements, scroll offset and mounted cells under AVKit.
   hidden: { opacity: 0 },

@@ -9,9 +9,9 @@ import {
   StyleSheet,
   Text,
   TVFocusGuideView,
-  useWindowDimensions,
   View,
 } from "react-native";
+import { PhoneOverlayScale, useScreenSize } from "./PhoneScale";
 import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { tvVerticalListPerformance } from "../listPerformance";
@@ -61,7 +61,7 @@ export function TvVideoActionMenu(props: Props) {
 
 function VideoActionMenu({ api, actionConfig, onClose, onOpenChannel, onRemove, onVideoChange, preserveMenuKey, t, video }: Props & { video: Video }) {
   const queue = useSessionQueue();
-  const { height, fontScale } = useWindowDimensions();
+  const { height, fontScale } = useScreenSize();
   const queued = queue.items.some((item) => item.video_id === video?.video_id);
   const [view, setView] = useState<MenuView>("actions");
   const [currentVideo, setCurrentVideo] = useState(video);
@@ -255,6 +255,7 @@ function VideoActionMenu({ api, actionConfig, onClose, onOpenChannel, onRemove, 
 
   return (
     <Modal animationType="none" onRequestClose={goBack} onShow={() => setShown(true)} transparent visible>
+      <PhoneOverlayScale>
       <TvFocusScope style={styles.fill}>
       <TVFocusGuideView accessibilityViewIsModal autoFocus destinations={entryTarget ? [entryTarget] : undefined} trapFocusDown trapFocusLeft trapFocusRight trapFocusUp style={styles.overlay}>
         <TvScreenTransition surface="glass" radius={36} style={[styles.panel, { height: panelHeight }]}>
@@ -370,7 +371,7 @@ function VideoActionMenu({ api, actionConfig, onClose, onOpenChannel, onRemove, 
         </TvScreenTransition>
       </TVFocusGuideView>
       </TvFocusScope>
-    </Modal>
+    </PhoneOverlayScale></Modal>
   );
 }
 

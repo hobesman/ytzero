@@ -1,7 +1,8 @@
 import { TvEmptyState } from "./TvEmptyState";
 import { TvCloseButton } from "./TvCloseButton";
 import { useEffect, useRef } from "react";
-import { FlatList, Modal, StyleSheet, Text, TVFocusGuideView, useWindowDimensions, View } from "react-native";
+import { FlatList, Modal, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
+import { PhoneOverlayScale, useScreenSize } from "./PhoneScale";
 import { requestTvFocus } from "../focus";
 import { useTvModalBack } from "../useTvModalBack";
 import type { Translate } from "../i18n";
@@ -18,7 +19,7 @@ import { TvFocusScope } from "./TvFocusScope";
 export function TvQueueSheet({ t, language, onClose, onOpen, preserveMenuKey }: { t: Translate; language: Language; onClose: () => void; onOpen: OpenVideo; preserveMenuKey: boolean }) {
   useTvModalBack(true, onClose, preserveMenuKey);
   const queue = useSessionQueue();
-  const { height } = useWindowDimensions();
+  const { height } = useScreenSize();
   const targets = useRef(new Map<string, View>());
   const closeTarget = useRef<View>(null);
   const pendingFocus = useRef<{ videoId?: string } | null>(null);
@@ -43,6 +44,7 @@ export function TvQueueSheet({ t, language, onClose, onOpen, preserveMenuKey }: 
   };
   return <Modal transparent animationType="none" onRequestClose={onClose} visible
     onShow={() => requestAnimationFrame(() => requestTvFocus(targets.current.get(queue.items[0]?.video_id ?? "") ?? closeTarget.current))}>
+      <PhoneOverlayScale>
     <TvFocusScope style={{ flex: 1 }}><TVFocusGuideView accessibilityViewIsModal autoFocus trapFocusUp trapFocusDown trapFocusLeft trapFocusRight style={styles.overlay}>
       <TvScreenTransition surface="glass" radius={38} style={[styles.panel, { maxHeight: height - 100 }]}>
         <View style={styles.header}>
@@ -68,7 +70,7 @@ export function TvQueueSheet({ t, language, onClose, onOpen, preserveMenuKey }: 
         {queue.items.length ? <View style={styles.footer}><TvButton deferPress label={t("clearQueue")} variant="ghost" onPress={() => { pendingFocus.current = {}; queue.clear(); }} /></View> : null}
       </TvScreenTransition>
     </TVFocusGuideView></TvFocusScope>
-  </Modal>;
+  </PhoneOverlayScale></Modal>;
 }
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: colors.modalScrim, padding: 50, alignItems: "center", justifyContent: "center" },

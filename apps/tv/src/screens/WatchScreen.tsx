@@ -4,10 +4,12 @@ import { formatVideoDuration } from "../duration";
 import { TvTextDetails } from "../components/TvTextDetails";
 import { TvListButton } from "../components/TvListButton";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Image, StyleSheet, Text, TVFocusGuideView, useWindowDimensions, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
+import { FlatList, Image, StyleSheet, Text, TVFocusGuideView, View, type FocusDestination, type ListRenderItemInfo } from "react-native";
+import { useScreenSize } from "../components/PhoneScale";
 import type { YtZeroApi } from "../api";
 import { TvBackdrop } from "../components/TvBackdrop";
 import { TvNativePlayer } from "../components/TvNativePlayer";
+import { PhoneWatchBody } from "../phone/PhoneWatchBody";
 import { TvPressable } from "../components/TvPressable";
 import { useSessionQueue } from "../SessionQueue";
 import { usePlaybackSequence } from "../usePlaybackSequence";
@@ -41,6 +43,10 @@ type Props = {
   onShowQueue: (returnTarget: View | null) => void;
   onVideoChange: (video: Video) => void;
   onVideoLongPress: (video: Video, onChange: (updated: Video) => void, options?: VideoActionOptions) => void;
+  /** Phones: the player minimized to a corner while this screen is hidden. */
+  playerDocked?: boolean; onDockPlayer?: () => void; onExpandPlayer?: () => void; onDockedPlayerClosed?: () => void;
+  /** The phone design: details page with the player inline at the top, or fullscreen. */
+  phone?: boolean; playerFullscreen?: boolean; onToggleFullscreen?: () => void; onPlayingChange?: (playing: boolean) => void;
 };
 
 type CommentsMode = "disabled" | "scroll" | "auto";
@@ -60,9 +66,9 @@ function validDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.valueOf()) ? null : date;
 }
 
-export function WatchScreen({ api, incognito, isChild, language, t, video: initialVideo, onBack, onOpenChannel, onOpenVideo, onVideoChange, onVideoLongPress, queueContext, autoplay, initialPosition, onShowQueue, onPrimaryFocusTarget, profileFocusTarget }: Props) {
+export function WatchScreen({ api, incognito, isChild, language, t, video: initialVideo, onBack, onOpenChannel, onOpenVideo, onVideoChange, onVideoLongPress, queueContext, autoplay, initialPosition, onShowQueue, onPrimaryFocusTarget, profileFocusTarget, playerDocked = false, onDockPlayer, onExpandPlayer, onDockedPlayerClosed, phone = false, playerFullscreen = false, onToggleFullscreen, onPlayingChange }: Props) {
   const [preview, setPreview] = useState(initialVideo);
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useScreenSize();
   const [video, setVideo] = useState(preview);
   const [related, setRelated] = useState<Video[]>([]);
   // `undefined` means that profile settings are still loading. Keep the
@@ -72,7 +78,8 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [playingFrom, setPlayingFrom] = useState<number | null>(autoplay ? initialPosition ?? resumePosition(preview.watch_position, preview.watch_duration, preview.watched) : null);
-  const returnToBrowse = useRef(autoplay);
+  // Phones stay on the details page, where the video plays at the top.
+  const returnToBrowse = useRef(autoplay && !phone);
   const queue = useSessionQueue();
   const queued = queue.items.some((item) => item.video_id === video.video_id);
   const sequence = usePlaybackSequence(api, video, queueContext, settings);
@@ -152,7 +159,8 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
     }
   }, [api, preview.video_id]);
 
-  const detailsVisible = playingFrom === null && !returnToBrowse.current;
+  const detailsVisible = phone || (playingFrom === null && !returnToBrowse.current);
+  useEffect(() => { onPlayingChange?.(playingFrom !== null); }, [onPlayingChange, playingFrom]);
   useEffect(() => {
     if (!detailsVisible || loadedDetailsId.current === preview.video_id) return;
     setVideo((current) => current.video_id === preview.video_id ? current : preview);
@@ -180,6 +188,8 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
       setVideo(updated);
       if (!result.saveFailed) onVideoChange(updated);
     }
+    // Closed from the mini player, or ended there: stay wherever the viewer is browsing.
+    if (playerDocked) { onDockedPlayerClosed?.(); return; }
     if (next) { onOpenVideo(next, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true); return; }
     if (returnToBrowse.current) { onBack(); return; }
     requestAnimationFrame(() => firstActionTarget?.requestTVFocus());
@@ -226,6 +236,25 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   const openRelatedVideoActions = useCallback((relatedVideo: Video) => {
     onVideoLongPress(relatedVideo, applyRelatedVideoChange);
   }, [applyRelatedVideoChange, onVideoLongPress]);
+
+  const player = playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer}
+    docked={playerDocked} onDock={onDockPlayer} onExpand={onExpandPlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
+    presentation={phone ? "inline" : "modal"} fullscreenActive={playerFullscreen} onToggleFullscreen={phone ? onToggleFullscreen : undefined}
+    queueLoading={sequence.loading}
+    onAdvance={(next) => { requestVersion.current++; setVideo(next); setPreview(next); }}
+    onProgress={(played, result) => {
+      if (result.saveFailed) setSaveFailed(true);
+      if ((!incognito || isChild) && result.duration > 0 && !result.saveFailed) onVideoChange(played);
+    }}
+    advanceOnEnd={shouldAdvanceQueue(sequence.context, settings?.feed_autoplay_enabled, settings?.feed_autoplay_behavior)} /> : null;
+
+  if (phone) return <PhoneWatchBody api={api} video={video} related={related} showRelated={showRelated} nextVideo={sequence.next}
+    loading={loading} loadError={loadError} saveFailed={saveFailed} playing={playingFrom !== null} startAt={startAt}
+    queued={queued} canQueue={canQueueTvVideo(video)} queueFull={queue.items.length >= SESSION_QUEUE_LIMIT}
+    language={language} t={t} playbackTime={playbackTime} player={player} fullscreen={playerFullscreen && playingFrom !== null}
+    onRetry={() => void load()} onPlay={setPlayingFrom} onToggleQueue={() => queued ? queue.remove(video.video_id) : queue.add(video)}
+    onOpenNext={() => onOpenVideo(sequence.next!, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true)}
+    onOpenRelated={openRelatedVideo} />;
 
   return (
     <View style={[styles.screen, { width, height }]}>
@@ -372,14 +401,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
         </>
       )}
     /> : null}
-    {playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
-      queueLoading={sequence.loading}
-      onAdvance={(next) => { requestVersion.current++; setVideo(next); setPreview(next); }}
-      onProgress={(played, result) => {
-        if (result.saveFailed) setSaveFailed(true);
-        if ((!incognito || isChild) && result.duration > 0 && !result.saveFailed) onVideoChange(played);
-      }}
-      advanceOnEnd={shouldAdvanceQueue(sequence.context, settings?.feed_autoplay_enabled, settings?.feed_autoplay_behavior)} /> : null}
+    {player}
     </View>
   );
 }

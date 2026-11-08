@@ -3,6 +3,7 @@ import {
   Animated,
   Easing,
   findNodeHandle,
+  Platform,
   ScrollView,
   StyleSheet,
   TVFocusGuideView,
@@ -279,7 +280,8 @@ export function TvSidebar({ brandName, brandColor, onExpandedChange, current, na
               <View style={styles.iconSlot}><LogoMark size={38} color={brandColor} accessibilityLabel={brandName} /></View>
               <Animated.Text numberOfLines={2} style={[styles.brandName, { opacity: labelOpacity, transform: [{ translateX: labelTranslateX }] }]}>{brandName}</Animated.Text>
             </View>
-            <ScrollView pointerEvents="box-none" showsVerticalScrollIndicator={false} contentContainerStyle={styles.navigation}>
+            {/* A touch screen scrolls the rail itself; on a TV, focus scrolls it. */}
+            <ScrollView pointerEvents={Platform.isTV ? "box-none" : "auto"} showsVerticalScrollIndicator={false} contentContainerStyle={styles.navigation}>
               {navigation.visible.map(entry)}
               {navigation.hidden.length > 0 && (
                 <>

@@ -5,6 +5,7 @@ import { libraryMessages } from "./libraryMessages";
 import { queueMessages } from "./queueMessages";
 import { systemProfileMessages } from "./systemProfileMessages";
 import { discoveryMessages } from "./discoveryMessages";
+import { phoneMessages } from "./phoneMessages";
 
 type DeviceSettingsMessages = {
   devicePlayback: string;
@@ -370,6 +371,7 @@ const videoActionMessages: Record<Language, VideoActionMessages> = {
 
 const en = {
   ...discoveryMessages.en,
+  ...phoneMessages.en,
     ...libraryMessages.en,
     ...emptyMessages.en,
     ...searchMessages.en,
@@ -436,6 +438,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.pl,
     ...systemProfileMessages.pl,
     ...discoveryMessages.pl,
+    ...phoneMessages.pl,
     ...libraryMessages.pl,
     ...emptyMessages.pl,
     ...searchMessages.pl,
@@ -493,6 +496,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.de,
     ...systemProfileMessages.de,
     ...discoveryMessages.de,
+    ...phoneMessages.de,
     ...libraryMessages.de,
     ...emptyMessages.de,
     ...searchMessages.de,
@@ -511,6 +515,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.fr,
     ...systemProfileMessages.fr,
     ...discoveryMessages.fr,
+    ...phoneMessages.fr,
     ...libraryMessages.fr,
     ...emptyMessages.fr,
     ...searchMessages.fr,
@@ -529,6 +534,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.es,
     ...systemProfileMessages.es,
     ...discoveryMessages.es,
+    ...phoneMessages.es,
     ...libraryMessages.es,
     ...emptyMessages.es,
     ...searchMessages.es,
@@ -547,6 +553,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages["pt-BR"],
     ...systemProfileMessages["pt-BR"],
     ...discoveryMessages["pt-BR"],
+    ...phoneMessages["pt-BR"],
     ...libraryMessages["pt-BR"],
     ...emptyMessages["pt-BR"],
     ...searchMessages["pt-BR"],
@@ -565,6 +572,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ru,
     ...systemProfileMessages.ru,
     ...discoveryMessages.ru,
+    ...phoneMessages.ru,
     ...libraryMessages.ru,
     ...emptyMessages.ru,
     ...searchMessages.ru,
@@ -583,6 +591,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ja,
     ...systemProfileMessages.ja,
     ...discoveryMessages.ja,
+    ...phoneMessages.ja,
     ...libraryMessages.ja,
     ...emptyMessages.ja,
     ...searchMessages.ja,
@@ -601,6 +610,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.hu,
     ...systemProfileMessages.hu,
     ...discoveryMessages.hu,
+    ...phoneMessages.hu,
     ...libraryMessages.hu,
     ...emptyMessages.hu,
     ...searchMessages.hu,

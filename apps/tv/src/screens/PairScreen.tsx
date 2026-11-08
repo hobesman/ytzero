@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
@@ -8,6 +8,7 @@ import { colors, typography } from "../theme";
 import { TvSetupLayout } from "../components/TvSetupLayout";
 import { TvPairingConnection } from "../components/TvPairingConnection";
 import { TvButton } from "../components/TvButton";
+import { useCompactLayout } from "../useCompactLayout";
 
 type Props = {
   api: YtZeroApi;
@@ -25,6 +26,7 @@ export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeIns
   const authorized = useRef(onAuthorized);
   authorized.current = onAuthorized;
   const displayCode = pairing.userCode.split("-").join("  ");
+  const compact = useCompactLayout();
 
   useEffect(() => {
     setExpired(false);
@@ -60,14 +62,15 @@ export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeIns
     return () => { cancelled = true; if (timeout) clearTimeout(timeout); };
   }, [api, pairing]);
 
-  return <TvSetupLayout title={t("pairTitle")} description={t("pairDescription")} t={t} onBack={onBack} copyHeader={<TvPairingConnection />}
+  return <TvSetupLayout title={t("pairTitle")} description={compact ? t("pairPhoneDescription") : t("pairDescription")} t={t} onBack={onBack} copyHeader={<TvPairingConnection />}
     copyFooter={<>
-      <View style={styles.codePanel}><Text style={styles.codeLabel}>{t("enterCode")}</Text><Text style={styles.code} numberOfLines={1}>{displayCode}</Text></View>
-      {!expired ? <View style={styles.waiting}><View style={styles.spinner}><ActivityIndicator color={networkError ? colors.danger : colors.textMuted} size="small" style={styles.spinnerScale} /></View><Text style={[styles.waitingText, networkError && styles.error]}>{networkError ? t("cannotConnect") : t("waiting")}</Text></View>
-        : <View style={styles.expired}><Text style={styles.error}>{networkError ? t("cannotConnect") : t("pairExpired")}</Text><TvButton label={t("retry")} variant="primary" onPress={() => void onRetry().catch(() => setNetworkError(true))} /></View>}
+      <View style={[styles.codePanel, compact && compactStyles.codePanel]}><Text style={styles.codeLabel}>{t("enterCode")}</Text><Text style={[styles.code, compact && compactStyles.code]} numberOfLines={1} adjustsFontSizeToFit>{displayCode}</Text></View>
+      {compact && !expired ? <TvButton label={t("openSignInPage")} variant="primary" onPress={() => void Linking.openURL(pairing.verificationUriComplete)} style={compactStyles.openButton} /> : null}
+      {!expired ? <View style={styles.waiting}><View style={styles.spinner}><ActivityIndicator color={networkError ? colors.danger : colors.textMuted} size="small" style={styles.spinnerScale} /></View><Text style={[styles.waitingText, networkError && styles.error, compact && compactStyles.small]}>{networkError ? t("cannotConnect") : t("waiting")}</Text></View>
+        : <View style={[styles.expired, compact && compactStyles.expired]}><Text style={[styles.error, compact && compactStyles.small]}>{networkError ? t("cannotConnect") : t("pairExpired")}</Text><TvButton label={t("retry")} variant="primary" onPress={() => void onRetry().catch(() => setNetworkError(true))} /></View>}
       <TvButton deferPress label={t("changeInstance")} preferredFocus variant="ghost" onPress={onChangeInstance} style={styles.changeButton} />
     </>}>
-    <View style={styles.qrPanel}><View style={styles.qr}><QRCode value={pairing.verificationUriComplete} size={286} backgroundColor={colors.white} color={colors.black} /></View><Text style={styles.uri}>{pairing.verificationUriComplete}</Text></View>
+    <View style={[styles.qrPanel, compact && compactStyles.qrPanel]}><View style={[styles.qr, compact && compactStyles.qr]}><QRCode value={pairing.verificationUriComplete} size={compact ? 150 : 286} backgroundColor={colors.white} color={colors.black} /></View><Text style={[styles.uri, compact && compactStyles.uri]} selectable>{pairing.verificationUriComplete}</Text></View>
   </TvSetupLayout>;
 }
 
@@ -85,4 +88,15 @@ const styles = StyleSheet.create({
   qrPanel: { alignItems: "center", paddingVertical: 36 },
   qr: { backgroundColor: colors.white, borderRadius: 27, padding: 25, overflow: "hidden" },
   uri: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "600", marginTop: 20, textAlign: "center", maxWidth: 420 },
+});
+
+const compactStyles = StyleSheet.create({
+  codePanel: { alignSelf: "stretch", minWidth: 0, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 12, marginTop: 18 },
+  code: { fontSize: 32, lineHeight: 40, letterSpacing: 3 },
+  openButton: { alignSelf: "stretch", marginTop: 16 },
+  small: { fontSize: 15 },
+  expired: { flexWrap: "wrap", gap: 12 },
+  qrPanel: { paddingVertical: 18, paddingHorizontal: 12 },
+  qr: { borderRadius: 16, padding: 12 },
+  uri: { fontSize: 13, lineHeight: 18, marginTop: 12, maxWidth: "100%" },
 });

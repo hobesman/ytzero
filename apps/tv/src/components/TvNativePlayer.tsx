@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createVideoPlayer, VideoView } from "expo-video";
-import { AppState, Modal, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
+import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
+import { speedLabel, speedOptions } from "../playbackSpeeds";
+import { TvChoiceSheet } from "./TvChoiceSheet";
+import { useMiniPlayerSlot } from "./MiniPlayerHost";
+import { TvMiniPlayer } from "./TvMiniPlayer";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
@@ -27,7 +33,21 @@ type Props = {
   onAdvance: (video: Video) => void;
   onProgress: (video: Video, result: PlaybackResult) => void;
   onClose: (result: PlaybackResult, next?: Video, playedVideo?: Video) => void;
+  /** Phones: Back minimizes the player to a corner, and the viewer keeps browsing. */
+  docked?: boolean; onDock?: () => void; onExpand?: () => void;
+  /** Phones: "inline" draws the player in the details page; fullscreen uses the Modal. */
+  presentation?: "modal" | "inline"; onToggleFullscreen?: () => void; fullscreenActive?: boolean;
 };
+const presentsNativeFullscreen = Platform.OS === "ios";
+// Android plays inline with ExoPlayer's controls, whose speed menu stops at 2×,
+// so it gets the app's own speed button instead.
+const ownsSpeedControl = Platform.OS === "android";
+const playsInBackground = Platform.OS === "android";
+const canDock = Platform.OS === "android" && !Platform.isTV;
+const speedButtonTimeout = 2500;
+// tvOS keeps its full-screen AVKit presentation and its own overscan handling.
+const playerSafeEdges: Edge[] = Platform.OS === "android" ? ["top", "right", "bottom", "left"] : [];
+
 type Failure = "playbackError" | "playbackUnavailable" | "playbackRestricted" | "playbackSessionExpired";
 type Session = {
   entry: BufferedPlayback; progress: PlaybackProgress;
@@ -41,7 +61,9 @@ function playbackFailure(error: unknown): Failure {
 
 /** One modal and one AVKit controller for the entire Shorts session. */
 export function TvNativePlayer(props: Props) {
-  const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading } = props;
+  const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading, docked = false, presentation = "modal" } = props;
+  const dockable = canDock && Boolean(props.onDock);
+  const miniPlayerSlot = useMiniPlayerSlot();
   const latest = useRef(props);
   latest.current = props;
   const view = useRef<VideoView>(null);
@@ -72,10 +94,33 @@ export function TvNativePlayer(props: Props) {
   const [error, setError] = useState<Failure | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [switchingVideo, setSwitchingVideo] = useState(false);
+  const [rate, setRate] = useState(1);
+  const [speedSheet, setSpeedSheet] = useState(false);
+  const [speedButton, setSpeedButton] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const speedButtonTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const revealSpeedButton = () => {
+    if (!ownsSpeedControl) return;
+    setSpeedButton(true);
+    clearTimeout(speedButtonTimer.current);
+    speedButtonTimer.current = setTimeout(() => setSpeedButton(false), speedButtonTimeout);
+  };
+  useEffect(() => () => clearTimeout(speedButtonTimer.current), []);
+  const closeRef = useRef<() => void>(() => {});
+  // While docked, the same player shows in the mini player above the app.
+  useEffect(() => {
+    if (!docked || !active) return;
+    miniPlayerSlot(<TvMiniPlayer player={active.player} title={active.video.title} t={t}
+      onExpand={() => latest.current.onExpand?.()} onClose={() => closeRef.current()} />);
+    return () => miniPlayerSlot(null);
+  }, [active, docked, miniPlayerSlot, t]);
   const buffer = useMemo(() => new PlaybackBuffer(api, () => {
     const player = createVideoPlayer(null);
     player.timeUpdateEventInterval = 1;
-    player.staysActiveInBackground = false;
+    // Android keeps playing with the screen off or the app in the background,
+    // with a media notification for the active player (set below).
+    player.staysActiveInBackground = playsInBackground;
+    player.preservesPitch = true;
     player.audioMixingMode = "doNotMix";
     player.bufferOptions = { preferredForwardBufferDuration: 5, maxBufferBytes: 8 * 1024 * 1024 };
     return player;
@@ -151,6 +196,8 @@ export function TvNativePlayer(props: Props) {
     if (alive.current) latest.current.onClose({ ...result, showDetails: showDetails.current, saveFailed: result.saveFailed || saveFailed.current }, nextSelection.current, current?.entry.video);
   };
 
+  closeRef.current = () => void close();
+
   const exitPresentation = async () => {
     try {
       if (session.current && await dismissPlayer(session.current.entry.player)) {
@@ -171,6 +218,8 @@ export function TvNativePlayer(props: Props) {
     setError(reason);
     void buffer.pause().catch(() => {});
     if (fullscreen.current) void exitPresentation();
+    // A failure shows its message and retry in the full player.
+    if (latest.current.docked) latest.current.onExpand?.();
   };
   handleFailure.current = (entry, cause) => { if (session.current?.entry === entry) fail(playbackFailure(cause), "load", cause); };
 
@@ -262,9 +311,14 @@ export function TvNativePlayer(props: Props) {
     const current = () => alive.current && !closing.current && !failure.current && session.current?.entry === active;
     void (async () => {
       if (!fullscreen.current) {
-        fullscreen.current = true;
-        await view.current?.enterFullscreen();
-        if (!current()) return;
+        // tvOS presents AVKit's fullscreen controller. Android plays inline in
+        // this full-window Modal: launching expo-video's separate fullscreen
+        // activity from inside a Modal exits at once and closed the player.
+        if (presentsNativeFullscreen) {
+          fullscreen.current = true;
+          await view.current?.enterFullscreen();
+          if (!current()) return;
+        }
         setPresented(true);
       }
       // An inline expo VideoView is not a child view controller on tvOS;
@@ -276,12 +330,24 @@ export function TvNativePlayer(props: Props) {
       .finally(() => { if (activating.current === active) activating.current = null; });
   };
   useEffect(() => { present(); }, [active, ready]);
+  // The inline player has no Modal to show; it is on screen as soon as it mounts.
+  useEffect(() => {
+    if (presentation !== "inline" || modalShown.current) return;
+    modalShown.current = true;
+    setModalVisible(true);
+    present();
+  }, [presentation]);
   useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close(); }, true);
 
   useEffect(() => {
     if (!active) return;
     const player = active.player;
+    setRate(player.playbackRate);
+    // One notification, for the player being watched; Shorts neighbours stay silent.
+    if (playsInBackground) player.showNowPlayingNotification = true;
     const subscriptions = [
+      player.addListener("playbackRateChange", ({ playbackRate }) => setRate(playbackRate)),
+      player.addListener("playingChange", ({ isPlaying }) => setPaused(!isPlaying)),
       player.addListener("timeUpdate", ({ currentTime }) => {
         const current = session.current;
         if (!current || current.entry !== active || current.finished) return;
@@ -299,13 +365,19 @@ export function TvNativePlayer(props: Props) {
       player.addListener("playToEnd", () => {
         const current = session.current;
         if (!current || current.entry !== active || current.finished || switching.current) return;
+        // Android's ExoPlayer reports "ended" while still empty, before the
+        // source loads. Only a player that played or knows its length can end.
+        if (!current.didPlay && !(player.duration > 0)) return;
         current.completed = active.video.live_status !== "live";
         const next = latest.current.advanceOnEnd ? latest.current.nextVideo : null;
         if (next) void advance(next);
         else if (fullscreen.current) void exitPresentation(); else void close();
       }),
     ];
-    return () => subscriptions.forEach((subscription) => subscription.remove());
+    return () => {
+      subscriptions.forEach((subscription) => subscription.remove());
+      if (playsInBackground) player.showNowPlayingNotification = false;
+    };
   }, [active, api, incognito, isChild]);
 
   useEffect(() => {
@@ -360,7 +432,7 @@ export function TvNativePlayer(props: Props) {
     const state = AppState.addEventListener("change", (value) => {
       const current = session.current;
       if (value === "background" && current) {
-        void buffer.pause().catch(() => {});
+        if (!playsInBackground) void buffer.pause().catch(() => {});
         if (current.didPlay) current.progress.update(current.position);
         buffer.retain([current.entry.video.video_id]);
       }
@@ -378,16 +450,69 @@ export function TvNativePlayer(props: Props) {
   }, [active, dismissing, error, modalVisible, presented, ready]);
 
   const currentVideo = active?.video ?? video;
+  const inline = presentation === "inline";
+  const showButtons = presented && !dismissing && (speedButton || paused);
+  const surface = <>
+    {/* A touch shows ExoPlayer's controls; show the app's buttons alongside them. */}
+    <View style={styles.video} onTouchStart={revealSpeedButton}>
+    <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
+      fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
+      buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
+      onFullscreenExit={() => {
+        // On Android, leaving a fullscreen the viewer chose returns to the inline player.
+        if (!presentsNativeFullscreen) return;
+        fullscreen.current = false;
+        setPresented(false);
+        if (!failure.current) void close();
+      }} />
+    {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && !props.fullscreenActive && styles.inlineButtons]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
+        style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
+        onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
+        <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
+      </Pressable>
+      {props.onToggleFullscreen ? <Pressable accessibilityRole="button" accessibilityLabel={t(props.fullscreenActive ? "exitFullscreen" : "enterFullscreen")} hitSlop={12}
+        style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]} onPress={props.onToggleFullscreen}>
+        <Svg width={20} height={20} viewBox="0 0 24 24">
+          <Path stroke={colors.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none"
+            d={props.fullscreenActive ? "M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" : "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"} />
+        </Svg>
+      </Pressable> : null}
+    </View> : null}
+    </View>
+  </>;
+  const speedChoice = speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
+    options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
+    onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); }}
+    onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : null;
+
+  // Phones: the player drawn in the details page, above its title and actions.
+  if (inline && !docked) return <View style={styles.inline}>
+    {surface}
+    {speedChoice}
+    {!presented && !dismissing ? <View style={styles.inlinePanel}>
+      {error ? <>
+        <Text style={styles.inlineError}>{t(error)}</Text>
+        {error !== "playbackRestricted" ? <Pressable accessibilityRole="button" style={styles.inlineRetry} onPress={() => { switching.current = false; setAttempt((value) => value + 1); }}>
+          <Text style={styles.speedButtonText}>{t("tryAgain")}</Text>
+        </Pressable> : null}
+      </> : <ActivityIndicator color={colors.text} size="large" accessibilityLabel={t("preparingPlayback")} />}
+    </View> : null}
+  </View>;
+
   return (
-    <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close(); }}>
+    <Modal visible={!docked && !inline} animationType="none" supportedOrientations={["portrait", "landscape"]}
+      onShow={() => { modalShown.current = true; setModalVisible(true); if (!presented) present(); }} onRequestClose={() => {
+      // Phones: Back leaves fullscreen for the details page.
+      if (props.onToggleFullscreen) props.onToggleFullscreen();
+      else if (dockable && presented && !error) props.onDock?.();
+      else if (fullscreen.current) void exitPresentation(); else void close();
+    }}>
+      <SafeAreaProvider>
       <TvFocusScope style={styles.screen}>
-        <VideoView ref={view} player={active?.player ?? null} style={StyleSheet.absoluteFill} nativeControls contentFit="contain"
-          fullscreenOptions={{ enable: true }} allowsPictureInPicture={false}
-          onFullscreenExit={() => {
-            fullscreen.current = false;
-            setPresented(false);
-            if (!failure.current) void close();
-          }} />
+        {/* Android draws this Modal edge to edge; keep the controls clear of the system bars. */}
+        <SafeAreaView edges={playerSafeEdges} style={styles.video}>{surface}</SafeAreaView>
+        {speedChoice}
         {!presented && !dismissing ? <View style={styles.panel}>
           {!error ? <TvLoadingMark accessibilityLabel={t("preparingPlayback")} size={48} /> : null}
           <Text style={styles.eyebrow}>{error ? t("playbackErrorTitle") : t("preparingPlayback")}</Text>
@@ -400,15 +525,27 @@ export function TvNativePlayer(props: Props) {
           </View>
         </View> : null}
       </TvFocusScope>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.black },
+  video: { flex: 1 },
   panel: { ...StyleSheet.absoluteFill, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: screenPadding, gap: 20 },
   eyebrow: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "600" },
   title: { maxWidth: 1060, textAlign: "center", color: colors.text, fontSize: 38, lineHeight: 48, fontWeight: "700" },
   description: { maxWidth: 960, color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: 32, textAlign: "center" },
   actions: { flexDirection: "row", gap: 20, marginTop: 16 },
+  playerButtons: { position: "absolute", top: 16, right: 16, flexDirection: "row", gap: 10 },
+  inlineButtons: { top: 8, right: 8 },
+  inline: { flex: 1, backgroundColor: colors.black },
+  inlinePanel: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", gap: 12, padding: 16, backgroundColor: colors.black },
+  inlineError: { color: colors.text, fontSize: 14, textAlign: "center" },
+  inlineRetry: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)" },
+  speedButton: { minWidth: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)" },
+  speedButtonPressed: { backgroundColor: "rgba(255, 255, 255, 0.25)" },
+  speedButtonText: { color: colors.text, fontSize: 16, lineHeight: 20, fontWeight: "700" },
 });

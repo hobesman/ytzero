@@ -12,6 +12,7 @@ import {
   type FocusDestination,
   type ListRenderItemInfo,
 } from "react-native";
+import { PhoneOverlayScale } from "./PhoneScale";
 import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import type { Profile } from "../types";
@@ -329,6 +330,7 @@ export function TvProfileMenu({
       </View>}
 
       <Modal visible={overlayVisible} transparent animationType="none" onRequestClose={() => { if (pinFor) returnToProfiles(); else if (selection) close(); else if (view === "profiles") setView("menu"); else close(); }}>
+      <PhoneOverlayScale>
       <TvSurfaceRoot><TvFocusScope style={{ flex: 1 }}>
       {open && (
         <TVFocusGuideView accessibilityViewIsModal autoFocus trapFocusDown trapFocusLeft trapFocusRight trapFocusUp style={[styles.overlay, view === "profiles" && styles.fullscreenOverlay]}>
@@ -437,7 +439,7 @@ export function TvProfileMenu({
           </TvScreenTransition>
         </TVFocusGuideView>
       )}
-      </TvFocusScope></TvSurfaceRoot></Modal>
+      </TvFocusScope></TvSurfaceRoot></PhoneOverlayScale></Modal>
     </>
   );
 }
