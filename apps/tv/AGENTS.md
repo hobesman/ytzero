@@ -30,6 +30,9 @@
   credentials or an arbitrary path in that URL.
 - Pair through the device-code endpoints. The TV may display the complete QR
   URL and manual code, but it must never log or render its bearer access token.
+  Phones may also sign in with a username and password through
+  `/api/auth/device/password`, which shares the web login's check and attempt
+  limits. The password is sent once and never stored or logged.
 - Store the instance origin and access token only with `expo-secure-store`.
   Signing out revokes the server session and deletes the local token. Changing
   instances deletes both local values.

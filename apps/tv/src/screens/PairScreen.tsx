@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import { PhonePasswordSignIn } from "../phone/PhonePasswordSignIn";
 import QRCode from "react-native-qrcode-svg";
 import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
@@ -66,6 +67,7 @@ export function PairScreen({ api, pairing, t, onAuthorized, onRetry, onChangeIns
     copyFooter={<>
       <View style={[styles.codePanel, compact && compactStyles.codePanel]}><Text style={styles.codeLabel}>{t("enterCode")}</Text><Text style={[styles.code, compact && compactStyles.code]} numberOfLines={1} adjustsFontSizeToFit>{displayCode}</Text></View>
       {compact && !expired ? <TvButton label={t("openSignInPage")} variant="primary" onPress={() => void Linking.openURL(pairing.verificationUriComplete)} style={compactStyles.openButton} /> : null}
+      {compact && !Platform.isTV ? <PhonePasswordSignIn api={api} t={t} onAuthorized={onAuthorized} /> : null}
       {!expired ? <View style={styles.waiting}><View style={styles.spinner}><ActivityIndicator color={networkError ? colors.danger : colors.textMuted} size="small" style={styles.spinnerScale} /></View><Text style={[styles.waitingText, networkError && styles.error, compact && compactStyles.small]}>{networkError ? t("cannotConnect") : t("waiting")}</Text></View>
         : <View style={[styles.expired, compact && compactStyles.expired]}><Text style={[styles.error, compact && compactStyles.small]}>{networkError ? t("cannotConnect") : t("pairExpired")}</Text><TvButton label={t("retry")} variant="primary" onPress={() => void onRetry().catch(() => setNetworkError(true))} /></View>}
       <TvButton deferPress label={t("changeInstance")} preferredFocus variant="ghost" onPress={onChangeInstance} style={styles.changeButton} />

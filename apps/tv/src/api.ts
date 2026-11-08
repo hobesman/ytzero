@@ -110,6 +110,18 @@ export class YtZeroApi {
     };
   }
 
+  /** Phones: exchanges a username and password for a device sign-in token. The password is never stored. */
+  async passwordSignIn(username: string, password: string): Promise<string> {
+    const response = await fetch(`${this.instanceUrl}/api/auth/device/password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const body = await responseBody(response);
+    if (!response.ok || typeof body.access_token !== "string") throw new ApiError(String(body.error ?? "sign-in failed"), response.status);
+    return body.access_token;
+  }
+
   async pollPairing(deviceCode: string): Promise<{ kind: "pending" } | { kind: "authorized"; accessToken: string } | { kind: "expired" }> {
     const response = await fetch(`${this.instanceUrl}/api/auth/device/token`, {
       method: "POST",
