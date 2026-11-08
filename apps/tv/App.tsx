@@ -30,6 +30,7 @@ import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
 import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
+import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { TvBackdrop } from "./src/components/TvBackdrop";
@@ -175,7 +176,8 @@ function TvApp() {
   const [autoplay, setAutoplay] = useState(false);
   const [startPosition, setStartPosition] = useState<number | undefined>();
   const [videoUpdate, setVideoUpdate] = useState<Video | null>(null);
-  const t = useMemo(() => translator(language), [language]);
+  // Phones and tablets say "this device" where a television says "this television".
+  const t = useMemo(() => withDeviceWording(translator(language), language, Platform.isTV), [language]);
   const api = useMemo(() => instanceUrl ? new YtZeroApi(instanceUrl, accessToken) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
   // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
