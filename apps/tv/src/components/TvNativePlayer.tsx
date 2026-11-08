@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createVideoPlayer, VideoView } from "expo-video";
-import { AppState, Modal, StyleSheet, Text, View } from "react-native";
+import { AppState, Modal, Platform, StyleSheet, Text, View } from "react-native";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
@@ -28,6 +28,8 @@ type Props = {
   onProgress: (video: Video, result: PlaybackResult) => void;
   onClose: (result: PlaybackResult, next?: Video, playedVideo?: Video) => void;
 };
+const presentsNativeFullscreen = Platform.OS === "ios";
+
 type Failure = "playbackError" | "playbackUnavailable" | "playbackRestricted" | "playbackSessionExpired";
 type Session = {
   entry: BufferedPlayback; progress: PlaybackProgress;
@@ -262,9 +264,14 @@ export function TvNativePlayer(props: Props) {
     const current = () => alive.current && !closing.current && !failure.current && session.current?.entry === active;
     void (async () => {
       if (!fullscreen.current) {
-        fullscreen.current = true;
-        await view.current?.enterFullscreen();
-        if (!current()) return;
+        // tvOS presents AVKit's fullscreen controller. Android plays inline in
+        // this full-window Modal: launching expo-video's separate fullscreen
+        // activity from inside a Modal exits at once and closed the player.
+        if (presentsNativeFullscreen) {
+          fullscreen.current = true;
+          await view.current?.enterFullscreen();
+          if (!current()) return;
+        }
         setPresented(true);
       }
       // An inline expo VideoView is not a child view controller on tvOS;
@@ -384,6 +391,8 @@ export function TvNativePlayer(props: Props) {
         <VideoView ref={view} player={active?.player ?? null} style={StyleSheet.absoluteFill} nativeControls contentFit="contain"
           fullscreenOptions={{ enable: true }} allowsPictureInPicture={false}
           onFullscreenExit={() => {
+            // On Android, leaving a fullscreen the viewer chose returns to the inline player.
+            if (!presentsNativeFullscreen) return;
             fullscreen.current = false;
             setPresented(false);
             if (!failure.current) void close();
