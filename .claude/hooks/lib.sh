@@ -26,19 +26,44 @@ json_field() {   # json_field <name> <payload> -> the string field, JSON escapes
   printf '%s' "${v//"$MARK"/"$BS"}"
 }
 
-# command_text <command>: the command minus the text it only carries --
-# single- and double-quoted strings and here-document bodies -- so a commit
-# message or PR description that mentions a git command is not mistaken for
-# running it. Text the shell still runs is kept: a double-quoted string or an
-# unquoted here-document line holding $(...) or a backtick, and an unbalanced
-# quote, so a guard never goes blind to a command it cannot parse.
+# command_text <command> [bash|powershell]: the command minus the text it only
+# carries -- single- and double-quoted strings, bash here-document bodies and
+# PowerShell here-strings (@'...'@, @"..."@) -- so a commit message or PR
+# description that mentions a git command is not mistaken for running it. Text
+# the shell still runs is kept: a double-quoted string, an unquoted
+# here-document line or an @"..."@ line holding $(...) (or, in bash, a
+# backtick), and an unbalanced quote or unclosed here-string, so a guard never
+# goes blind to a command it cannot parse. The escape character is a backslash
+# in bash and a backtick in PowerShell, where a backslash is an ordinary letter.
 command_text() {
-  local in=$1 line delim="" expand=0 kept="" re
+  local in=$1 shell=${2:-bash} line delim="" expand=0 kept="" re hsre esc=$BS
+  local hs="" hsbody="" hskeep="" trimmed
   re="(^|[^<])<<-?[[:space:]]*([$QT$SQ])?([A-Za-z_][A-Za-z0-9_]*)"
+  hsre="@([$QT$SQ])[[:space:]]*$"
+  [ "$shell" = powershell ] && esc='`'
   while IFS= read -r line || [ -n "$line" ]; do
+    if [ -n "$hs" ]; then   # inside a here-string, which ends at a line opening with '@ or "@
+      trimmed=${line#"${line%%[![:space:]]*}"}
+      if [ "${trimmed:0:2}" = "$hs@" ]; then
+        kept+="$hskeep${trimmed:2}"$'\n'; hs=""; continue
+      fi
+      hsbody+="$line"$'\n'
+      if [ "$expand" = 1 ]; then case $line in *'$('*) hskeep+="$line"$'\n' ;; esac; fi
+      continue
+    fi
     if [ -n "$delim" ]; then
       if [ "${line#"${line%%[![:space:]]*}"}" = "$delim" ]; then delim=""; continue; fi
       if [ "$expand" = 1 ]; then case $line in *'$('*|*'`'*) kept+="$line"$'\n' ;; esac; fi
+      continue
+    fi
+    if [ "$shell" = powershell ]; then
+      if [[ $line =~ $hsre ]]; then   # a here-string opens at the end of its line
+        hs=${BASH_REMATCH[1]}; hsbody=""; hskeep=""
+        if [ "$hs" = "$QT" ]; then expand=1; else expand=0; fi
+        kept+="${line%@*} "$'\n'
+        continue
+      fi
+      kept+="$line"$'\n'
       continue
     fi
     kept+="$line"$'\n'
@@ -47,21 +72,26 @@ command_text() {
       if [ -n "${BASH_REMATCH[2]}" ]; then expand=0; else expand=1; fi
     fi
   done <<< "$in"
+  [ -n "$hs" ] && kept+=$hsbody   # never closed: not a here-string after all
 
   local i c q="" seg="" out=""
   for (( i = 0; i < ${#kept}; i++ )); do
     c=${kept:i:1}
     if [ -z "$q" ]; then
       case $c in
-        "$BS") out+=$c${kept:i+1:1}; i=$((i + 1)) ;;
+        "$esc") out+=$c${kept:i+1:1}; i=$((i + 1)) ;;
         "$SQ"|"$QT") q=$c; seg="" ;;
         *) out+=$c ;;
       esac
-    elif [ "$q" = "$QT" ] && [ "$c" = "$BS" ]; then
+    elif [ "$q" = "$QT" ] && [ "$c" = "$esc" ]; then
       seg+=$c${kept:i+1:1}; i=$((i + 1))
     elif [ "$c" = "$q" ]; then
       if [ "$q" = "$QT" ]; then
-        case $seg in *'$('*|*'`'*) out+=$seg ;; *) out+=" " ;; esac
+        case $seg in
+          *'$('*) out+=$seg ;;
+          *'`'*) if [ "$shell" = powershell ]; then out+=" "; else out+=$seg; fi ;;
+          *) out+=" " ;;
+        esac
       else
         out+=" "
       fi
