@@ -17,6 +17,27 @@ const _yt = new InnerTubeClient();
 
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
 
+function positiveMilliseconds(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Upper bound for one YouTube request. Without it, a connection YouTube
+ * stops answering hangs its caller forever: a full channel sync then spins
+ * indefinitely, and every later sync for that profile queues behind it. */
+const YOUTUBE_FETCH_TIMEOUT_MS = positiveMilliseconds(process.env.YOUTUBE_FETCH_TIMEOUT_MS, 30_000);
+
+async function youtubeFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(YOUTUBE_FETCH_TIMEOUT_MS) });
+  } catch (error) {
+    if ((error as { name?: string } | null)?.name === "TimeoutError") {
+      throw new Error(`YouTube request timed out after ${Math.round(YOUTUBE_FETCH_TIMEOUT_MS / 1_000)}s (${new URL(url).pathname})`);
+    }
+    throw error;
+  }
+}
+
 export interface FeedVideo {
   videoId: string;
   title: string;
@@ -42,7 +63,7 @@ function asArray<T>(v: T | T[] | undefined): T[] {
 
 export async function fetchChannelFeed(channelId: string, userId?: number): Promise<ChannelFeed> {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-  const res = await fetch(url, { headers: youtubeRssHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRssHeaders(userId) });
   const doc = xml.parse(await readYouTubeResponse(res, `RSS fetch failed for ${channelId}`));
   const feed = doc.feed ?? {};
   const videos: FeedVideo[] = asArray(feed.entry).map((e: any) => {
@@ -80,7 +101,7 @@ export async function resolveChannelId(input: string, userId?: number): Promise<
   } else if (!/^https?:\/\//.test(url)) {
     url = `https://www.youtube.com/${url.replace(/^\/+/, "")}`;
   }
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId), redirect: "follow" });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId), redirect: "follow" });
   const html = await readYouTubeResponseWithCookies(res, "Failed to fetch channel page", userId, url);
   // The canonical link is authoritative; "channelId" occurrences in page data
   // can belong to recommended channels.
@@ -111,7 +132,7 @@ export interface LiveInfo {
  */
 export async function fetchLiveInfo(channelId: string, userId?: number): Promise<LiveInfo | null> {
   const url = `https://www.youtube.com/channel/${channelId}/live`;
-  const res = await fetch(url, {
+  const res = await youtubeFetch(url, {
     headers: youtubeRequestHeaders(userId),
     redirect: "follow",
   });
@@ -355,7 +376,7 @@ function extractSubscriberCountText(node: any): string {
 
 export async function fetchVideoOwnerSubscriberCount(videoId: string, userId?: number): Promise<WatchSubscriberCount | null> {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId) });
   const html = await readYouTubeBodyWithCookies(res, userId, url);
   if (!res.ok) return null;
   const data = extractInitialData(html);
@@ -456,7 +477,7 @@ export function playlistContinuationBody(token: string, clientVersion: string, l
 
 async function fetchBrowseContinuation(token: string, config: { apiKey: string; clientVersion: string }, language: ResolvedYouTubeLanguage) {
   const url = `https://www.youtube.com/youtubei/v1/browse?prettyPrint=false&key=${encodeURIComponent(config.apiKey)}`;
-  const res = await fetch(url, {
+  const res = await youtubeFetch(url, {
     method: "POST",
     headers: { ...youtubeRequestHeaders(language.userId, language), "Content-Type": "application/json", Origin: "https://www.youtube.com" },
     body: JSON.stringify(playlistContinuationBody(token, config.clientVersion, language.hl)),
@@ -473,7 +494,7 @@ export async function fetchChannelPlaylists(channelId: string, force = false, us
   if (!force && cached && cached.complete && Date.now() - cached.at < ABOUT_TTL) return cached.data;
 
   const url = `https://www.youtube.com/channel/${channelId}/playlists`;
-  const res = await fetch(url, {
+  const res = await youtubeFetch(url, {
     headers: youtubeRequestHeaders(userId, language),
   });
   const html = await readYouTubeResponseWithCookies(res, "playlists fetch failed", language.userId, url);
@@ -529,7 +550,7 @@ export interface VideoDuration { videoId: string; duration: string; }
 
 export async function fetchChannelVideosDurations(channelId: string, userId?: number): Promise<VideoDuration[]> {
   const url = `https://www.youtube.com/channel/${channelId}/videos`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId) });
   const html = await readYouTubeBodyWithCookies(res, userId, url);
   if (!res.ok) return [];
   const data = extractInitialData(html);
@@ -553,7 +574,7 @@ export async function fetchPlaylistFeed(playlistId: string, force = false, userI
   if (!force && cached && Date.now() - cached.at < ABOUT_TTL) return cached.data;
 
   const url = `https://www.youtube.com/feeds/videos.xml?playlist_id=${playlistId}`;
-  const res = await fetch(url, { headers: youtubeRssHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRssHeaders(userId) });
   const doc = xml.parse(await readYouTubeResponse(res, "playlist feed fetch failed"));
   const feed = doc.feed ?? {};
   const videos: FeedVideo[] = asArray(feed.entry)
@@ -647,7 +668,7 @@ export async function fetchPlaylistSnapshot(playlistId: string, force = false, u
   if (!force && cached && Date.now() - cached.at < ABOUT_TTL) return { videos: cached.videos, complete: cached.complete };
 
   const url = `https://www.youtube.com/playlist?list=${encodeURIComponent(playlistId)}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId, language) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId, language) });
   const html = await readYouTubeResponseWithCookies(res, "playlist page fetch failed", language.userId, url);
   const data = extractInitialData(html);
   const videos: PlaylistVideo[] = [];
@@ -803,7 +824,7 @@ async function fetchChannelTabVideos(
 ): Promise<ScrapedVideo[]> {
   const language = resolveYouTubeLanguage(userId);
   const url = `https://www.youtube.com/channel/${channelId}/${tab}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId, language) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId, language) });
   const html = await readYouTubeResponseWithCookies(res, `channel ${tab} request failed`, language.userId, url);
   const data = extractInitialData(html);
   if (!data) throw new Error(`channel ${tab} data missing`);
@@ -816,10 +837,25 @@ async function fetchChannelTabVideos(
   let token = playlistContinuationToken(data);
   if (token && !config) throw new Error(`channel ${tab} continuation configuration missing`);
   const requestedTokens = new Set<string>();
+  let pageFailed = false;
   for (let page = 0; config && token && page < MAX_BROWSE_CONTINUATION_PAGES; page++) {
     if (requestedTokens.has(token)) throw new Error(`channel ${tab} continuation repeated`);
     requestedTokens.add(token);
-    const continuation = await fetchBrowseContinuation(token, config, language);
+    let continuation: any;
+    try {
+      continuation = await fetchBrowseContinuation(token, config, language);
+    } catch (error) {
+      // A rate limit or address refusal must still stop the sync so it backs
+      // off from YouTube. Anything else (a timeout, a stray 5xx) only loses
+      // the older pages: keep the newer videos already collected.
+      if (isYouTubeRefusalError(error)) throw error;
+      log.warn("channel.history_page_failed", {
+        channelId, tab, page: page + 1, collected: out.length,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      pageFailed = true;
+      break;
+    }
     collectChannelTabVideos(continuation, out, seen);
     token = playlistContinuationToken(continuation);
   }
@@ -828,7 +864,7 @@ async function fetchChannelTabVideos(
   // sync: the pages walk newest-first, so the recent uploads that matter are
   // present, and later syncs pick up anything newer. The cap still bounds how
   // hard one sync scrapes YouTube.
-  if (token) {
+  if (token && !pageFailed) {
     log.warn("channel.history_truncated", {
       channelId, tab, pages: MAX_BROWSE_CONTINUATION_PAGES, collected: out.length,
     });
@@ -1032,7 +1068,7 @@ export function parseVideoCreatorsFromHtml(html: string): VideoCreatorInfo[] {
 
 export async function fetchVideoCreators(videoId: string, userId?: number): Promise<VideoCreatorInfo[]> {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId) });
   return parseVideoCreatorsFromHtml(await readYouTubeResponseWithCookies(res, "YouTube creators fetch failed", userId, url));
 }
 
@@ -1096,7 +1132,7 @@ async function fetchVideoInfoFromInnerTube(videoId: string): Promise<VideoInfo> 
 }
 
 async function fetchVideoInfoFromEmbed(videoId: string, userId?: number): Promise<VideoInfo> {
-  const res = await fetch(`https://www.youtube.com/embed/${videoId}`, { headers: youtubeRequestHeaders(userId, undefined, false) });
+  const res = await youtubeFetch(`https://www.youtube.com/embed/${videoId}`, { headers: youtubeRequestHeaders(userId, undefined, false) });
   if (!res.ok) throw new Error(`YouTube embed fetch failed (${res.status})`);
   const pr = extractVariable(await res.text(), "ytInitialPlayerResponse");
   return videoInfoFromPlayerResponse(videoId, pr);
@@ -1115,7 +1151,7 @@ async function fetchVideoInfoAnonymously(videoId: string, userId?: number): Prom
     const url = `https://www.youtube.com/watch?v=${videoId}`;
     // Keep the fast public path anonymous. A configured profile jar is used
     // only by the explicit yt-dlp retry after an address refusal.
-    const res = await fetch(url, { headers: youtubeRequestHeaders(userId, undefined, false) });
+    const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId, undefined, false) });
     if (!res.ok) throw new Error(`YouTube fetch failed (${res.status})`);
     const html = await res.text();
     const pr = extractVariable(html, "ytInitialPlayerResponse");
@@ -1175,7 +1211,7 @@ export async function fetchVideoInfo(videoId: string, options: FetchVideoInfoOpt
 /** Fetch only the exact publish date without requiring a playable video. */
 export async function fetchVideoPublishedAt(videoId: string, userId?: number): Promise<string | null> {
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId) });
   let html: string;
   try {
     html = await readYouTubeResponseWithCookies(res, "YouTube publication date fetch failed", userId, url);
@@ -1215,7 +1251,7 @@ export async function fetchVideoChapters(videoId: string, userId?: number): Prom
   if (cached && Date.now() - cached.at < CHAPTERS_TTL) return cached.data;
 
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const res = await fetch(url, { headers: youtubeRequestHeaders(userId) });
+  const res = await youtubeFetch(url, { headers: youtubeRequestHeaders(userId) });
   const html = await readYouTubeBodyWithCookies(res, userId, url);
   if (!res.ok) return [];
   const data = extractInitialData(html);
