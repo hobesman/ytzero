@@ -8,4 +8,9 @@ data/
 *.db-wal
 *.db-shm
 .DS_Store
-.claude
+# Claude Code: keep worktrees and personal settings out of git, but share the
+# project hooks, their settings and the ship steward's config.
+.claude/*
+!.claude/settings.json
+!.claude/ship.json
+!.claude/hooks/
