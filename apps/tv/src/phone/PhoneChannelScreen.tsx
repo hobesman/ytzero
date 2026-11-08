@@ -14,10 +14,11 @@ import { useImageSource } from "./useImageSource";
 type Props = {
   api: YtZeroApi; channelId: string; language: Language; t: Translate;
   shortsEnabled: boolean; videoUpdate: Video | null; onOpen: OpenVideo;
+  onVideoLongPress: (video: Video, onChange: (updated: Video) => void) => void;
 };
 
 /** A channel on the phone: its header with follow and sync, live videos, then Videos or Shorts. */
-export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled, videoUpdate, onOpen }: Props) {
+export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled, videoUpdate, onOpen, onVideoLongPress }: Props) {
   const [about, setAbout] = useState<ChannelAbout | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
@@ -96,6 +97,10 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
   useEffect(() => { if (!tabs.some((item) => item.value === tab)) setTab("videos"); }, [tab, tabs]);
   const shown = tab === "shorts" ? split.shorts : split.videos;
   const open = useCallback((video: Video) => onOpen(video), [onOpen]);
+  const longPress = useCallback((video: Video) => onVideoLongPress(video, (updated) => {
+    const apply = (list: Video[]) => list.map((item) => item.video_id === updated.video_id ? updated : item);
+    setVideos(apply); setLive(apply);
+  }), [onVideoLongPress]);
 
   if (loading) return <View style={styles.center}><ActivityIndicator color={phoneColors.text} size="large" accessibilityLabel={t("loadingChannel")} /></View>;
   if (error || !channel) return <View style={styles.center}>
@@ -120,7 +125,7 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
     {sync.statusError ? <Text style={styles.error}>{t("channelSyncStatusError")}</Text> : sync.busy && !sync.working ? <Text style={styles.note}>{t("channelSyncBusy")}</Text> : null}
     {live.length > 0 ? <>
       <Text style={styles.section}>{t("liveBadge")}</Text>
-      {live.map((video) => <PhoneVideoCard key={`live:${video.video_id}`} video={video} language={language} t={t} onPress={open}
+      {live.map((video) => <PhoneVideoCard key={`live:${video.video_id}`} video={video} language={language} t={t} onPress={open} onLongPress={longPress}
         thumbnail={source(video.thumbnail)!} channelAvatar={avatar} />)}
     </> : null}
     {tabs.length > 1 ? <View style={styles.tabs}>
@@ -128,7 +133,7 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
     </View> : null}
   </View>;
   return <FlatList data={shown} keyExtractor={(video) => video.video_id} ListHeaderComponent={header}
-    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open} thumbnail={source(item.thumbnail)!} channelAvatar={avatar} />}
+    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress} thumbnail={source(item.thumbnail)!} channelAvatar={avatar} />}
     onEndReachedThreshold={1.5} onEndReached={() => void loadMore()}
     ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={phoneColors.textMuted} /> : null}
     ListEmptyComponent={<Text style={[styles.muted, styles.empty]}>{t(tab === "shorts" ? "channelShortsEmpty" : "channelVideosEmpty")}</Text>}

@@ -31,6 +31,7 @@ import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
 import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
 import { PhoneApp } from "./src/phone/PhoneApp";
+import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
@@ -603,6 +604,11 @@ function TvApp() {
   const openVideoActions = useCallback((video: Video, onChange: (updated: Video) => void, options?: VideoActionOptions) => {
     setVideoActionRequest({ video, onChange, options });
   }, []);
+  const changeActionVideo = (updated: Video) => {
+    videoActionRequest?.onChange(updated);
+    setVideoActionRequest((current) => current ? { ...current, video: updated } : null);
+    setSelected((current) => current?.video_id === updated.video_id ? updated : current);
+  };
 
   const closeChannel = useCallback(() => {
     setSelectedPlaylistId(null);
@@ -829,7 +835,7 @@ function TvApp() {
       {phoneMode && hasShell && api && profileState ? <PhoneApp api={api} t={t} language={language} hidden={screen === "detail"}
         brandName={brandName} brandColor={brandColor} profileName={profileState.active.name} profileColor={profileState.active.avatar_color || colors.accent}
         navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
-        settings={phoneSettings} onOpen={openPhoneVideo} /> : <>
+        settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /> : <>
       {screen !== "detail" && browsingScreen === "/" && api
         ? <TvHomeBackdrop api={api} controller={backdropController} height={height} opacity={backdropOpacity} />
         : null}
@@ -883,18 +889,18 @@ function TvApp() {
         pointerEvents={screen === "detail" ? "auto" : "none"} accessibilityElementsHidden={screen !== "detail"} importantForAccessibility={screen === "detail" ? "auto" : "no-hide-descendants"}>
         {autoplay ? detailContent : <TvScreenTransition>{detailContent}</TvScreenTransition>}
       </View> : null}
-      {api ? (
+      {api && phoneMode && videoActionRequest ? <PhoneVideoActionSheet key={videoActionRequest.video.video_id}
+        actionConfig={videoActionConfig} api={api} t={t} video={videoActionRequest.video}
+        onClose={() => setVideoActionRequest(null)} onOpenChannel={openChannel} onRemove={videoActionRequest.options?.onRemove}
+        onVideoChange={changeActionVideo} /> : null}
+      {api && !phoneMode ? (
         <TvVideoActionMenu
           actionConfig={videoActionConfig}
           api={api}
           onClose={() => setVideoActionRequest(null)}
           onOpenChannel={openChannel}
           onRemove={videoActionRequest?.options?.onRemove}
-          onVideoChange={(updated) => {
-            videoActionRequest?.onChange(updated);
-            setVideoActionRequest((current) => current ? { ...current, video: updated } : null);
-            setSelected((current) => current?.video_id === updated.video_id ? updated : current);
-          }}
+          onVideoChange={changeActionVideo}
           preserveMenuKey={screen === "detail" || screen === "playlist" || screen === "channel"}
           t={t}
           video={videoActionRequest?.video ?? null}

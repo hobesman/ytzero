@@ -49,8 +49,9 @@ export function PhoneFollowedPlaylistsScreen({ api, t, onOpenPlaylist }: { api: 
 }
 
 /** One playlist: Continue or Play all, then its videos in the playlist's chosen order. */
-export function PhonePlaylistScreen({ api, playlistId, language, t, videoUpdate, onOpen }: {
+export function PhonePlaylistScreen({ api, playlistId, language, t, videoUpdate, onOpen, onVideoLongPress }: {
   api: YtZeroApi; playlistId: string; language: Language; t: Translate; videoUpdate: Video | null; onOpen: OpenVideo;
+  onVideoLongPress: (video: Video, onChange: (updated: Video) => void) => void;
 }) {
   const [page, setPage] = useState<{ playlist: FollowedPlaylist; videos: Video[]; sort: PlaylistSort } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,6 +73,8 @@ export function PhonePlaylistScreen({ api, playlistId, language, t, videoUpdate,
   }, [videoUpdate]);
   const context = useMemo(() => playlistQueue(playlistId, page?.sort ?? "oldest"), [page?.sort, playlistId]);
   const open = useCallback((video: Video) => onOpen(video, context), [context, onOpen]);
+  const longPress = useCallback((video: Video) => onVideoLongPress(video, (updated) => setPage((current) => current
+    ? { ...current, videos: current.videos.map((item) => item.video_id === updated.video_id ? updated : item) } : current)), [onVideoLongPress]);
 
   if (loading && !page) return <View style={styles.center}><ActivityIndicator color={phoneColors.text} size="large" accessibilityLabel={t("loadingPlaylists")} /></View>;
   if (error || !page) return <View style={styles.center}>
@@ -90,7 +93,7 @@ export function PhonePlaylistScreen({ api, playlistId, language, t, videoUpdate,
         {first ? <PhoneChip primary={!next} label={t("playlistPlayAll")} onPress={() => onOpen(first, context, true, 0)} /> : null}
       </View>
     </View>}
-    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open}
+    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress}
       thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />}
     ListEmptyComponent={<Text style={[styles.emptyText, styles.padded]}>{t("playlistVideosEmpty")}</Text>}
     initialNumToRender={4} maxToRenderPerBatch={4} windowSize={7} removeClippedSubviews />;

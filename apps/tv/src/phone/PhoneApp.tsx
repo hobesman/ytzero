@@ -39,10 +39,11 @@ type Props = {
   /** A channel opened from outside the phone screens, such as a video's page. */
   channelRequest: { id: string; request: number } | null;
   settings: PhoneSettings; onOpen: OpenVideo;
+  onVideoLongPress: (video: Video, onChange: (updated: Video) => void) => void;
 };
 
 /** The phone layout: a top bar with the account menu, the current screen, and bottom tabs. */
-export function PhoneApp({ api, t, language, hidden, brandName, brandColor, profileName, profileColor, navConfig, sort, shortsEnabled, videoUpdate, channelRequest, settings, onOpen }: Props) {
+export function PhoneApp({ api, t, language, hidden, brandName, brandColor, profileName, profileColor, navConfig, sort, shortsEnabled, videoUpdate, channelRequest, settings, onOpen, onVideoLongPress }: Props) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("home");
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["home"]));
@@ -89,20 +90,20 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   const title = !top ? tab === "search" ? t("searchTitle") : tab === "live" ? t("navLive") : tab === "library" ? t("navLibrary") : brandName
     : top.kind === "settings" ? t("navSettings") : top.kind === "channel" || top.kind === "playlist" ? "" : top.title;
   const tabScreen = (key: Tab): ReactNode => {
-    if (key === "search") return <PhoneSearchScreen api={api} language={language} t={t} onOpen={onOpen} onOpenChannel={openChannel} />;
-    if (key === "live") return <PhoneFeedScreen api={api} destination="/live" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} />;
+    if (key === "search") return <PhoneSearchScreen api={api} language={language} t={t} onOpen={onOpen} onOpenChannel={openChannel} onVideoLongPress={onVideoLongPress} />;
+    if (key === "live") return <PhoneFeedScreen api={api} destination="/live" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
     if (key === "library") return <View>{library.map((item) => <PhoneListRow key={item.key} title={t(item.labelKey)}
       icon={<SidebarIcon name={item.icon} color={phoneColors.text} size={22} />} onPress={() => openLibraryItem(item)} />)}</View>;
-    return <PhoneFeedScreen api={api} destination="/" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} />;
+    return <PhoneFeedScreen api={api} destination="/" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
   };
   const pushedScreen = (screen: Pushed): ReactNode => {
     switch (screen.kind) {
-      case "feed": return <PhoneFeedScreen api={api} destination={screen.destination} sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} />;
+      case "feed": return <PhoneFeedScreen api={api} destination={screen.destination} sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
       case "settings": return <PhoneSettingsScreen settings={settings} t={t} />;
       case "bookmarks": return <PhoneBookmarksScreen api={api} t={t} videoUpdate={videoUpdate} onOpen={onOpen} />;
       case "playlists": return <PhoneFollowedPlaylistsScreen api={api} t={t} onOpenPlaylist={(playlist) => push({ kind: "playlist", id: playlist.playlist_id, title: playlist.title })} />;
-      case "playlist": return <PhonePlaylistScreen api={api} playlistId={screen.id} language={language} t={t} videoUpdate={videoUpdate} onOpen={onOpen} />;
-      case "channel": return <PhoneChannelScreen api={api} channelId={screen.id} language={language} t={t} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} onOpen={onOpen} />;
+      case "playlist": return <PhonePlaylistScreen api={api} playlistId={screen.id} language={language} t={t} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
+      case "channel": return <PhoneChannelScreen api={api} channelId={screen.id} language={language} t={t} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
     }
   };
 

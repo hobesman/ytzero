@@ -4,7 +4,8 @@ import Svg, { Path } from "react-native-svg";
 import type { YtZeroApi } from "../api";
 import { formatVideoDuration } from "../duration";
 import type { Translate } from "../i18n";
-import type { Language, Video } from "../types";
+import type { Language, Video, VideoComment } from "../types";
+import { PhoneComments } from "./PhoneComments";
 import { formatVideoCardMetadata } from "../videoMetadata";
 import { PhoneChip } from "./PhoneChip";
 import { PhoneVideoCard } from "./PhoneVideoCard";
@@ -17,6 +18,9 @@ type Props = {
   language: Language; t: Translate; playbackTime: (seconds: number) => string;
   onRetry: () => void; onPlay: (position: number) => void; onToggleQueue: () => void;
   onOpenNext: () => void; onOpenRelated: (video: Video) => void; onOpenChannel?: () => void;
+  onMore: () => void; onRelatedLongPress: (video: Video) => void;
+  /** Comments, or null when the profile hides them. */
+  comments: { list: VideoComment[] | null; loading: boolean; error: boolean; onLoad: () => void } | null;
   /** The video fills the page, with the system bars hidden. */
   fullscreen: boolean;
   /** The inline player, drawn over the 16:9 area at the top while a video plays. */
@@ -69,11 +73,13 @@ export function PhoneWatchBody(props: Props) {
         {!playing ? <PhoneChip primary label={startAt > 0 ? `${t("resumePlayback")} · ${props.playbackTime(startAt)}` : t("playVideo")} onPress={() => props.onPlay(startAt)} /> : null}
         {!playing && startAt > 0 ? <PhoneChip label={t("playFromStart")} onPress={() => props.onPlay(0)} /> : null}
         {queued || canQueue ? <PhoneChip label={t(queued ? "removeFromQueue" : queueFull ? "queueFull" : "addToQueue")} disabled={!queued && queueFull} onPress={props.onToggleQueue} /> : null}
+        <PhoneChip label={t("more")} onPress={props.onMore} />
       </ScrollView>
       {saveFailed ? <Text style={styles.error}>{t("playbackSaveError")}</Text> : null}
       {video.description ? <Pressable accessibilityRole="button" accessibilityLabel={t("descriptionTitle")} onPress={() => setExpanded((value) => !value)} style={styles.description}>
         <Text numberOfLines={expanded ? undefined : 3} style={styles.descriptionText}>{video.description}</Text>
       </Pressable> : null}
+      {props.comments ? <PhoneComments api={api} comments={props.comments.list} loading={props.comments.loading} error={props.comments.error} t={t} onLoad={props.comments.onLoad} /> : null}
       {nextVideo ? <>
         <Text style={styles.section}>{t("upNext")}</Text>
         <PhoneVideoCard video={nextVideo} language={language} t={t} onPress={props.onOpenNext}
@@ -81,7 +87,7 @@ export function PhoneWatchBody(props: Props) {
       </> : null}
       {showRelated && related.length > 0 ? <>
         <Text style={styles.section}>{t("relatedVideos")}</Text>
-        {related.map((item) => <PhoneVideoCard key={item.video_id} video={item} language={language} t={t} onPress={props.onOpenRelated}
+        {related.map((item) => <PhoneVideoCard key={item.video_id} video={item} language={language} t={t} onPress={props.onOpenRelated} onLongPress={props.onRelatedLongPress}
           thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />)}
       </> : null}
     </ScrollView>}

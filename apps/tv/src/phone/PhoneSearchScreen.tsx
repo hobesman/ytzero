@@ -12,7 +12,8 @@ import { phoneColors, phoneType } from "./phoneTheme";
 type Row = { kind: "heading"; key: string; title: string } | { kind: "video"; key: string; video: Video } | { kind: "channel"; key: string; channel: Channel } | { kind: "note"; key: string; text: string };
 
 /** Searches the library and YouTube together, library results first. */
-export function PhoneSearchScreen({ api, language, t, onOpen, onOpenChannel }: { api: YtZeroApi; language: Language; t: Translate; onOpen: OpenVideo; onOpenChannel: (channelId: string) => void }) {
+export function PhoneSearchScreen({ api, language, t, onOpen, onOpenChannel, onVideoLongPress }: { api: YtZeroApi; language: Language; t: Translate; onOpen: OpenVideo; onOpenChannel: (channelId: string) => void;
+  onVideoLongPress: (video: Video, onChange: (updated: Video) => void) => void }) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [searching, setSearching] = useState(false);
@@ -54,6 +55,8 @@ export function PhoneSearchScreen({ api, language, t, onOpen, onOpenChannel }: {
   }, [api, query, t]);
 
   const open = useCallback((video: Video) => onOpen(video, undefined, true), [onOpen]);
+  const longPress = useCallback((video: Video) => onVideoLongPress(video, (updated) => setRows((current) => current.map((row) =>
+    row.kind === "video" && row.video.video_id === updated.video_id ? { ...row, video: updated } : row))), [onVideoLongPress]);
   return <View style={styles.screen}>
     <View style={styles.field}>
       <SidebarIcon name="search" color={phoneColors.textMuted} size={20} />
@@ -69,7 +72,7 @@ export function PhoneSearchScreen({ api, language, t, onOpen, onOpenChannel }: {
         : item.kind === "channel" ? <PhoneListRow title={item.channel.title} detail={item.channel.handle ?? undefined} onPress={() => onOpenChannel(item.channel.channel_id)}
             icon={source(item.channel.thumbnail) ? <Image source={source(item.channel.thumbnail)!} style={styles.channelAvatar} /> : undefined} />
         : item.kind === "note" ? <Text style={[styles.note, styles.rowNote]}>{item.text}</Text>
-        : <PhoneVideoCard video={item.video} language={language} t={t} onPress={open}
+        : <PhoneVideoCard video={item.video} language={language} t={t} onPress={open} onLongPress={longPress}
             thumbnail={source(item.video.thumbnail)!} channelAvatar={source(item.video.channel_thumbnail)} />}
       initialNumToRender={4} windowSize={7} />
   </View>;
