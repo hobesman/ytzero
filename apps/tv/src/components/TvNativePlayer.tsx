@@ -8,6 +8,7 @@ import { PlaybackBuffer, type BufferedPlayback } from "../playbackBuffer";
 import type { Video } from "../types";
 import { colors, typography, screenPadding } from "../theme";
 import { TvBackButton } from "./TvBackButton";
+import { describeError, logDiagnostic } from "../diagnosticLog";
 import { TvButton } from "./TvButton";
 import { TvLoadingMark } from "./TvLoadingMark";
 import { dismissPlayer, playPlayer, pausePlayer, seekPlayer, setPlayerMetadata, isPlayerAttached, unloadPlayer } from "../playerControl";
@@ -43,6 +44,10 @@ function playbackFailure(error: unknown): Failure {
 
 /** One modal and one AVKit controller for the entire Shorts session. */
 export function TvNativePlayer(props: Props) {
+  useEffect(() => {
+    logDiagnostic(`player mount ${props.video.video_id} start=${props.startPosition}`);
+    return () => logDiagnostic("player unmount");
+  }, []);
   const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading } = props;
   const latest = useRef(props);
   latest.current = props;
@@ -140,7 +145,8 @@ export function TvNativePlayer(props: Props) {
     return pending;
   };
 
-  const close = async () => {
+  const close = async (why = "?") => {
+    logDiagnostic(`player close ${why}${closing.current ? " (already closing)" : ""} presented=${presented} failure=${failure.current ?? "none"}`);
     if (closing.current) return;
     closing.current = true;
     setDismissing(true);
@@ -158,13 +164,14 @@ export function TvNativePlayer(props: Props) {
       if (session.current && await dismissPlayer(session.current.entry.player)) {
         fullscreen.current = false;
         setPresented(false);
-        if (!failure.current) void close();
+        if (!failure.current) void close("dismissPlayer");
       } else if (fullscreen.current) await view.current?.exitFullscreen();
-      else if (!failure.current) void close();
+      else if (!failure.current) void close("exitPresentation");
     } catch (cause) { fail("playbackError", "dismiss", cause); }
   };
 
   const fail = (reason: Failure, stage: PlaybackStage = "load", cause: unknown = new Error(reason)) => {
+    logDiagnostic(`player fail ${reason} at ${stage}: ${describeError(cause)}`);
     if (!alive.current || closing.current || failure.current) return;
     if (session.current) void reportPlaybackDiagnostic(session.current.entry.player, stage, cause);
     failure.current = reason;
@@ -259,6 +266,7 @@ export function TvNativePlayer(props: Props) {
   }, [attempt, buffer]);
 
   const present = () => {
+    logDiagnostic(`present modalShown=${modalShown.current} ready=${ready} active=${active ? active.video.video_id : "none"} closing=${closing.current} failure=${failure.current ?? "none"}`);
     if (!modalShown.current || !ready || !active || closing.current || failure.current || activating.current === active) return;
     activating.current = active;
     const current = () => alive.current && !closing.current && !failure.current && session.current?.entry === active;
@@ -276,14 +284,15 @@ export function TvNativePlayer(props: Props) {
       }
       // An inline expo VideoView is not a child view controller on tvOS;
       // AVKit becomes discoverable only after the first presentation.
-      if (!await waitForPlayerAttachment(() => isPlayerAttached(active.player), current)) return;
+      if (!await waitForPlayerAttachment(() => isPlayerAttached(active.player), current)) { logDiagnostic("present: player not attached"); return; }
       const started = await buffer.play(active);
+      logDiagnostic(`present: play started=${started} current=${current()}`);
       if (started && current()) endTransition();
     })().catch((cause) => { if (current()) fail("playbackError", "present", cause); })
       .finally(() => { if (activating.current === active) activating.current = null; });
   };
   useEffect(() => { present(); }, [active, ready]);
-  useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close(); }, true);
+  useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close("back key before playback"); }, true);
 
   useEffect(() => {
     if (!active) return;
@@ -303,13 +312,17 @@ export function TvNativePlayer(props: Props) {
         const current = session.current;
         if (current?.entry === active && !isPlaying && current.didPlay && !current.finished) current.progress.update(current.position);
       }),
+      player.addListener("statusChange", ({ status, error }) => {
+        logDiagnostic(`player status ${status}${error ? `: ${error.message}` : ""} duration=${player.duration}`);
+      }),
       player.addListener("playToEnd", () => {
+        logDiagnostic(`player playToEnd at ${player.currentTime}/${player.duration}`);
         const current = session.current;
         if (!current || current.entry !== active || current.finished || switching.current) return;
         current.completed = active.video.live_status !== "live";
         const next = latest.current.advanceOnEnd ? latest.current.nextVideo : null;
         if (next) void advance(next);
-        else if (fullscreen.current) void exitPresentation(); else void close();
+        else if (fullscreen.current) void exitPresentation(); else void close("playToEnd");
       }),
     ];
     return () => subscriptions.forEach((subscription) => subscription.remove());
@@ -386,7 +399,7 @@ export function TvNativePlayer(props: Props) {
 
   const currentVideo = active?.video ?? video;
   return (
-    <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close(); }}>
+    <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close("modal onRequestClose"); }}>
       <TvFocusScope style={styles.screen}>
         <VideoView ref={view} player={active?.player ?? null} style={StyleSheet.absoluteFill} nativeControls contentFit="contain"
           fullscreenOptions={{ enable: true }} allowsPictureInPicture={false}
@@ -395,7 +408,7 @@ export function TvNativePlayer(props: Props) {
             if (!presentsNativeFullscreen) return;
             fullscreen.current = false;
             setPresented(false);
-            if (!failure.current) void close();
+            if (!failure.current) void close("onFullscreenExit");
           }} />
         {!presented && !dismissing ? <View style={styles.panel}>
           {!error ? <TvLoadingMark accessibilityLabel={t("preparingPlayback")} size={48} /> : null}
@@ -403,8 +416,8 @@ export function TvNativePlayer(props: Props) {
           <Text accessibilityRole="header" numberOfLines={3} style={styles.title}>{currentVideo.title}</Text>
           <Text style={styles.description}>{error ? t(error) : currentVideo.channel_title}</Text>
           <View style={styles.actions}>
-            <TvBackButton t={t} focusable={panelFocused} onPress={() => void close()} />
-            <TvButton ref={detailsButton} deferPress label={t("videoDetails")} preferredFocus={!error || error === "playbackRestricted"} onFocus={() => setPanelFocused(true)} onPress={() => { showDetails.current = true; void close(); }} />
+            <TvBackButton t={t} focusable={panelFocused} onPress={() => void close("back button")} />
+            <TvButton ref={detailsButton} deferPress label={t("videoDetails")} preferredFocus={!error || error === "playbackRestricted"} onFocus={() => setPanelFocused(true)} onPress={() => { showDetails.current = true; void close("details button"); }} />
             {error && error !== "playbackRestricted" ? <TvButton ref={retryButton} label={t("tryAgain")} preferredFocus variant="primary" onPress={() => { switching.current = false; setAttempt((value) => value + 1); }} /> : null}
           </View>
         </View> : null}
