@@ -201,6 +201,7 @@ export default function WatchPage() {
     settings,
     shareLink,
     shareOpen,
+    shareSeconds,
     shareWithTimestamp,
     sharedStartSeconds,
     shortcutFeedback,
@@ -667,7 +668,7 @@ export default function WatchPage() {
                     <IconButton variant="ghost" label={t("copyLink")} onClick={() => copyShareLink("youtube")}><Copy /></IconButton>
                   </div>
                   <Checkbox className="share-timestamp-option" label={t("includeCurrentTime")} checked={shareWithTimestamp} onChange={(event) => setShareWithTimestamp(event.target.checked)} />
-                  {video.is_private !== 1 && video.members_only !== 1 && video.is_unavailable !== 1 && <PublicShareControl resourceType="video" resourceId={video.video_id} embedded />}
+                  {video.is_private !== 1 && video.members_only !== 1 && video.is_unavailable !== 1 && <PublicShareControl resourceType="video" resourceId={video.video_id} startSeconds={shareSeconds()} embedded />}
                 </div>
               </Popover>
               {copyKey > 0 && <LocalToast key={copyKey}>{t("copied")}</LocalToast>}

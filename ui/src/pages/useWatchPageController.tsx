@@ -1354,12 +1354,10 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     }
   };
 
+  const shareSeconds = () => shareWithTimestamp ? currentPlaybackSeconds() : 0;
   const shareLink = (destination: "webpage" | "youtube") => {
     if (!video) return;
-    let seconds = 0;
-    if (shareWithTimestamp) {
-      seconds = resolveShareTimestamp(enhancePlayerStateRef.current?.state.currentTime, () => playerRef.current?.getCurrentTime?.(), streamPositionRef.current, progressRef.current?.position);
-    }
+    const seconds = shareSeconds();
     return destination === "webpage"
       ? `${window.location.origin}/watch/${video.video_id}${seconds ? `?t=${seconds}` : ""}`
       : markYouTubeUrl(`https://www.youtube.com/watch?v=${video.video_id}${seconds ? `&t=${seconds}s` : ""}`);
@@ -1575,6 +1573,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     settings,
     shareLink,
     shareOpen,
+    shareSeconds,
     shareWithTimestamp,
     sharedStartSeconds,
     shortcutFeedback,

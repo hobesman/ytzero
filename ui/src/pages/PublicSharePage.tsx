@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Clapperboard, ListVideo, LoaderCircle, Play } from "lucide-react";
-import { Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import type { PlaylistVideo, PublicShareData, VideoCreator } from "../api";
 import LocalPlayer, { type LocalPlayerHandle, type LocalPlayerShortcut } from "../components/LocalPlayer";
 import VideoCreators from "../components/VideoCreators";
@@ -11,6 +11,7 @@ import PublicYouTubePlayer from "../components/watch/PublicYouTubePlayer";
 import WatchVideoDescription from "../components/watch/WatchVideoDescription";
 import { useI18n } from "../i18n";
 import { resolveShortcutBindings, shortcutActionMatches } from "../keyboardShortcuts";
+import { parseShareTimestamp } from "../shareTimestamp";
 import WatchPlayerFeedback from "./WatchPlayerFeedback";
 import "./WatchPage.css";
 import "./PublicSharePage.css";
@@ -33,6 +34,7 @@ function PublicShareView() {
   const { token = "", videoId } = useParams<{ token: string; videoId?: string }>();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const startSeconds = parseShareTimestamp(useLocation().search);
   const playerRef = useRef<LocalPlayerHandle>(null);
   const playerShellRef = useRef<HTMLDivElement>(null);
   const activePlaylistItemRef = useRef<HTMLAnchorElement>(null);
@@ -194,6 +196,7 @@ function PublicShareView() {
                     src={data.playback.url}
                     poster={video.thumbnail}
                     autoplay={false}
+                    startSeconds={startSeconds}
                     title={video.title}
                     channelTitle={video.channel_title}
                     artworkUrl={video.thumbnail}
@@ -215,6 +218,7 @@ function PublicShareView() {
                   ref={playerRef}
                   chapters={data.chapters}
                   onEnded={next ? () => openVideo(next.video_id) : undefined}
+                  startSeconds={startSeconds}
                   title={video.title}
                   videoId={video.video_id}
                 />}

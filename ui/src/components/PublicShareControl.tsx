@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Copy, Link2, RefreshCw, Trash2 } from "lucide-react";
 import { api, type ManagedPublicShare, type PublicShareResourceType } from "../api";
 import { useI18n } from "../i18n";
+import { withShareTimestamp } from "../shareTimestamp";
 import Popconfirm from "./Popconfirm";
 import { Alert, Badge, Button, FormActions, IconButton, Inline, Input, LocalToast, Popover, SettingRow, Stack, Switch, Text } from "./ui";
 import "./PublicShareControl.css";
@@ -14,12 +15,14 @@ export function publicShareStatusLabel(share: ManagedPublicShare, t: ReturnType<
   return t("publicShareSuspended");
 }
 
-export function PublicShareEditor({ share, pending = false, settingsLayout = false, showStatus = true, showLinkLabel = true, onChange, onDelete }: {
+export function PublicShareEditor({ share, pending = false, settingsLayout = false, showStatus = true, showLinkLabel = true, startSeconds, onChange, onDelete }: {
   share: ManagedPublicShare;
   pending?: boolean;
   settingsLayout?: boolean;
   showStatus?: boolean;
   showLinkLabel?: boolean;
+  /** Start time added to the link as `?t=`, in seconds. */
+  startSeconds?: number;
   onChange: (share: ManagedPublicShare) => void;
   onDelete: () => void;
 }) {
@@ -27,6 +30,7 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
   const [working, setWorking] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const disabled = pending || working;
+  const link = withShareTimestamp(share.url, startSeconds);
 
   const perform = async (task: () => Promise<ManagedPublicShare>, success?: string) => {
     setWorking(true);
@@ -44,7 +48,7 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(share.url);
+      await navigator.clipboard.writeText(link);
       setFeedback(t("publicShareCopied"));
     } catch {
       setFeedback(t("publicShareError"));
@@ -52,7 +56,7 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
   };
 
   const linkControl = <Inline wrap={false} className="public-share-editor__url">
-    <Input readOnly value={share.url} aria-label={t("publicShareAction")} />
+    <Input readOnly value={link} aria-label={t("publicShareAction")} />
     <IconButton icon={<Copy />} label={t("publicShareCopy")} onClick={() => void copy()} />
   </Inline>;
   const localMediaControl = <Switch
@@ -111,11 +115,12 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
   </Stack>;
 }
 
-export default function PublicShareControl({ resourceType, resourceId, compact = false, embedded = false }: {
+export default function PublicShareControl({ resourceType, resourceId, compact = false, embedded = false, startSeconds }: {
   resourceType: PublicShareResourceType;
   resourceId: string | number;
   compact?: boolean;
   embedded?: boolean;
+  startSeconds?: number;
 }) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
@@ -151,7 +156,7 @@ export default function PublicShareControl({ resourceType, resourceId, compact =
     <Text as="div" size="sm" className="public-share-control__title"><Link2 /><strong>{t("publicShareAction")}</strong></Text>
     {!policyEnabled && <Alert variant="warning">{t("publicShareDisabledByAdmin")}</Alert>}
     {error && <Alert variant="danger">{t("publicShareError")}</Alert>}
-    {share ? <PublicShareEditor share={share} pending={working} showLinkLabel={!embedded} onChange={setShare} onDelete={() => setShare(null)} /> : <Button variant="primary" disabled={!policyEnabled || working} onClick={() => void create()}>{t("publicShareCreate")}</Button>}
+    {share ? <PublicShareEditor share={share} pending={working} showLinkLabel={!embedded} startSeconds={startSeconds} onChange={setShare} onDelete={() => setShare(null)} /> : <Button variant="primary" disabled={!policyEnabled || working} onClick={() => void create()}>{t("publicShareCreate")}</Button>}
   </Stack>;
 
   if (embedded) return content;
