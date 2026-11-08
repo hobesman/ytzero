@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createVideoPlayer, VideoView } from "expo-video";
 import { AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedOptions } from "../playbackSpeeds";
 import { TvChoiceSheet } from "./TvChoiceSheet";
 import { ApiError, type YtZeroApi } from "../api";
@@ -36,6 +37,8 @@ const presentsNativeFullscreen = Platform.OS === "ios";
 const ownsSpeedControl = Platform.OS === "android";
 const playsInBackground = Platform.OS === "android";
 const speedButtonTimeout = 4000;
+// tvOS keeps its full-screen AVKit presentation and its own overscan handling.
+const playerSafeEdges: Edge[] = Platform.OS === "android" ? ["top", "right", "bottom", "left"] : [];
 
 type Failure = "playbackError" | "playbackUnavailable" | "playbackRestricted" | "playbackSessionExpired";
 type Session = {
@@ -420,10 +423,13 @@ export function TvNativePlayer(props: Props) {
   const currentVideo = active?.video ?? video;
   return (
     <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close(); }}>
+      <SafeAreaProvider>
       <TvFocusScope style={styles.screen}>
+        {/* Android draws this Modal edge to edge; keep the controls clear of the system bars. */}
+        <SafeAreaView edges={playerSafeEdges} style={styles.video}>
         {/* A touch shows ExoPlayer's controls; show the speed button alongside them. */}
-        <View style={StyleSheet.absoluteFill} onTouchStart={revealSpeedButton}>
-        <VideoView ref={view} player={active?.player ?? null} style={StyleSheet.absoluteFill} nativeControls contentFit="contain"
+        <View style={styles.video} onTouchStart={revealSpeedButton}>
+        <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
           fullscreenOptions={{ enable: true }} allowsPictureInPicture={false}
           buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
           onFullscreenExit={() => {
@@ -433,13 +439,14 @@ export function TvNativePlayer(props: Props) {
             setPresented(false);
             if (!failure.current) void close();
           }} />
-        </View>
         {ownsSpeedControl && presented && !dismissing && (speedButton || paused) ? <Pressable accessibilityRole="button"
           accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
           style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
           onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
           <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
         </Pressable> : null}
+        </View>
+        </SafeAreaView>
         {speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
           options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
           onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); }}
@@ -456,12 +463,14 @@ export function TvNativePlayer(props: Props) {
           </View>
         </View> : null}
       </TvFocusScope>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.black },
+  video: { flex: 1 },
   panel: { ...StyleSheet.absoluteFill, backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: screenPadding, gap: 20 },
   eyebrow: { color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: typography.caption.lineHeight, fontWeight: "600" },
   title: { maxWidth: 1060, textAlign: "center", color: colors.text, fontSize: 38, lineHeight: 48, fontWeight: "700" },
