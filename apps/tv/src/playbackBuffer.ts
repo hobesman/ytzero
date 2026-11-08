@@ -1,6 +1,7 @@
 import type { VideoPlayer } from "expo-video";
 import type { YtZeroApi } from "./api";
 import { resumePosition } from "./playback";
+import { playableSpeed } from "./playbackSpeeds";
 import type { PlaybackTicket, Video } from "./types";
 
 type BufferApi = Pick<YtZeroApi, "playbackTicket" | "playbackSource" | "renewPlaybackTicket" | "releasePlaybackTicket">;
@@ -124,8 +125,8 @@ export class PlaybackBuffer {
       },
     };
     this.entries.set(video.video_id, entry);
-    const speed = Number(video.channel_playback_speed ?? 1);
-    this.initialRates.set(entry, !live && Number.isFinite(speed) && speed >= 0.25 && speed <= 2 ? speed : 1);
+    const speed = playableSpeed(video.channel_playback_speed ?? 1);
+    this.initialRates.set(entry, !live && speed !== null ? speed : 1);
     loading = (async () => {
       try {
         const authorization = await this.api.playbackTicket(video.video_id, controller.signal);

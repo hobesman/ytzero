@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createVideoPlayer, VideoView } from "expo-video";
-import { AppState, Modal, Platform, StyleSheet, Text, View } from "react-native";
+import { AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { speedLabel, speedOptions } from "../playbackSpeeds";
+import { TvChoiceSheet } from "./TvChoiceSheet";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
@@ -8,7 +10,6 @@ import { PlaybackBuffer, type BufferedPlayback } from "../playbackBuffer";
 import type { Video } from "../types";
 import { colors, typography, screenPadding } from "../theme";
 import { TvBackButton } from "./TvBackButton";
-import { describeError, logDiagnostic } from "../diagnosticLog";
 import { TvButton } from "./TvButton";
 import { TvLoadingMark } from "./TvLoadingMark";
 import { dismissPlayer, playPlayer, pausePlayer, seekPlayer, setPlayerMetadata, isPlayerAttached, unloadPlayer } from "../playerControl";
@@ -30,6 +31,11 @@ type Props = {
   onClose: (result: PlaybackResult, next?: Video, playedVideo?: Video) => void;
 };
 const presentsNativeFullscreen = Platform.OS === "ios";
+// Android plays inline with ExoPlayer's controls, whose speed menu stops at 2×,
+// so it gets the app's own speed button instead.
+const ownsSpeedControl = Platform.OS === "android";
+const playsInBackground = Platform.OS === "android";
+const speedButtonTimeout = 4000;
 
 type Failure = "playbackError" | "playbackUnavailable" | "playbackRestricted" | "playbackSessionExpired";
 type Session = {
@@ -44,10 +50,6 @@ function playbackFailure(error: unknown): Failure {
 
 /** One modal and one AVKit controller for the entire Shorts session. */
 export function TvNativePlayer(props: Props) {
-  useEffect(() => {
-    logDiagnostic(`player mount ${props.video.video_id} start=${props.startPosition}`);
-    return () => logDiagnostic("player unmount");
-  }, []);
   const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading } = props;
   const latest = useRef(props);
   latest.current = props;
@@ -79,10 +81,25 @@ export function TvNativePlayer(props: Props) {
   const [error, setError] = useState<Failure | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [switchingVideo, setSwitchingVideo] = useState(false);
+  const [rate, setRate] = useState(1);
+  const [speedSheet, setSpeedSheet] = useState(false);
+  const [speedButton, setSpeedButton] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const speedButtonTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const revealSpeedButton = () => {
+    if (!ownsSpeedControl) return;
+    setSpeedButton(true);
+    clearTimeout(speedButtonTimer.current);
+    speedButtonTimer.current = setTimeout(() => setSpeedButton(false), speedButtonTimeout);
+  };
+  useEffect(() => () => clearTimeout(speedButtonTimer.current), []);
   const buffer = useMemo(() => new PlaybackBuffer(api, () => {
     const player = createVideoPlayer(null);
     player.timeUpdateEventInterval = 1;
-    player.staysActiveInBackground = false;
+    // Android keeps playing with the screen off or the app in the background,
+    // with a media notification for the active player (set below).
+    player.staysActiveInBackground = playsInBackground;
+    player.preservesPitch = true;
     player.audioMixingMode = "doNotMix";
     player.bufferOptions = { preferredForwardBufferDuration: 5, maxBufferBytes: 8 * 1024 * 1024 };
     return player;
@@ -145,8 +162,7 @@ export function TvNativePlayer(props: Props) {
     return pending;
   };
 
-  const close = async (why = "?") => {
-    logDiagnostic(`player close ${why}${closing.current ? " (already closing)" : ""} presented=${presented} failure=${failure.current ?? "none"}`);
+  const close = async () => {
     if (closing.current) return;
     closing.current = true;
     setDismissing(true);
@@ -164,14 +180,13 @@ export function TvNativePlayer(props: Props) {
       if (session.current && await dismissPlayer(session.current.entry.player)) {
         fullscreen.current = false;
         setPresented(false);
-        if (!failure.current) void close("dismissPlayer");
+        if (!failure.current) void close();
       } else if (fullscreen.current) await view.current?.exitFullscreen();
-      else if (!failure.current) void close("exitPresentation");
+      else if (!failure.current) void close();
     } catch (cause) { fail("playbackError", "dismiss", cause); }
   };
 
   const fail = (reason: Failure, stage: PlaybackStage = "load", cause: unknown = new Error(reason)) => {
-    logDiagnostic(`player fail ${reason} at ${stage}: ${describeError(cause)}`);
     if (!alive.current || closing.current || failure.current) return;
     if (session.current) void reportPlaybackDiagnostic(session.current.entry.player, stage, cause);
     failure.current = reason;
@@ -266,7 +281,6 @@ export function TvNativePlayer(props: Props) {
   }, [attempt, buffer]);
 
   const present = () => {
-    logDiagnostic(`present modalShown=${modalShown.current} ready=${ready} active=${active ? active.video.video_id : "none"} closing=${closing.current} failure=${failure.current ?? "none"}`);
     if (!modalShown.current || !ready || !active || closing.current || failure.current || activating.current === active) return;
     activating.current = active;
     const current = () => alive.current && !closing.current && !failure.current && session.current?.entry === active;
@@ -284,20 +298,24 @@ export function TvNativePlayer(props: Props) {
       }
       // An inline expo VideoView is not a child view controller on tvOS;
       // AVKit becomes discoverable only after the first presentation.
-      if (!await waitForPlayerAttachment(() => isPlayerAttached(active.player), current)) { logDiagnostic("present: player not attached"); return; }
+      if (!await waitForPlayerAttachment(() => isPlayerAttached(active.player), current)) return;
       const started = await buffer.play(active);
-      logDiagnostic(`present: play started=${started} current=${current()}`);
       if (started && current()) endTransition();
     })().catch((cause) => { if (current()) fail("playbackError", "present", cause); })
       .finally(() => { if (activating.current === active) activating.current = null; });
   };
   useEffect(() => { present(); }, [active, ready]);
-  useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close("back key before playback"); }, true);
+  useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close(); }, true);
 
   useEffect(() => {
     if (!active) return;
     const player = active.player;
+    setRate(player.playbackRate);
+    // One notification, for the player being watched; Shorts neighbours stay silent.
+    if (playsInBackground) player.showNowPlayingNotification = true;
     const subscriptions = [
+      player.addListener("playbackRateChange", ({ playbackRate }) => setRate(playbackRate)),
+      player.addListener("playingChange", ({ isPlaying }) => setPaused(!isPlaying)),
       player.addListener("timeUpdate", ({ currentTime }) => {
         const current = session.current;
         if (!current || current.entry !== active || current.finished) return;
@@ -312,23 +330,22 @@ export function TvNativePlayer(props: Props) {
         const current = session.current;
         if (current?.entry === active && !isPlaying && current.didPlay && !current.finished) current.progress.update(current.position);
       }),
-      player.addListener("statusChange", ({ status, error }) => {
-        logDiagnostic(`player status ${status}${error ? `: ${error.message}` : ""} duration=${player.duration}`);
-      }),
       player.addListener("playToEnd", () => {
-        logDiagnostic(`player playToEnd at ${player.currentTime}/${player.duration}`);
         const current = session.current;
         if (!current || current.entry !== active || current.finished || switching.current) return;
         // Android's ExoPlayer reports "ended" while still empty, before the
         // source loads. Only a player that played or knows its length can end.
-        if (!current.didPlay && !(player.duration > 0)) { logDiagnostic("ignored playToEnd before load"); return; }
+        if (!current.didPlay && !(player.duration > 0)) return;
         current.completed = active.video.live_status !== "live";
         const next = latest.current.advanceOnEnd ? latest.current.nextVideo : null;
         if (next) void advance(next);
-        else if (fullscreen.current) void exitPresentation(); else void close("playToEnd");
+        else if (fullscreen.current) void exitPresentation(); else void close();
       }),
     ];
-    return () => subscriptions.forEach((subscription) => subscription.remove());
+    return () => {
+      subscriptions.forEach((subscription) => subscription.remove());
+      if (playsInBackground) player.showNowPlayingNotification = false;
+    };
   }, [active, api, incognito, isChild]);
 
   useEffect(() => {
@@ -383,7 +400,7 @@ export function TvNativePlayer(props: Props) {
     const state = AppState.addEventListener("change", (value) => {
       const current = session.current;
       if (value === "background" && current) {
-        void buffer.pause().catch(() => {});
+        if (!playsInBackground) void buffer.pause().catch(() => {});
         if (current.didPlay) current.progress.update(current.position);
         buffer.retain([current.entry.video.video_id]);
       }
@@ -402,25 +419,39 @@ export function TvNativePlayer(props: Props) {
 
   const currentVideo = active?.video ?? video;
   return (
-    <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close("modal onRequestClose"); }}>
+    <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close(); }}>
       <TvFocusScope style={styles.screen}>
+        {/* A touch shows ExoPlayer's controls; show the speed button alongside them. */}
+        <View style={StyleSheet.absoluteFill} onTouchStart={revealSpeedButton}>
         <VideoView ref={view} player={active?.player ?? null} style={StyleSheet.absoluteFill} nativeControls contentFit="contain"
           fullscreenOptions={{ enable: true }} allowsPictureInPicture={false}
+          buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
           onFullscreenExit={() => {
             // On Android, leaving a fullscreen the viewer chose returns to the inline player.
             if (!presentsNativeFullscreen) return;
             fullscreen.current = false;
             setPresented(false);
-            if (!failure.current) void close("onFullscreenExit");
+            if (!failure.current) void close();
           }} />
+        </View>
+        {ownsSpeedControl && presented && !dismissing && (speedButton || paused) ? <Pressable accessibilityRole="button"
+          accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
+          style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
+          onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
+          <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
+        </Pressable> : null}
+        {speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
+          options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
+          onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); }}
+          onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : null}
         {!presented && !dismissing ? <View style={styles.panel}>
           {!error ? <TvLoadingMark accessibilityLabel={t("preparingPlayback")} size={48} /> : null}
           <Text style={styles.eyebrow}>{error ? t("playbackErrorTitle") : t("preparingPlayback")}</Text>
           <Text accessibilityRole="header" numberOfLines={3} style={styles.title}>{currentVideo.title}</Text>
           <Text style={styles.description}>{error ? t(error) : currentVideo.channel_title}</Text>
           <View style={styles.actions}>
-            <TvBackButton t={t} focusable={panelFocused} onPress={() => void close("back button")} />
-            <TvButton ref={detailsButton} deferPress label={t("videoDetails")} preferredFocus={!error || error === "playbackRestricted"} onFocus={() => setPanelFocused(true)} onPress={() => { showDetails.current = true; void close("details button"); }} />
+            <TvBackButton t={t} focusable={panelFocused} onPress={() => void close()} />
+            <TvButton ref={detailsButton} deferPress label={t("videoDetails")} preferredFocus={!error || error === "playbackRestricted"} onFocus={() => setPanelFocused(true)} onPress={() => { showDetails.current = true; void close(); }} />
             {error && error !== "playbackRestricted" ? <TvButton ref={retryButton} label={t("tryAgain")} preferredFocus variant="primary" onPress={() => { switching.current = false; setAttempt((value) => value + 1); }} /> : null}
           </View>
         </View> : null}
@@ -436,4 +467,8 @@ const styles = StyleSheet.create({
   title: { maxWidth: 1060, textAlign: "center", color: colors.text, fontSize: 38, lineHeight: 48, fontWeight: "700" },
   description: { maxWidth: 960, color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: 32, textAlign: "center" },
   actions: { flexDirection: "row", gap: 20, marginTop: 16 },
+  speedButton: { position: "absolute", top: 16, right: 16, minWidth: 56, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)", alignItems: "center" },
+  speedButtonPressed: { backgroundColor: "rgba(255, 255, 255, 0.25)" },
+  speedButtonText: { color: colors.text, fontSize: 16, lineHeight: 20, fontWeight: "700" },
 });

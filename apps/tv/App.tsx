@@ -23,7 +23,6 @@ import { TvSidebar } from "./src/components/TvSidebar";
 import { TvProfileMenu } from "./src/components/TvProfileMenu";
 import { TvLoadingMark } from "./src/components/TvLoadingMark";
 import { TvLaunchAnimation } from "./src/components/TvLaunchAnimation";
-import { DiagnosticOverlay } from "./src/components/DiagnosticOverlay";
 import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
@@ -800,7 +799,6 @@ function TvApp() {
     </TvFocusScope> : null}
     {launchVisible ? <TvLaunchAnimation ready={screen !== "boot" || bootError} accessibilityLabel={t("booting")}
       onReveal={() => setLaunchRevealing(true)} onFinish={() => setLaunchVisible(false)} /> : null}
-    <DiagnosticOverlay />
     </View>
   );
 }

@@ -10,29 +10,8 @@ import { motion, useReducedMotion, useTvScale } from "../motion";
 import { formatVideoCardMetadata } from "../videoMetadata";
 import { formatVideoDuration } from "../duration";
 import { TvChannelIdentity } from "./TvChannelIdentity";
-import { describeError, logDiagnostic } from "../diagnosticLog";
 
 type ImageSource = { uri: string; headers?: Record<string, string> };
-
-// Temporary Android probe diagnostics: the first few thumbnail errors and the first success.
-let thumbnailErrorsLogged = 0;
-let thumbnailLoadLogged = false;
-function logThumbnailError(source: ImageSource, error: unknown) {
-  if (thumbnailErrorsLogged >= 3) return;
-  thumbnailErrorsLogged += 1;
-  logDiagnostic(`thumbnail error ${source.uri.slice(0, 120)} auth=${source.headers ? "yes" : "no"}: ${describeError(error)}`);
-}
-let thumbnailRenderLogged = false;
-function logThumbnailRender(source: ImageSource) {
-  if (thumbnailRenderLogged) return;
-  thumbnailRenderLogged = true;
-  logDiagnostic(`thumbnail render ${source.uri ? source.uri.slice(0, 120) : "(empty uri)"}`);
-}
-function logThumbnailLoad(source: ImageSource) {
-  if (thumbnailLoadLogged) return;
-  thumbnailLoadLogged = true;
-  logDiagnostic(`thumbnail loaded ${source.uri.slice(0, 120)}`);
-}
 
 type Props = {
   video: Video;
@@ -63,10 +42,9 @@ const VideoArtwork = memo(function VideoArtwork({
   progress: number;
 }) {
   const progressStyle = useMemo(() => ({ width: `${progress}%` as `${number}%` }), [progress]);
-  logThumbnailRender(source);
   return <>
     {source.uri ? (
-      <Image source={source} style={styles.image} resizeMode="cover" onError={(event) => logThumbnailError(source, event.nativeEvent.error)} onLoad={() => logThumbnailLoad(source)} />
+      <Image source={source} style={styles.image} resizeMode="cover" />
     ) : (
       <View style={[styles.image, styles.placeholder]}><Text style={styles.placeholderText}>YT Zero</Text></View>
     )}
