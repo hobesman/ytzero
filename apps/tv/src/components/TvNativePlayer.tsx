@@ -4,6 +4,8 @@ import { AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "re
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedOptions } from "../playbackSpeeds";
 import { TvChoiceSheet } from "./TvChoiceSheet";
+import { useMiniPlayerSlot } from "./MiniPlayerHost";
+import { TvMiniPlayer } from "./TvMiniPlayer";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
@@ -30,12 +32,15 @@ type Props = {
   onAdvance: (video: Video) => void;
   onProgress: (video: Video, result: PlaybackResult) => void;
   onClose: (result: PlaybackResult, next?: Video, playedVideo?: Video) => void;
+  /** Phones: Back minimizes the player to a corner, and the viewer keeps browsing. */
+  docked?: boolean; onDock?: () => void; onExpand?: () => void;
 };
 const presentsNativeFullscreen = Platform.OS === "ios";
 // Android plays inline with ExoPlayer's controls, whose speed menu stops at 2×,
 // so it gets the app's own speed button instead.
 const ownsSpeedControl = Platform.OS === "android";
 const playsInBackground = Platform.OS === "android";
+const canDock = Platform.OS === "android" && !Platform.isTV;
 const speedButtonTimeout = 4000;
 // tvOS keeps its full-screen AVKit presentation and its own overscan handling.
 const playerSafeEdges: Edge[] = Platform.OS === "android" ? ["top", "right", "bottom", "left"] : [];
@@ -53,7 +58,9 @@ function playbackFailure(error: unknown): Failure {
 
 /** One modal and one AVKit controller for the entire Shorts session. */
 export function TvNativePlayer(props: Props) {
-  const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading } = props;
+  const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading, docked = false } = props;
+  const dockable = canDock && Boolean(props.onDock);
+  const miniPlayerSlot = useMiniPlayerSlot();
   const latest = useRef(props);
   latest.current = props;
   const view = useRef<VideoView>(null);
@@ -96,6 +103,14 @@ export function TvNativePlayer(props: Props) {
     speedButtonTimer.current = setTimeout(() => setSpeedButton(false), speedButtonTimeout);
   };
   useEffect(() => () => clearTimeout(speedButtonTimer.current), []);
+  const closeRef = useRef<() => void>(() => {});
+  // While docked, the same player shows in the mini player above the app.
+  useEffect(() => {
+    if (!docked || !active) return;
+    miniPlayerSlot(<TvMiniPlayer player={active.player} title={active.video.title} t={t}
+      onExpand={() => latest.current.onExpand?.()} onClose={() => closeRef.current()} />);
+    return () => miniPlayerSlot(null);
+  }, [active, docked, miniPlayerSlot, t]);
   const buffer = useMemo(() => new PlaybackBuffer(api, () => {
     const player = createVideoPlayer(null);
     player.timeUpdateEventInterval = 1;
@@ -178,6 +193,8 @@ export function TvNativePlayer(props: Props) {
     if (alive.current) latest.current.onClose({ ...result, showDetails: showDetails.current, saveFailed: result.saveFailed || saveFailed.current }, nextSelection.current, current?.entry.video);
   };
 
+  closeRef.current = () => void close();
+
   const exitPresentation = async () => {
     try {
       if (session.current && await dismissPlayer(session.current.entry.player)) {
@@ -198,6 +215,8 @@ export function TvNativePlayer(props: Props) {
     setError(reason);
     void buffer.pause().catch(() => {});
     if (fullscreen.current) void exitPresentation();
+    // A failure shows its message and retry in the full player.
+    if (latest.current.docked) latest.current.onExpand?.();
   };
   handleFailure.current = (entry, cause) => { if (session.current?.entry === entry) fail(playbackFailure(cause), "load", cause); };
 
@@ -422,7 +441,10 @@ export function TvNativePlayer(props: Props) {
 
   const currentVideo = active?.video ?? video;
   return (
-    <Modal visible animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); present(); }} onRequestClose={() => { if (fullscreen.current) void exitPresentation(); else void close(); }}>
+    <Modal visible={!docked} animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); if (!presented) present(); }} onRequestClose={() => {
+      if (dockable && presented && !error) props.onDock?.();
+      else if (fullscreen.current) void exitPresentation(); else void close();
+    }}>
       <SafeAreaProvider>
       <TvFocusScope style={styles.screen}>
         {/* Android draws this Modal edge to edge; keep the controls clear of the system bars. */}
@@ -430,7 +452,7 @@ export function TvNativePlayer(props: Props) {
         {/* A touch shows ExoPlayer's controls; show the speed button alongside them. */}
         <View style={styles.video} onTouchStart={revealSpeedButton}>
         <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
-          fullscreenOptions={{ enable: true }} allowsPictureInPicture={false}
+          fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
           buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
           onFullscreenExit={() => {
             // On Android, leaving a fullscreen the viewer chose returns to the inline player.

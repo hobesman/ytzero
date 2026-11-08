@@ -25,6 +25,7 @@ import { TvLoadingMark } from "./src/components/TvLoadingMark";
 import { TvLaunchAnimation } from "./src/components/TvLaunchAnimation";
 import { PhoneScale, usePhoneScale } from "./src/components/PhoneScale";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { MiniPlayerHost } from "./src/components/MiniPlayerHost";
 import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
@@ -93,7 +94,7 @@ function TvQueueTrigger({ trigger, t, nextFocusDown, nextFocusRight, onOpen }: {
 }
 
 export default function App() {
-  return <SafeAreaProvider><TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider></SafeAreaProvider>;
+  return <SafeAreaProvider><MiniPlayerHost><TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider></MiniPlayerHost></SafeAreaProvider>;
 }
 
 function TvApp() {
@@ -141,6 +142,9 @@ function TvApp() {
   contentFocusFallback.current = contentFocusTarget as View | null;
   const [returnDestination, setReturnDestination] = useState<TvBrowseDestination>("/");
   const [detailReturnScreen, setDetailReturnScreen] = useState<DetailReturnScreen>("/");
+  const [playerDocked, setPlayerDocked] = useState(false);
+  const playerDockedRef = useRef(playerDocked);
+  playerDockedRef.current = playerDocked;
   const [contentFocusRequest, setContentFocusRequest] = useState(0);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
@@ -198,6 +202,7 @@ function TvApp() {
     setSelectedQueue(context ?? null);
     setAutoplay(shouldPlayVideo(openDetailsRef.current, play));
     setStartPosition(position);
+    setPlayerDocked(false);
     setScreen("detail");
   }, []);
   const openQueueFromTopBar = useCallback(() => {
@@ -556,7 +561,7 @@ function TvApp() {
 
   const openChannel = useCallback((channelId: string) => {
     setVideoActionRequest(null);
-    setSelected(null);
+    if (!playerDockedRef.current) setSelected(null);
     setSelectedChannelId(channelId);
     setContentFocusTarget(null);
     setContentFocusRequest((request) => request + 1);
@@ -577,8 +582,26 @@ function TvApp() {
     setScreen(returnDestination);
   }, [returnDestination]);
 
+  // Phones: Back minimizes the player and returns to where the video was opened.
+  const dockPlayer = useCallback(() => {
+    setPlayerDocked(true);
+    setScreen(detailReturnScreen);
+  }, [detailReturnScreen]);
+  const expandPlayer = useCallback(() => {
+    const current = screenRef.current;
+    if (current === "channel" || current === "playlist" || isTvBrowseDestination(current)) setDetailReturnScreen(current);
+    setPlayerDocked(false);
+    setScreen("detail");
+  }, []);
+  const closeDockedPlayer = useCallback(() => {
+    setPlayerDocked(false);
+    if (screenRef.current !== "detail") setSelected(null);
+  }, []);
+  useEffect(() => { if (!selected) setPlayerDocked(false); }, [selected]);
+
   let detailContent;
-  if (screen === "detail" && api && selected) {
+  // A minimized player keeps its details screen mounted, hidden, while the viewer browses.
+  if ((screen === "detail" || playerDocked) && api && selected) {
     detailContent = (
       <WatchScreen
         api={api}
@@ -598,6 +621,10 @@ function TvApp() {
         onOpenVideo={openVideo}
         onVideoChange={setVideoUpdate}
         onVideoLongPress={openVideoActions}
+        playerDocked={playerDocked}
+        onDockPlayer={dockPlayer}
+        onExpandPlayer={expandPlayer}
+        onDockedPlayerClosed={closeDockedPlayer}
       />
     );
 
@@ -778,7 +805,8 @@ function TvApp() {
           </TvGlassVisibility>
         </TvContentFocusRequests.Provider>
       </TVFocusGuideView>
-      {detailContent ? <View key={`${selected?.video_id}:${videoOpenRequest}`} style={StyleSheet.absoluteFill}>
+      {detailContent ? <View key={`${selected?.video_id}:${videoOpenRequest}`} style={[StyleSheet.absoluteFill, screen !== "detail" && styles.hidden]}
+        pointerEvents={screen === "detail" ? "auto" : "none"} accessibilityElementsHidden={screen !== "detail"} importantForAccessibility={screen === "detail" ? "auto" : "no-hide-descendants"}>
         {autoplay ? detailContent : <TvScreenTransition>{detailContent}</TvScreenTransition>}
       </View> : null}
       {api ? (

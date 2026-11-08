@@ -42,6 +42,8 @@ type Props = {
   onShowQueue: (returnTarget: View | null) => void;
   onVideoChange: (video: Video) => void;
   onVideoLongPress: (video: Video, onChange: (updated: Video) => void, options?: VideoActionOptions) => void;
+  /** Phones: the player minimized to a corner while this screen is hidden. */
+  playerDocked?: boolean; onDockPlayer?: () => void; onExpandPlayer?: () => void; onDockedPlayerClosed?: () => void;
 };
 
 type CommentsMode = "disabled" | "scroll" | "auto";
@@ -61,7 +63,7 @@ function validDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.valueOf()) ? null : date;
 }
 
-export function WatchScreen({ api, incognito, isChild, language, t, video: initialVideo, onBack, onOpenChannel, onOpenVideo, onVideoChange, onVideoLongPress, queueContext, autoplay, initialPosition, onShowQueue, onPrimaryFocusTarget, profileFocusTarget }: Props) {
+export function WatchScreen({ api, incognito, isChild, language, t, video: initialVideo, onBack, onOpenChannel, onOpenVideo, onVideoChange, onVideoLongPress, queueContext, autoplay, initialPosition, onShowQueue, onPrimaryFocusTarget, profileFocusTarget, playerDocked = false, onDockPlayer, onExpandPlayer, onDockedPlayerClosed }: Props) {
   const [preview, setPreview] = useState(initialVideo);
   const { width, height } = useScreenSize();
   const [video, setVideo] = useState(preview);
@@ -181,6 +183,8 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
       setVideo(updated);
       if (!result.saveFailed) onVideoChange(updated);
     }
+    // Closed from the mini player, or ended there: stay wherever the viewer is browsing.
+    if (playerDocked) { onDockedPlayerClosed?.(); return; }
     if (next) { onOpenVideo(next, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true); return; }
     if (returnToBrowse.current) { onBack(); return; }
     requestAnimationFrame(() => firstActionTarget?.requestTVFocus());
@@ -373,7 +377,8 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
         </>
       )}
     /> : null}
-    {playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
+    {playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer}
+      docked={playerDocked} onDock={onDockPlayer} onExpand={onExpandPlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
       queueLoading={sequence.loading}
       onAdvance={(next) => { requestVersion.current++; setVideo(next); setPreview(next); }}
       onProgress={(played, result) => {
