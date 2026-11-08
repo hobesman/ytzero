@@ -5,12 +5,15 @@ type Messages = {
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
   navLibrary: string; phoneLayout: string; phoneLayoutHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
+  addProfile: string; savedProfileExpired: string;
 };
 
 export const phoneMessages: Record<Language, Messages> = {
   en: {
     openSignInPage: "Open sign-in page",
     playbackSpeed: "Playback speed",
+    addProfile: "Add another profile",
+    savedProfileExpired: "This profile's sign-in has expired. Add it again to use it here.",
     enterFullscreen: "Full screen",
     exitFullscreen: "Exit full screen",
     navLibrary: "Library",
@@ -26,6 +29,8 @@ export const phoneMessages: Record<Language, Messages> = {
   pl: {
     openSignInPage: "Otwórz stronę logowania",
     playbackSpeed: "Prędkość odtwarzania",
+    addProfile: "Dodaj kolejny profil",
+    savedProfileExpired: "Logowanie tego profilu wygasło. Dodaj go ponownie, aby z niego korzystać.",
     enterFullscreen: "Pełny ekran",
     exitFullscreen: "Zamknij pełny ekran",
     navLibrary: "Biblioteka",
@@ -41,6 +46,8 @@ export const phoneMessages: Record<Language, Messages> = {
   de: {
     openSignInPage: "Anmeldeseite öffnen",
     playbackSpeed: "Wiedergabegeschwindigkeit",
+    addProfile: "Weiteres Profil hinzufügen",
+    savedProfileExpired: "Die Anmeldung dieses Profils ist abgelaufen. Füge es erneut hinzu, um es hier zu verwenden.",
     enterFullscreen: "Vollbild",
     exitFullscreen: "Vollbild beenden",
     navLibrary: "Mediathek",
@@ -56,6 +63,8 @@ export const phoneMessages: Record<Language, Messages> = {
   fr: {
     openSignInPage: "Ouvrir la page de connexion",
     playbackSpeed: "Vitesse de lecture",
+    addProfile: "Ajouter un autre profil",
+    savedProfileExpired: "La connexion de ce profil a expiré. Ajoutez-le à nouveau pour l’utiliser ici.",
     enterFullscreen: "Plein écran",
     exitFullscreen: "Quitter le plein écran",
     navLibrary: "Bibliothèque",
@@ -71,6 +80,8 @@ export const phoneMessages: Record<Language, Messages> = {
   es: {
     openSignInPage: "Abrir la página de inicio de sesión",
     playbackSpeed: "Velocidad de reproducción",
+    addProfile: "Añadir otro perfil",
+    savedProfileExpired: "El inicio de sesión de este perfil ha caducado. Vuelve a añadirlo para usarlo aquí.",
     enterFullscreen: "Pantalla completa",
     exitFullscreen: "Salir de pantalla completa",
     navLibrary: "Biblioteca",
@@ -86,6 +97,8 @@ export const phoneMessages: Record<Language, Messages> = {
   "pt-BR": {
     openSignInPage: "Abrir página de login",
     playbackSpeed: "Velocidade de reprodução",
+    addProfile: "Adicionar outro perfil",
+    savedProfileExpired: "O login deste perfil expirou. Adicione-o novamente para usá-lo aqui.",
     enterFullscreen: "Tela cheia",
     exitFullscreen: "Sair da tela cheia",
     navLibrary: "Biblioteca",
@@ -101,6 +114,8 @@ export const phoneMessages: Record<Language, Messages> = {
   ru: {
     openSignInPage: "Открыть страницу входа",
     playbackSpeed: "Скорость воспроизведения",
+    addProfile: "Добавить ещё профиль",
+    savedProfileExpired: "Срок входа в этот профиль истёк. Добавьте его снова, чтобы пользоваться им здесь.",
     enterFullscreen: "Во весь экран",
     exitFullscreen: "Выйти из полноэкранного режима",
     navLibrary: "Библиотека",
@@ -116,6 +131,8 @@ export const phoneMessages: Record<Language, Messages> = {
   ja: {
     openSignInPage: "サインインページを開く",
     playbackSpeed: "再生速度",
+    addProfile: "別のプロフィールを追加",
+    savedProfileExpired: "このプロフィールのサインインの有効期限が切れました。ここで使うにはもう一度追加してください。",
     enterFullscreen: "全画面表示",
     exitFullscreen: "全画面表示を終了",
     navLibrary: "ライブラリ",
@@ -131,6 +148,8 @@ export const phoneMessages: Record<Language, Messages> = {
   hu: {
     openSignInPage: "Bejelentkezési oldal megnyitása",
     playbackSpeed: "Lejátszási sebesség",
+    addProfile: "Másik profil hozzáadása",
+    savedProfileExpired: "A profil bejelentkezése lejárt. Add hozzá újra, hogy itt használhasd.",
     enterFullscreen: "Teljes képernyő",
     exitFullscreen: "Kilépés a teljes képernyőből",
     navLibrary: "Könyvtár",

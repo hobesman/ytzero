@@ -36,7 +36,8 @@ import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
-import { clearAccessToken, loadConnection, saveConnection } from "./src/storage";
+import { clearAccessToken, loadConnection, saveConnection, savedProfileStore } from "./src/storage";
+import type { SavedProfile } from "./src/savedProfiles";
 import type { AuthStatus, Language, PairingAuthorization, Video } from "./src/types";
 import { colors, sidebarRailWidth, topBarMetrics } from "./src/theme";
 import { tvVideoCardActionConfig, type VideoCardActionConfig } from "./src/videoCardActions";
@@ -479,8 +480,8 @@ function TvApp() {
     return () => { active = false; };
   }, [beginPairing, initializeProfileSession, bootAttempt]);
 
-  const authorize = useCallback(async (token: string) => {
-    const authorizedInstanceUrl = pairingInstanceUrl || instanceUrl;
+  /** Signs this device in with a token: a new pairing, or a profile saved on this phone. */
+  const activateSession = useCallback(async (authorizedInstanceUrl: string, token: string) => {
     const authenticated = new YtZeroApi(authorizedInstanceUrl, token);
     const auth = await authenticated.authStatus();
     if (!auth.authenticated) throw new Error("pairing authorization expired");
@@ -498,7 +499,41 @@ function TvApp() {
     setVideoUpdate(null);
     setReturnDestination("/");
     setScreen(destination);
-  }, [instanceUrl, pairingInstanceUrl, initializeProfileSession]);
+  }, [initializeProfileSession]);
+  const authorize = useCallback(async (token: string) => {
+    await activateSession(pairingInstanceUrl || instanceUrl, token);
+  }, [activateSession, instanceUrl, pairingInstanceUrl]);
+
+  // Phones remember each profile they pair to when the instance gives every
+  // profile its own login (no in-app switching), and switch between them.
+  const [savedLogins, setSavedLogins] = useState<SavedProfile[]>([]);
+  const remembersProfiles = !Platform.isTV && Boolean(profileState && !profileState.canSwitch);
+  useEffect(() => {
+    if (!instanceUrl || !accessToken || !profileState || profileState.canSwitch || Platform.isTV) { setSavedLogins([]); return; }
+    const { active } = profileState;
+    let current = true;
+    void savedProfileStore.remember({ instanceUrl, profileId: active.id, name: active.name, avatar: active.avatar, avatarColor: active.avatar_color, accessToken })
+      .then(() => savedProfileStore.list(instanceUrl)).then((list) => { if (current) setSavedLogins(list); }).catch(() => {});
+    return () => { current = false; };
+  }, [accessToken, instanceUrl, profileState]);
+  const switchToSavedProfile = useCallback(async (saved: SavedProfile) => {
+    try { await activateSession(saved.instanceUrl, saved.accessToken); }
+    catch (error) {
+      // A sign-in revoked elsewhere is dropped; the viewer can add the profile again.
+      if (error instanceof Error && error.message === "pairing authorization expired") {
+        await savedProfileStore.forget(saved.instanceUrl, saved.profileId);
+        setSavedLogins(await savedProfileStore.list(saved.instanceUrl));
+      }
+      throw error;
+    }
+  }, [activateSession]);
+  const addProfile = useCallback(async () => {
+    setPairingFromSettings(true);
+    setSelected(null);
+    setSelectedPlaylistId(null);
+    setSelectedChannelId(null);
+    await createPairing(instanceUrl, false);
+  }, [createPairing, instanceUrl]);
 
   const retryPairing = useCallback(async () => {
     await createPairing(pairingInstanceUrl || instanceUrl, !pairingFromSettings);
@@ -516,8 +551,15 @@ function TvApp() {
     setSelectedPlaylistId(null);
     setSelectedChannelId(null);
     setPairingFromSettings(false);
+    // Phones with other saved profiles move to the most recent one instead of pairing again.
+    if (profileState && !Platform.isTV) {
+      await savedProfileStore.forget(instanceUrl, profileState.active.id).catch(() => {});
+      for (const saved of await savedProfileStore.list(instanceUrl).catch(() => [])) {
+        try { await switchToSavedProfile(saved); return; } catch { /* Try the next saved profile. */ }
+      }
+    }
     await beginPairing(instanceUrl);
-  }, [api, beginPairing, instanceUrl]);
+  }, [api, beginPairing, instanceUrl, profileState, switchToSavedProfile]);
 
   const startInstanceChange = useCallback(async () => {
     setPairingFromSettings(true);
@@ -835,7 +877,8 @@ function TvApp() {
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
       {phoneMode && hasShell && api && profileState ? <PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail"}
-        brandName={brandName} brandColor={brandColor} profiles={{ active: profileState.active, profiles: profileState.profiles, canSwitch: profileState.canSwitch, childLockEnabled: profileState.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile }}
+        brandName={brandName} brandColor={brandColor} profiles={{ active: profileState.active, profiles: profileState.profiles, canSwitch: profileState.canSwitch, childLockEnabled: profileState.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile,
+          saved: remembersProfiles ? { profiles: savedLogins, onSwitch: switchToSavedProfile, onAdd: () => void addProfile().catch(() => {}) } : undefined }}
         navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
         settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /> : <>
       {screen !== "detail" && browsingScreen === "/" && api

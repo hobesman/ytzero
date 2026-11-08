@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { YtZeroApi } from "../api";
 import { SidebarIcon } from "../components/SidebarIcon";
 import type { Translate } from "../i18n";
+import type { SavedProfile } from "../savedProfiles";
 import type { Profile } from "../types";
 import { PhoneChip } from "./PhoneChip";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
@@ -13,6 +14,8 @@ export type PhoneProfiles = {
   active: Profile; profiles: Profile[]; canSwitch: boolean; childLockEnabled: boolean;
   incognito: boolean; onIncognitoChange: (value: boolean) => void;
   onSwitch: (profileId: number, pin?: string, childLockPin?: string) => Promise<void>;
+  /** Phones: profiles signed in on this device when the instance has a login per profile. */
+  saved?: { profiles: SavedProfile[]; onSwitch: (profile: SavedProfile) => Promise<void>; onAdd: () => void };
 };
 
 const pinPattern = /^\d{6}$/;
@@ -41,6 +44,15 @@ export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettin
   const [childLockPin, setChildLockPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [expired, setExpired] = useState(false);
+  const otherSaved = state.saved?.profiles.filter((profile) => profile.profileId !== active.id) ?? [];
+  const switchSaved = async (profile: SavedProfile) => {
+    if (busy || !state.saved) return;
+    setBusy(true); setExpired(false);
+    try { await state.saved.onSwitch(profile); onClose(); }
+    catch { setExpired(true); }
+    finally { setBusy(false); }
+  };
   const others = canSwitch ? state.profiles.filter((profile) => profile.id !== active.id && profile.can_switch) : [];
   const needsChildLock = Boolean(pinFor && active.is_child && childLockEnabled);
   const pinComplete = Boolean(pinFor && (!pinFor.has_pin || pinPattern.test(profilePin)) && (!needsChildLock || pinPattern.test(childLockPin)));
@@ -99,6 +111,14 @@ export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettin
             trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />} /> : null}
         <PhoneListRow icon={<SidebarIcon name="history" color={phoneColors.text} size={22} />} title={t("navHistory")} onPress={onHistory} />
         <PhoneListRow icon={<SidebarIcon name="settings" color={phoneColors.text} size={22} />} title={t("navSettings")} onPress={onSettings} />
+        {state.saved ? <>
+          <PhoneSectionTitle title={t("profiles")} />
+          {otherSaved.map((profile) => <PhoneListRow key={profile.profileId} title={profile.name}
+            icon={<PhoneProfileAvatar api={api} profile={{ id: profile.profileId, name: profile.name, avatar: profile.avatar, avatar_color: profile.avatarColor } as Profile} size={26} />}
+            trailing={busy ? <ActivityIndicator color={phoneColors.textMuted} /> : undefined} onPress={() => void switchSaved(profile)} />)}
+          {expired ? <Text style={styles.error}>{t("savedProfileExpired")}</Text> : null}
+          <PhoneListRow title={t("addProfile")} icon={<Text style={styles.plus}>+</Text>} onPress={() => { if (!busy) { onClose(); state.saved!.onAdd(); } }} />
+        </> : null}
         {others.length > 0 ? <>
           <PhoneSectionTitle title={t("switchProfile")} />
           {others.map((profile) => <PhoneListRow key={profile.id} title={profile.name}
@@ -129,5 +149,6 @@ const styles = StyleSheet.create({
   pinLabel: { ...phoneType.body, color: phoneColors.text },
   pinInput: { height: 48, borderRadius: 12, paddingHorizontal: 16, backgroundColor: phoneColors.surfaceRaised, color: phoneColors.text, fontSize: 22, letterSpacing: 8 },
   pinActions: { flexDirection: "row", justifyContent: "flex-end", padding: 16 },
+  plus: { color: phoneColors.text, fontSize: 24, lineHeight: 26, textAlign: "center" },
   error: { ...phoneType.body, color: phoneColors.danger, paddingHorizontal: 16, paddingTop: 8 },
 });

@@ -1,6 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { deviceStore, legacyDeviceStore } from "./deviceStore";
 import { connectionStorage } from "./connectionStorage";
+import { savedProfiles } from "./savedProfiles";
 import { systemProfilesNative } from "./systemProfilesNative";
 export type { StoredConnection } from "./connectionStorage";
 
@@ -9,3 +10,5 @@ const storage = connectionStorage(SecureStore, deviceStore, () => `${Date.now().
 export const loadConnection = storage.load;
 export const saveConnection = storage.save;
 export const clearAccessToken = storage.clearToken;
+// Phones keep a sign-in per paired profile (see savedProfiles.ts), only in this app's SecureStore.
+export const savedProfileStore = savedProfiles(SecureStore);
