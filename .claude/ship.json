@@ -1,0 +1,17 @@
+{
+  "repo": "hobesman/ytzero",
+  "base": "main",
+  "test": "(cd app && bun install --frozen-lockfile) && (cd ui && bun install --frozen-lockfile) && bun run typecheck && bun run test",
+  "ci_workflow": "Validate",
+  "ci_check": "Validate the application and web client",
+  "release_workflow": "Publish Container Image",
+  "release_jobs": [
+    "Prepare release metadata and changelog",
+    "Build the Linux image for linux/amd64",
+    "Build the Linux image for linux/arm64",
+    "Publish the multi-platform image"
+  ],
+  "migrations": "app/src/databaseMigrations.ts",
+  "merge_method": "merge",
+  "notes": "Merging to main is releasing: the release workflow ('Publish Container Image', separate from the 'Validate' CI workflow) rebuilds ghcr.io/hobesman/ytzero:edge for amd64 and arm64 in about 3 minutes. It runs only when the merge touches app/, ui/, Dockerfile, .dockerignore or that workflow file; a merge touching nothing else releases nothing, so there is nothing to wait for. The server installs a release only when the user redeploys the Portainer stack with re-pull image, by hand. 'Validate' is the full check; the local test installs dependencies (a new worktree has none) and runs only the typechecks and tests, because AGENTS.md reserves the full pre-commit chain for the repository owner. Migrations are entries in app/src/databaseMigrations.ts with consecutive version numbers, each needing both a SQLite and a PostgreSQL implementation; a new one takes the latest version in the file plus one, so two PRs that add a migration conflict and must merge one at a time, the second renumbered."
+}

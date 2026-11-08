@@ -1,0 +1,4 @@
+# The Claude hook scripts run under bash, which rejects CRLF line endings.
+# With core.autocrlf on Windows, a new worktree would check them out with CRLF
+# and every hook would fail with "$'\r': command not found".
+.claude/hooks/*.sh text eol=lf
