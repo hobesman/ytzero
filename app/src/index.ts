@@ -6,6 +6,7 @@ import { database, databaseConfig } from "./database";
 import { startSQLiteMaintenance } from "./sqliteMaintenance";
 import { startScheduler } from "./refreshScheduler";
 import { startDownloader } from "./downloader";
+import { startDeviceDownloadSweep } from "./deviceDownloads";
 import { log } from "./logger";
 import { COMMIT, VERSION } from "./version";
 import { createAppIconPng, createAppIconSvg } from "./app-icon";
@@ -110,6 +111,7 @@ await startAppEventRelay({ cleanup: mode.backgroundTasks });
 if (mode.backgroundTasks) {
   startScheduler();
   await startDownloader();
+  startDeviceDownloadSweep();
   scheduleTubeArchivistSync(true);
   void flushTubeArchivistWatched();
 } else {

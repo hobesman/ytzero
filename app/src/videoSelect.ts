@@ -39,6 +39,7 @@ export function videoSelect(uid: number): string {
          EXISTS(SELECT 1 FROM history h WHERE h.video_id = v.video_id AND h.user_id = ${uid}) AS in_history,
          (SELECT d.status FROM downloads d JOIN download_owners owner ON owner.video_id=d.video_id WHERE owner.user_id=${uid} AND d.video_id=v.video_id AND d.status!='deleted') AS download_status,
          COALESCE((SELECT owner.pinned FROM download_owners owner WHERE owner.user_id=${uid} AND owner.video_id=v.video_id), 0) AS download_pinned,
+         (SELECT owner.source FROM download_owners owner WHERE owner.user_id=${uid} AND owner.video_id=v.video_id) AS download_source,
          EXISTS(
            SELECT 1 FROM user_playlist_download_protections protection
            JOIN user_playlists playlist ON playlist.id=protection.playlist_id

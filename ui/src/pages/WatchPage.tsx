@@ -6,6 +6,7 @@ import {
   Archive,
   AlertTriangle,
   ArrowDownToLine,
+  MonitorDown,
   Bookmark,
   BookmarkPlus,
   Check,
@@ -37,6 +38,7 @@ import { resolvePlaybackSpeeds } from "../../../shared/playbackSpeeds";
 import { formatPlaylistVideoCount, formatTimeAgo, formatViewsCount } from "../i18n";
 import TagChip from "../components/TagChip";
 import LocalPlayer from "../components/LocalPlayer";
+import { useDeviceDownload } from "./useDeviceDownload";
 import Popconfirm from "../components/Popconfirm";
 import PlaylistPicker from "../components/PlaylistPicker";
 import { formatVideoDuration, parseVideoDurationSeconds } from "../components/VideoCard";
@@ -78,6 +80,7 @@ export default function WatchPage() {
   // The controller derives the effective active state from video/profile/room
   // eligibility before it decides whether to mount the iframe.
   const controller = useWatchPageController(audioMode);
+  const deviceDownload = useDeviceDownload(controller);
   const activeVideoId = controller?.id;
   const focusPlayerKind = controller?.playerKind;
   const focusAudioActive = controller?.audioActive;
@@ -133,7 +136,7 @@ export default function WatchPage() {
     creatorHandles,
     disabledSegs,
     downloadFeedbackKind,
-    downloadFeedbackVisible,
+    downloadFeedbackVisible: controllerFeedbackVisible,
     downloadRequestError,
     downloadStatus,
     downloadSubtitleLanguages,
@@ -239,6 +242,8 @@ export default function WatchPage() {
     youtubeError,
     ytWrapRef,
   } = controller;
+  // A device-only copy goes to the browser, so "reload the player" doesn't apply.
+  const downloadFeedbackVisible = controllerFeedbackVisible && !(deviceDownload.deviceOnly && downloadFeedbackKind === "ready");
   const playbackSpeeds = resolvePlaybackSpeeds(settings?.player_speed_options, speed, video?.channel_playback_speed);
   const pendingVideoInfo = videoInfo ?? routePreview;
 
@@ -370,7 +375,7 @@ export default function WatchPage() {
                   }}
                   onSubtitleSizeChange={changeSubtitleSize}
                   onError={playerKind === "direct" ? exitDirectStream : undefined}
-                  onDownload={playerKind === "direct" && downloadsEnabled && downloadStatus !== "queued" && downloadStatus !== "downloading" ? requestDownload : undefined}
+                  onDownload={playerKind === "direct" && downloadsEnabled && downloadStatus !== "queued" && downloadStatus !== "downloading" ? () => requestDownload() : undefined}
                   downloadLabel={t("downloadLocally")}
                 />
               ) : playerKind === "youtube" ? (
@@ -727,6 +732,9 @@ export default function WatchPage() {
                         <div className="more-menu-section">
                           <MenuSeparator />
                           <div className="more-menu-section-label">{t("localDownload")}</div>
+                          <button className="more-item-always" onClick={() => { deviceDownload.requestDeviceDownload(); setMoreOpen(false); }}>
+                            <MonitorDown /> {t("downloadToDevice")}
+                          </button>
                           <button className="more-item-always" onClick={() => { requestDownload(); setMoreOpen(false); }}>
                             <ArrowDownToLine /> {t("downloadLocally")}
                           </button>
@@ -831,7 +839,7 @@ export default function WatchPage() {
               </div>
               <div className="watch-download-feedback-copy">
                 <strong>{downloadFeedbackKind === "ready" ? t("watchDownloadReady") : downloadFeedbackKind === "error" ? t("downloadError") : downloadFeedbackKind === "downloading" ? t("downloading") : t("downloadQueued")}</strong>
-                {downloadFeedbackKind !== "downloading" && <span>{downloadFeedbackKind === "ready" ? t("watchDownloadReadyHint") : downloadRequestError ? t("watchDownloadRequestFailed") : downloadFeedbackKind === "error" ? (backgroundDownload.error || t("downloadFailedNotificationDescription")) : t("watchDownloadQueuedHint")}</span>}
+                {downloadFeedbackKind !== "downloading" && <span>{downloadFeedbackKind === "ready" ? t("watchDownloadReadyHint") : downloadRequestError ? t("watchDownloadRequestFailed") : downloadFeedbackKind === "error" ? (backgroundDownload.error || t("downloadFailedNotificationDescription")) : t(deviceDownload.deviceOnly ? "watchDeviceDownloadQueuedHint" : "watchDownloadQueuedHint")}</span>}
                 {downloadFeedbackKind === "downloading" && <div className="watch-download-feedback-progress"><div style={{ width: `${backgroundDownload.percent ?? 0}%` }} /></div>}
               </div>
               <div className="watch-download-feedback-meta">
@@ -839,7 +847,7 @@ export default function WatchPage() {
                 {downloadFeedbackVisible && (downloadFeedbackKind === "ready"
                   ? <Button size="sm" onClick={reloadDownloadedPlayer}>{t("watchReloadPlayer")}</Button>
                   : downloadFeedbackKind === "error"
-                    ? <Button size="sm" onClick={() => requestDownload()}>{t("downloadRetry")}</Button>
+                    ? <Button size="sm" onClick={() => deviceDownload.deviceOnly ? deviceDownload.requestDeviceDownload() : requestDownload()}>{t("downloadRetry")}</Button>
                     : <Button size="sm" onClick={cancelOrRemoveDownload}>{t("cancelDownload")}</Button>)}
               </div>
             </div>
