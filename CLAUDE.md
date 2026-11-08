@@ -89,6 +89,7 @@ git stash apply <sha>                 # never pop, never stash@{n}
   `bun run test`, or a single test file). AGENTS.md reserves the full pre-commit
   chain for the repository owner; the "Validate" workflow runs it on every PR and
   every push to `main`.
+- Test any change to `.claude/hooks/` with `bash .claude/hooks/test-guards.sh .claude/hooks '<main checkout path>'`, adding a case for it; Validate does not run it.
 - Production runs on the user's Linux server as the `ytzero` container from
   `ghcr.io/hobesman/ytzero:edge`. Its log is `/data/logs/ytzero.log` inside the
   container, and the user runs any commands there.
