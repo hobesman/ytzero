@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, ScrollView, StyleSheet, Text, TVFocusGuideView, View } from "react-native";
+import { PhoneOverlayScale } from "./PhoneScale";
 import { focusWhenReady } from "../focus";
 import type { Translate } from "../i18n";
 import { useTvModalBack } from "../useTvModalBack";
@@ -23,6 +24,7 @@ export function TvChoiceSheet<T extends string>({ title, options, value, busy, e
     if (target) return focusWhenReady(target, () => setFocused(true));
   }, [focused, options, shown, value]);
   return <Modal transparent visible animationType="none" onShow={() => setShown(true)} onRequestClose={onClose}>
+      <PhoneOverlayScale>
     <TvFocusScope style={styles.fill}><TVFocusGuideView accessibilityViewIsModal autoFocus trapFocusUp trapFocusDown trapFocusLeft trapFocusRight style={styles.overlay}>
       <View style={styles.panel}>
         <TvSurface radius={38}>
@@ -37,7 +39,7 @@ export function TvChoiceSheet<T extends string>({ title, options, value, busy, e
         </TvSurface>
       </View>
     </TVFocusGuideView></TvFocusScope>
-  </Modal>;
+  </PhoneOverlayScale></Modal>;
 }
 const styles = StyleSheet.create({
   fill: { flex: 1 }, overlay: { flex: 1, padding: 60, alignItems: "center", justifyContent: "center", backgroundColor: colors.modalScrim },

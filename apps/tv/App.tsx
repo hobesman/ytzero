@@ -2,7 +2,7 @@ import { isFocusInteraction } from "./src/focusEntry";
 import { lastActivatedVideoTarget, requestTvFocus, TvContentFocusRequests, useTvShellFocus } from "./src/focus";
 import { restoreFocus } from "./src/focusRestoration";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Animated, BackHandler, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
+import { Animated, BackHandler, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, View, type FocusDestination } from "react-native";
 import { YtZeroApi } from "./src/api";
 import { deviceLanguage, normalizeLanguage, translator, type Translate } from "./src/i18n";
 import { InstanceScreen } from "./src/screens/InstanceScreen";
@@ -23,9 +23,12 @@ import { TvSidebar } from "./src/components/TvSidebar";
 import { TvProfileMenu } from "./src/components/TvProfileMenu";
 import { TvLoadingMark } from "./src/components/TvLoadingMark";
 import { TvLaunchAnimation } from "./src/components/TvLaunchAnimation";
+import { PhoneScale, usePhoneScale } from "./src/components/PhoneScale";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
+import "./src/phoneOrientation";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
@@ -90,7 +93,7 @@ function TvQueueTrigger({ trigger, t, nextFocusDown, nextFocusRight, onOpen }: {
 }
 
 export default function App() {
-  return <TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider>;
+  return <SafeAreaProvider><TvMotionProvider><SessionQueueProvider><TvApp /></SessionQueueProvider></TvMotionProvider></SafeAreaProvider>;
 }
 
 function TvApp() {
@@ -103,8 +106,10 @@ function TvApp() {
   const returnFocus = useRef<{ current: View | null } | null>(null);
   const cancelFocusReturn = useRef<(() => void) | null>(null);
   const previousScreen = useRef<Screen>("boot");
-  const { width, height } = useWindowDimensions();
   const [screen, setScreen] = useState<Screen>("boot");
+  // Setup screens have phone layouts of their own; everything else is the TV layout, scaled on phones.
+  const phoneLayout = usePhoneScale(screen !== "instance" && screen !== "pair");
+  const { width, height } = phoneLayout.size;
   const backdropController = useMemo(createBackdropController, []);
   const backdropScroll = useRef(new Animated.Value(0)).current;
   const backdropOpacity = useMemo(() => backdropScroll.interpolate({
@@ -722,6 +727,7 @@ function TvApp() {
   }
 
   return (
+    <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
       {screen !== "detail" && browsingScreen === "/" && api
@@ -800,11 +806,13 @@ function TvApp() {
     {launchVisible ? <TvLaunchAnimation ready={screen !== "boot" || bootError} accessibilityLabel={t("booting")}
       onReveal={() => setLaunchRevealing(true)} onFinish={() => setLaunchVisible(false)} /> : null}
     </View>
+    </PhoneScale>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, width: "100%", height: "100%", backgroundColor: colors.background },
+  phoneRoot: { backgroundColor: colors.background },
   content: { flex: 1 },
   // Preserve list measurements, scroll offset and mounted cells under AVKit.
   hidden: { opacity: 0 },
