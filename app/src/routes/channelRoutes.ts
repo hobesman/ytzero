@@ -454,8 +454,12 @@ api.put("/channels/:id/speed", async (c) => {
   const { speed } = await c.req.json<{ speed: string | null }>();
   const value = !speed || speed === "default" ? null : normalizePlaybackSpeed(speed);
   if (speed && speed !== "default" && value === null) return c.json({ error: "invalid playback speed" }, 400);
+  // user_channels.followed defaults to 1, so a settings row created for a
+  // channel the profile does not follow must say followed = 0 explicitly.
+  // Otherwise changing the speed while watching an external video silently
+  // subscribes to its channel. An existing row keeps its follow state.
   await database.prepare(
-    `INSERT INTO user_channels (user_id, channel_id, playback_speed) VALUES (?, ?, ?)
+    `INSERT INTO user_channels (user_id, channel_id, followed, playback_speed) VALUES (?, ?, 0, ?)
      ON CONFLICT(user_id, channel_id) DO UPDATE SET playback_speed = excluded.playback_speed`
   ).run(uid, c.req.param("id"), value);
   return c.json({ ok: true });
@@ -473,7 +477,7 @@ api.put("/channels/:id/captions", async (c) => {
     : null;
   if (mode === "language" && !captionLanguage) return c.json({ error: "valid caption language required" }, 400);
   await database.prepare(
-    `INSERT INTO user_channels (user_id, channel_id, caption_mode, caption_language) VALUES (?, ?, ?, ?)
+    `INSERT INTO user_channels (user_id, channel_id, followed, caption_mode, caption_language) VALUES (?, ?, 0, ?, ?)
      ON CONFLICT(user_id, channel_id) DO UPDATE SET caption_mode = excluded.caption_mode, caption_language = excluded.caption_language`
   ).run(currentUserId(c), c.req.param("id"), mode, captionLanguage);
   return c.json({ ok: true, mode, language: captionLanguage });
@@ -495,7 +499,7 @@ api.put("/channels/:id/members-only-feed", async (c) => {
   } as const;
   const [hideFromFeed, hideOnChannel] = values[visibility];
   await database.prepare(
-    `INSERT INTO user_channels (user_id, channel_id, hide_members_only_from_feed, hide_members_only_on_channel, members_only_visibility) VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO user_channels (user_id, channel_id, followed, hide_members_only_from_feed, hide_members_only_on_channel, members_only_visibility) VALUES (?, ?, 0, ?, ?, ?)
      ON CONFLICT(user_id, channel_id) DO UPDATE SET hide_members_only_from_feed = excluded.hide_members_only_from_feed, hide_members_only_on_channel = excluded.hide_members_only_on_channel, members_only_visibility = excluded.members_only_visibility`
   ).run(currentUserId(c), c.req.param("id"), hideFromFeed, hideOnChannel, visibility);
   return c.json({ ok: true, visibility });
