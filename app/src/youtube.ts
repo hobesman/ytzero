@@ -1,6 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { createRequire } from "module";
 import { decodeHtmlEntities } from "./htmlEntities";
+import { log } from "./logger";
 import { createYoutubeSearch, parseAbbreviatedCount } from "./youtubeSearch";
 import { isYouTubeRateLimitError, isYouTubeRefusalError, readYouTubeResponse, YouTubeRefusalError, youtubeRefusalGate } from "./youtubeRateLimit";
 import { DeletedVideoError, fetchVideoOEmbedAvailability, isDeletedVideoError, isPrivateVideoError, PrivateVideoError } from "./youtubeVideoAvailability";
@@ -822,7 +823,16 @@ async function fetchChannelTabVideos(
     collectChannelTabVideos(continuation, out, seen);
     token = playlistContinuationToken(continuation);
   }
-  if (token) throw new Error(`channel ${tab} history exceeded ${MAX_BROWSE_CONTINUATION_PAGES} continuation pages`);
+  // A very large channel can have more history than the page cap allows. Keep
+  // the (most recent) videos already collected instead of discarding the whole
+  // sync: the pages walk newest-first, so the recent uploads that matter are
+  // present, and later syncs pick up anything newer. The cap still bounds how
+  // hard one sync scrapes YouTube.
+  if (token) {
+    log.warn("channel.history_truncated", {
+      channelId, tab, pages: MAX_BROWSE_CONTINUATION_PAGES, collected: out.length,
+    });
+  }
   return out;
 }
 

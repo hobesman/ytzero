@@ -18,7 +18,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: pelski/ytzero
+  # Publish to the registry namespace of whichever account runs this workflow,
+  # so forks build to their own ghcr.io/<owner>/ytzero instead of the upstream
+  # (which a fork's GITHUB_TOKEN has no permission to push to).
+  IMAGE_NAME: ${{ github.repository_owner }}/ytzero
 
 jobs:
   prepare:
