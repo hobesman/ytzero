@@ -1,17 +1,18 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, TextInput, View, type ImageSourcePropType } from "react-native";
 import type { YtZeroApi } from "../api";
 import { SidebarIcon } from "../components/SidebarIcon";
 import type { Translate } from "../i18n";
 import type { OpenVideo } from "../playbackQueue";
-import type { Language, Video } from "../types";
+import type { Channel, Language, Video } from "../types";
+import { PhoneListRow } from "./PhoneList";
 import { PhoneVideoCard } from "./PhoneVideoCard";
 import { phoneColors, phoneType } from "./phoneTheme";
 
-type Row = { kind: "heading"; key: string; title: string } | { kind: "video"; key: string; video: Video } | { kind: "note"; key: string; text: string };
+type Row = { kind: "heading"; key: string; title: string } | { kind: "video"; key: string; video: Video } | { kind: "channel"; key: string; channel: Channel } | { kind: "note"; key: string; text: string };
 
 /** Searches the library and YouTube together, library results first. */
-export function PhoneSearchScreen({ api, language, t, onOpen }: { api: YtZeroApi; language: Language; t: Translate; onOpen: OpenVideo }) {
+export function PhoneSearchScreen({ api, language, t, onOpen, onOpenChannel }: { api: YtZeroApi; language: Language; t: Translate; onOpen: OpenVideo; onOpenChannel: (channelId: string) => void }) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
   const [searching, setSearching] = useState(false);
@@ -33,7 +34,14 @@ export function PhoneSearchScreen({ api, language, t, onOpen }: { api: YtZeroApi
     const [local, youtube] = await Promise.allSettled([api.searchLocal(q), api.searchYoutube(q)]);
     if (id !== request.current) return;
     const next: Row[] = [];
-    const section = (key: string, title: string, result: PromiseSettledResult<{ videos: Video[] }>) => {
+    // Channels from the library first, then YouTube, without duplicates.
+    const channels = new Map<string, Channel>();
+    for (const result of [local, youtube]) if (result.status === "fulfilled") for (const channel of result.value.channels) if (!channels.has(channel.channel_id)) channels.set(channel.channel_id, channel);
+    if (channels.size) {
+      next.push({ kind: "heading", key: "channels", title: t("searchChannels") });
+      for (const channel of [...channels.values()].slice(0, 6)) next.push({ kind: "channel", key: `channel:${channel.channel_id}`, channel });
+    }
+    const section = (key: string, title: string, result: PromiseSettledResult<{ videos: Video[]; channels: Channel[] }>) => {
       next.push({ kind: "heading", key, title });
       if (result.status === "rejected") next.push({ kind: "note", key: `${key}:error`, text: t("searchError") });
       else if (result.value.videos.length === 0) next.push({ kind: "note", key: `${key}:empty`, text: "—" });
@@ -58,6 +66,8 @@ export function PhoneSearchScreen({ api, language, t, onOpen }: { api: YtZeroApi
     {searching ? <View style={styles.status}><ActivityIndicator color={phoneColors.text} /><Text style={styles.note}>{t("searchLoading")}</Text></View> : null}
     <FlatList data={rows} keyExtractor={(row) => row.key} keyboardShouldPersistTaps="handled"
       renderItem={({ item }) => item.kind === "heading" ? <Text style={styles.heading}>{item.title}</Text>
+        : item.kind === "channel" ? <PhoneListRow title={item.channel.title} detail={item.channel.handle ?? undefined} onPress={() => onOpenChannel(item.channel.channel_id)}
+            icon={source(item.channel.thumbnail) ? <Image source={source(item.channel.thumbnail)!} style={styles.channelAvatar} /> : undefined} />
         : item.kind === "note" ? <Text style={[styles.note, styles.rowNote]}>{item.text}</Text>
         : <PhoneVideoCard video={item.video} language={language} t={t} onPress={open}
             thumbnail={source(item.video.thumbnail)!} channelAvatar={source(item.video.channel_thumbnail)} />}
@@ -74,4 +84,5 @@ const styles = StyleSheet.create({
   heading: { ...phoneType.section, color: phoneColors.text, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10 },
   note: { ...phoneType.body, color: phoneColors.textMuted },
   rowNote: { paddingHorizontal: 16, paddingBottom: 12 },
+  channelAvatar: { width: 26, height: 26, borderRadius: 13 },
 });

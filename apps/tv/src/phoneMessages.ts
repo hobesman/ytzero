@@ -3,7 +3,7 @@ import type { Language } from "./types";
 type Messages = {
   openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
-  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; phoneScreenNotReady: string; account: string;
+  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
 };
 
@@ -16,7 +16,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Library",
     phoneLayout: "Phone layout",
     phoneLayoutHint: "Use the layout designed for phones. Turn off for the TV layout.",
-    phoneScreenNotReady: "This screen isn't in the phone layout yet. Turn off the phone layout in Settings to use it.",
     account: "Account",
     miniPlayerExpand: "Expand player",
     miniPlayerClose: "Close player",
@@ -32,7 +31,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Biblioteka",
     phoneLayout: "Układ na telefon",
     phoneLayoutHint: "Używaj układu zaprojektowanego dla telefonów. Wyłącz, aby używać układu TV.",
-    phoneScreenNotReady: "Tego ekranu nie ma jeszcze w układzie na telefon. Wyłącz układ na telefon w Ustawieniach, aby z niego skorzystać.",
     account: "Konto",
     miniPlayerExpand: "Rozwiń odtwarzacz",
     miniPlayerClose: "Zamknij odtwarzacz",
@@ -48,7 +46,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Mediathek",
     phoneLayout: "Smartphone-Layout",
     phoneLayoutHint: "Das für Smartphones gestaltete Layout verwenden. Ausschalten für das TV-Layout.",
-    phoneScreenNotReady: "Dieser Bildschirm ist im Smartphone-Layout noch nicht verfügbar. Schalte das Smartphone-Layout in den Einstellungen aus, um ihn zu verwenden.",
     account: "Konto",
     miniPlayerExpand: "Player vergrößern",
     miniPlayerClose: "Player schließen",
@@ -64,7 +61,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Bibliothèque",
     phoneLayout: "Disposition téléphone",
     phoneLayoutHint: "Utiliser la disposition conçue pour les téléphones. Désactivez-la pour la disposition TV.",
-    phoneScreenNotReady: "Cet écran n'est pas encore disponible dans la disposition téléphone. Désactivez-la dans les Paramètres pour l'utiliser.",
     account: "Compte",
     miniPlayerExpand: "Agrandir le lecteur",
     miniPlayerClose: "Fermer le lecteur",
@@ -80,7 +76,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Biblioteca",
     phoneLayout: "Diseño para teléfono",
     phoneLayoutHint: "Usa el diseño pensado para teléfonos. Desactívalo para usar el diseño de TV.",
-    phoneScreenNotReady: "Esta pantalla aún no está en el diseño para teléfono. Desactiva el diseño para teléfono en Ajustes para usarla.",
     account: "Cuenta",
     miniPlayerExpand: "Ampliar reproductor",
     miniPlayerClose: "Cerrar reproductor",
@@ -96,7 +91,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Biblioteca",
     phoneLayout: "Layout para celular",
     phoneLayoutHint: "Use o layout feito para celulares. Desative para usar o layout de TV.",
-    phoneScreenNotReady: "Esta tela ainda não está no layout para celular. Desative o layout para celular nas Configurações para usá-la.",
     account: "Conta",
     miniPlayerExpand: "Expandir player",
     miniPlayerClose: "Fechar player",
@@ -112,7 +106,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Библиотека",
     phoneLayout: "Макет для телефона",
     phoneLayoutHint: "Использовать макет для телефонов. Отключите, чтобы использовать макет для ТВ.",
-    phoneScreenNotReady: "Этого экрана пока нет в макете для телефона. Отключите макет для телефона в настройках, чтобы им воспользоваться.",
     account: "Аккаунт",
     miniPlayerExpand: "Развернуть плеер",
     miniPlayerClose: "Закрыть плеер",
@@ -128,7 +121,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "ライブラリ",
     phoneLayout: "スマートフォン用レイアウト",
     phoneLayoutHint: "スマートフォン向けのレイアウトを使います。オフにするとテレビ用レイアウトになります。",
-    phoneScreenNotReady: "この画面はまだスマートフォン用レイアウトに対応していません。使うには設定でスマートフォン用レイアウトをオフにしてください。",
     account: "アカウント",
     miniPlayerExpand: "プレーヤーを拡大",
     miniPlayerClose: "プレーヤーを閉じる",
@@ -144,7 +136,6 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Könyvtár",
     phoneLayout: "Telefonos elrendezés",
     phoneLayoutHint: "A telefonokra tervezett elrendezés használata. Kapcsold ki a TV-elrendezéshez.",
-    phoneScreenNotReady: "Ez a képernyő még nem érhető el a telefonos elrendezésben. A használatához kapcsold ki a telefonos elrendezést a Beállításokban.",
     account: "Fiók",
     miniPlayerExpand: "Lejátszó kinagyítása",
     miniPlayerClose: "Lejátszó bezárása",

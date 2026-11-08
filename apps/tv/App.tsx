@@ -117,6 +117,7 @@ function TvApp() {
   const [phoneDesign, setPhoneDesign] = useState(phoneDesignAvailable);
   const phoneMode = phoneDesign && phoneDesignAvailable;
   const [phonePlaying, setPhonePlaying] = useState(false);
+  const [phoneChannelRequest, setPhoneChannelRequest] = useState<{ id: string; request: number } | null>(null);
   // Phones: a fullscreen video, and holding portrait after the viewer leaves fullscreen.
   const [videoFullscreen, setVideoFullscreen] = useState(false);
   const [portraitHeld, setPortraitHeld] = useState(false);
@@ -580,12 +581,22 @@ function TvApp() {
 
   const openChannel = useCallback((channelId: string) => {
     setVideoActionRequest(null);
+    // Phones: the channel opens on the phone screens' stack; a playing video moves to the mini player.
+    if (phoneMode) {
+      if (screenRef.current === "detail") {
+        if (phonePlaying) setPlayerDocked(true);
+        else setSelected(null);
+      }
+      setPhoneChannelRequest((current) => ({ id: channelId, request: (current?.request ?? 0) + 1 }));
+      setScreen("/");
+      return;
+    }
     if (!playerDockedRef.current) setSelected(null);
     setSelectedChannelId(channelId);
     setContentFocusTarget(null);
     setContentFocusRequest((request) => request + 1);
     setScreen("channel");
-  }, []);
+  }, [phoneMode, phonePlaying]);
   const openSearch = useCallback(() => navigate("/search"), [navigate]);
   const openChannelResult = useCallback((channel: import("./src/types").Channel) => openChannel(channel.channel_id), [openChannel]);
 
@@ -817,7 +828,8 @@ function TvApp() {
     {launchRevealing ? <TvFocusScope style={styles.root}>
       {phoneMode && hasShell && api && profileState ? <PhoneApp api={api} t={t} language={language} hidden={screen === "detail"}
         brandName={brandName} brandColor={brandColor} profileName={profileState.active.name} profileColor={profileState.active.avatar_color || colors.accent}
-        navConfig={sidebarNav} sort={feedSort} videoUpdate={videoUpdate} settings={phoneSettings} onOpen={openPhoneVideo} /> : <>
+        navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
+        settings={phoneSettings} onOpen={openPhoneVideo} /> : <>
       {screen !== "detail" && browsingScreen === "/" && api
         ? <TvHomeBackdrop api={api} controller={backdropController} height={height} opacity={backdropOpacity} />
         : null}

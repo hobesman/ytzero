@@ -254,7 +254,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
     language={language} t={t} playbackTime={playbackTime} player={player} fullscreen={playerFullscreen && playingFrom !== null}
     onRetry={() => void load()} onPlay={setPlayingFrom} onToggleQueue={() => queued ? queue.remove(video.video_id) : queue.add(video)}
     onOpenNext={() => onOpenVideo(sequence.next!, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true)}
-    onOpenRelated={openRelatedVideo} />;
+    onOpenRelated={openRelatedVideo} onOpenChannel={video.channel_id && onOpenChannel ? () => onOpenChannel(video.channel_id!) : undefined} />;
 
   return (
     <View style={[styles.screen, { width, height }]}>
