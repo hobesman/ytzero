@@ -20,6 +20,12 @@
           { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-git.sh\"", "if": "Bash(git *)", "timeout": 20 },
           { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-git.sh\"", "if": "Bash(gh pr create*)", "timeout": 20 }
         ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-git.sh\"", "timeout": 20 }
+        ]
       }
     ]
   }
