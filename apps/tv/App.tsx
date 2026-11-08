@@ -29,7 +29,7 @@ import { MiniPlayerHost } from "./src/components/MiniPlayerHost";
 import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
-import { setPhoneOrientation } from "./src/phoneOrientation";
+import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
 import { PhoneApp } from "./src/phone/PhoneApp";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
@@ -117,6 +117,9 @@ function TvApp() {
   const [phoneDesign, setPhoneDesign] = useState(false);
   const phoneMode = phoneDesign && phoneDesignAvailable;
   const [phonePlaying, setPhonePlaying] = useState(false);
+  // Phones: a fullscreen video, and holding portrait after the viewer leaves fullscreen.
+  const [videoFullscreen, setVideoFullscreen] = useState(false);
+  const [portraitHeld, setPortraitHeld] = useState(false);
   const phoneLayout = usePhoneScale(!phoneMode && screen !== "instance" && screen !== "pair");
   const { width, height } = phoneLayout.size;
   const backdropController = useMemo(createBackdropController, []);
@@ -303,7 +306,8 @@ function TvApp() {
         return true;
       }
       if (screen === "detail") {
-        // Phones: Back from a playing video's page keeps it playing in the mini player.
+        // Phones: Back leaves fullscreen, then keeps a playing video going in the mini player.
+        if (phoneMode && videoFullscreen) { setPortraitHeld(true); setVideoFullscreen(false); return true; }
         if (phoneMode && phonePlaying) {
           setPlayerDocked(true);
           setScreen(detailReturnScreen);
@@ -333,7 +337,7 @@ function TvApp() {
       subscription.remove();
       TVEventControl.disableTVMenuKey();
     };
-  }, [detailReturnScreen, pairingFromSettings, phoneMode, phonePlaying, returnDestination, screen]);
+  }, [detailReturnScreen, pairingFromSettings, phoneMode, phonePlaying, returnDestination, screen, videoFullscreen]);
 
   const navigate = useCallback((destination: TvDestination) => {
     setSelectedPlaylistId(null);
@@ -605,14 +609,14 @@ function TvApp() {
   // sideways while the video plays goes fullscreen; leaving fullscreen holds portrait for that video.
   // The scaled TV layout stays landscape.
   const videoOpen = screen === "detail" && !playerDocked;
-  const [videoFullscreen, setVideoFullscreen] = useState(false);
-  const [portraitHeld, setPortraitHeld] = useState(false);
   const windowSize = useWindowDimensions();
   useEffect(() => {
     if (!phoneDesignAvailable) return;
     setPhoneOrientation(!phoneMode ? "landscape" : !videoOpen ? "portrait" : videoFullscreen ? "landscape" : portraitHeld ? "portrait" : "sensor");
   }, [phoneMode, portraitHeld, videoFullscreen, videoOpen]);
   useEffect(() => { setVideoFullscreen(false); setPortraitHeld(false); }, [videoOpen, selected?.video_id]);
+  const immersive = phoneMode && videoOpen && videoFullscreen;
+  useEffect(() => { setPhoneImmersive(immersive); }, [immersive]);
   useEffect(() => {
     if (phoneMode && videoOpen && phonePlaying && !videoFullscreen && !portraitHeld && windowSize.width > windowSize.height) setVideoFullscreen(true);
   }, [phoneMode, phonePlaying, portraitHeld, videoFullscreen, videoOpen, windowSize.height, windowSize.width]);

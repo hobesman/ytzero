@@ -36,7 +36,7 @@ type Props = {
   /** Phones: Back minimizes the player to a corner, and the viewer keeps browsing. */
   docked?: boolean; onDock?: () => void; onExpand?: () => void;
   /** Phones: "inline" draws the player in the details page; fullscreen uses the Modal. */
-  presentation?: "modal" | "inline"; onToggleFullscreen?: () => void;
+  presentation?: "modal" | "inline"; onToggleFullscreen?: () => void; fullscreenActive?: boolean;
 };
 const presentsNativeFullscreen = Platform.OS === "ios";
 // Android plays inline with ExoPlayer's controls, whose speed menu stops at 2×,
@@ -465,17 +465,17 @@ export function TvNativePlayer(props: Props) {
         setPresented(false);
         if (!failure.current) void close();
       }} />
-    {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && styles.inlineButtons]}>
+    {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && !props.fullscreenActive && styles.inlineButtons]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
         style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
         onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
         <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
       </Pressable>
-      {props.onToggleFullscreen ? <Pressable accessibilityRole="button" accessibilityLabel={t(inline ? "enterFullscreen" : "exitFullscreen")} hitSlop={12}
+      {props.onToggleFullscreen ? <Pressable accessibilityRole="button" accessibilityLabel={t(props.fullscreenActive ? "exitFullscreen" : "enterFullscreen")} hitSlop={12}
         style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]} onPress={props.onToggleFullscreen}>
         <Svg width={20} height={20} viewBox="0 0 24 24">
           <Path stroke={colors.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none"
-            d={inline ? "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" : "M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"} />
+            d={props.fullscreenActive ? "M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" : "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"} />
         </Svg>
       </Pressable> : null}
     </View> : null}

@@ -16,6 +16,8 @@ type Props = {
   language: Language; t: Translate; playbackTime: (seconds: number) => string;
   onRetry: () => void; onPlay: (position: number) => void; onToggleQueue: () => void;
   onOpenNext: () => void; onOpenRelated: (video: Video) => void;
+  /** The video fills the page, with the system bars hidden. */
+  fullscreen: boolean;
   /** The inline player, drawn over the 16:9 area at the top while a video plays. */
   player: ReactNode;
 };
@@ -26,7 +28,7 @@ type Props = {
  * and related videos scrolling below.
  */
 export function PhoneWatchBody(props: Props) {
-  const { api, video, related, showRelated, nextVideo, loading, loadError, saveFailed, playing, startAt, queued, canQueue, queueFull, language, t } = props;
+  const { api, video, related, showRelated, nextVideo, loading, loadError, saveFailed, playing, startAt, queued, canQueue, queueFull, language, t, fullscreen } = props;
   const [expanded, setExpanded] = useState(false);
   const metadata = useMemo(() => formatVideoCardMetadata(video, language, t("views")), [language, t, video]);
   const duration = formatVideoDuration(video.duration);
@@ -39,7 +41,7 @@ export function PhoneWatchBody(props: Props) {
   }, [api]);
   const channelAvatar = source(video.channel_thumbnail);
   return <View style={styles.screen}>
-    <View style={styles.hero}>
+    <View style={fullscreen ? styles.fill : styles.hero}>
       {playing ? props.player : <Pressable accessibilityRole="button" accessibilityLabel={t("playVideo")} style={styles.fill} onPress={() => props.onPlay(startAt)}>
         {video.thumbnail ? <Image source={source(video.thumbnail)!} style={styles.fill} resizeMode="cover" /> : null}
         <View style={styles.playShade}><View style={styles.playCircle}>
@@ -48,7 +50,7 @@ export function PhoneWatchBody(props: Props) {
         {duration ? <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View> : null}
       </Pressable>}
     </View>
-    <ScrollView style={styles.fill} contentContainerStyle={styles.content}>
+    {fullscreen ? null : <ScrollView style={styles.fill} contentContainerStyle={styles.content}>
       {loadError ? <View style={styles.notice}>
         <Text style={styles.noticeText}>{t("videoLoadError")}</Text>
         <Chip label={t("tryAgain")} onPress={props.onRetry} />
@@ -80,7 +82,7 @@ export function PhoneWatchBody(props: Props) {
         {related.map((item) => <PhoneVideoCard key={item.video_id} video={item} language={language} t={t} onPress={props.onOpenRelated}
           thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />)}
       </> : null}
-    </ScrollView>
+    </ScrollView>}
   </View>;
 }
 
@@ -92,7 +94,7 @@ function Chip({ label, primary, disabled, onPress }: { label: string; primary?: 
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: phoneColors.background },
+  screen: { flex: 1, backgroundColor: "#000" },
   fill: { flex: 1 },
   hero: { width: "100%", aspectRatio: 16 / 9, backgroundColor: "#000" },
   playShade: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.25)" },

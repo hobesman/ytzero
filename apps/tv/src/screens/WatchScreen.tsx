@@ -239,7 +239,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
 
   const player = playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer}
     docked={playerDocked} onDock={onDockPlayer} onExpand={onExpandPlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
-    presentation={phone && !playerFullscreen ? "inline" : "modal"} onToggleFullscreen={phone ? onToggleFullscreen : undefined}
+    presentation={phone ? "inline" : "modal"} fullscreenActive={playerFullscreen} onToggleFullscreen={phone ? onToggleFullscreen : undefined}
     queueLoading={sequence.loading}
     onAdvance={(next) => { requestVersion.current++; setVideo(next); setPreview(next); }}
     onProgress={(played, result) => {
@@ -251,7 +251,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   if (phone) return <PhoneWatchBody api={api} video={video} related={related} showRelated={showRelated} nextVideo={sequence.next}
     loading={loading} loadError={loadError} saveFailed={saveFailed} playing={playingFrom !== null} startAt={startAt}
     queued={queued} canQueue={canQueueTvVideo(video)} queueFull={queue.items.length >= SESSION_QUEUE_LIMIT}
-    language={language} t={t} playbackTime={playbackTime} player={player}
+    language={language} t={t} playbackTime={playbackTime} player={player} fullscreen={playerFullscreen && playingFrom !== null}
     onRetry={() => void load()} onPlay={setPlayingFrom} onToggleQueue={() => queued ? queue.remove(video.video_id) : queue.add(video)}
     onOpenNext={() => onOpenVideo(sequence.next!, queueContext ?? video.playback_context ?? sequence.context ?? undefined, true)}
     onOpenRelated={openRelatedVideo} />;
