@@ -581,7 +581,9 @@ archive with no such capability restores with public sharing denied.
   than serialized
 - `download_owners`, which is profile-scoped runtime ownership/visibility for
   shared local files and is rebuilt by future download requests rather than
-  exported as portable configuration
+  exported as portable configuration. Its `device` source marks a transient
+  claim for a file headed to the browser ("Download to your device"); it is
+  released after the transfer or within a day, so it is never restored either
 - image cache, Deno's yt-dlp JavaScript-solver cache, and other network-derived cache
 - the yt-dlp update channel, automatic-update interval, and last-attempt timestamp;
   these control a machine-installed executable and remain machine-local. A

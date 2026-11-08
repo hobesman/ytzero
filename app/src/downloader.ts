@@ -487,7 +487,7 @@ export async function cancelAllPendingDownloads(userId: number): Promise<number>
  */
 export async function cancelAutoDownloadIfUnwanted(userId: number, videoId: string) {
   const row = await database.prepare("SELECT d.status, owner.source FROM downloads d JOIN download_owners owner ON owner.video_id=d.video_id WHERE d.video_id=? AND owner.user_id=?").get(videoId, userId) as { status: string; source: string } | null;
-  if (!row || row.source === "manual") return;
+  if (!row || row.source === "manual" || row.source === "device") return;
   if (row.status !== "queued" && row.status !== "downloading") return;
   const stillWanted = await database.prepare("SELECT 1 FROM user_videos uv WHERE uv.user_id=? AND uv.video_id=? AND uv.status='queued' AND COALESCE(uv.watched,0)=0").get(userId, videoId);
   if (stillWanted) return;
@@ -588,8 +588,8 @@ export async function downloadStatusSummary(userId: number) {
 }
 
 export async function getDownload(userId: number, videoId: string) {
-  return await database.prepare("SELECT d.video_id, d.status, d.quality, d.path, d.size_bytes, d.error, owner.pinned FROM downloads d JOIN download_owners owner ON owner.video_id=d.video_id WHERE owner.user_id=? AND d.video_id=? AND d.status!='deleted'")
-    .get(userId, videoId) as { video_id: string; status: string; quality: string | null; path: string | null; size_bytes: number | null; error: string | null; pinned: number } | null;
+  return await database.prepare("SELECT d.video_id, d.status, d.quality, d.path, d.size_bytes, d.error, owner.pinned, owner.source FROM downloads d JOIN download_owners owner ON owner.video_id=d.video_id WHERE owner.user_id=? AND d.video_id=? AND d.status!='deleted'")
+    .get(userId, videoId) as { video_id: string; status: string; quality: string | null; path: string | null; size_bytes: number | null; error: string | null; pinned: number; source: string } | null;
 }
 
 /** Reset only the active profile's download ownership and preferences. Shared

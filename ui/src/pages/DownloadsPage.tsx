@@ -45,6 +45,7 @@ const SOURCE_KEYS: Record<string, I18nKey> = {
   manual: "dlSourceManual",
   scheduled: "dlSourceScheduled",
   feed: "dlSourceFeed",
+  device: "dlSourceDevice",
 };
 
 export default function DownloadsPage({ shortsEnabled }: { shortsEnabled: boolean }) {

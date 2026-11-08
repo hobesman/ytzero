@@ -249,8 +249,8 @@ export const api = {
   createDownloadRule: (rule: DownloadRuleInput) => http<{ rule: DownloadRule }>("/downloads/automation", { method: "POST", body: JSON.stringify(rule) }),
   updateDownloadRule: (id: number, patch: Partial<DownloadRuleInput>) => http<{ rule: DownloadRule }>(`/downloads/automation/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
   removeDownloadRule: (id: number) => http<{ ok: true }>(`/downloads/automation/${id}`, { method: "DELETE" }),
-  requestDownload: (id: string, priority = false, keep = false, playlist_context?: { kind: "user-playlist"; playlistUuid: string } | { kind: "channel-playlist"; playlistId: string }) =>
-    http<{ ok: true; download: VideoDownload | null }>(`/videos/${id}/download`, { method: "POST", body: JSON.stringify({ priority, keep, playlist_context }) }),
+  requestDownload: (id: string, priority = false, keep = false, playlist_context?: { kind: "user-playlist"; playlistUuid: string } | { kind: "channel-playlist"; playlistId: string }, device = false) =>
+    http<{ ok: true; download: VideoDownload | null }>(`/videos/${id}/download`, { method: "POST", body: JSON.stringify({ priority, keep, playlist_context, device }) }),
   videoDownload: (id: string) =>
     http<{ download: VideoDownload | null; progress: { percent: number; total_bytes: number | null; speed: string | null } | null }>(`/videos/${id}/download`),
   removeDownload: (id: string, profileId?: number) =>
