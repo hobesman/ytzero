@@ -832,8 +832,8 @@ function TvApp() {
     <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
-      {phoneMode && hasShell && api && profileState ? <PhoneApp api={api} t={t} language={language} hidden={screen === "detail"}
-        brandName={brandName} brandColor={brandColor} profileName={profileState.active.name} profileColor={profileState.active.avatar_color || colors.accent}
+      {phoneMode && hasShell && api && profileState ? <PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail"}
+        brandName={brandName} brandColor={brandColor} profiles={{ active: profileState.active, profiles: profileState.profiles, canSwitch: profileState.canSwitch, childLockEnabled: profileState.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile }}
         navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
         settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /> : <>
       {screen !== "detail" && browsingScreen === "/" && api

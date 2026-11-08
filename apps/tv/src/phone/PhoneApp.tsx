@@ -9,7 +9,7 @@ import type { Translate } from "../i18n";
 import { resolveTvNavigation, type TvBrowseDestination, type TvNavigationItem } from "../navigation";
 import type { OpenVideo } from "../playbackQueue";
 import type { Language, Video } from "../types";
-import { PhoneAccountSheet } from "./PhoneAccountSheet";
+import { PhoneAccountSheet, PhoneProfileAvatar, type PhoneProfiles } from "./PhoneAccountSheet";
 import { PhoneBookmarksScreen } from "./PhoneBookmarksScreen";
 import { PhoneChannelScreen } from "./PhoneChannelScreen";
 import { PhoneFeedScreen } from "./PhoneFeedScreen";
@@ -34,7 +34,7 @@ const libraryDestinations = new Set<string>(["/watchlist", "/followed-playlists"
 
 type Props = {
   api: YtZeroApi; t: Translate; language: Language; hidden: boolean;
-  brandName: string; brandColor: string; profileName: string; profileColor: string;
+  brandName: string; brandColor: string; profiles: PhoneProfiles;
   navConfig: string; sort: "published" | "arrival"; shortsEnabled: boolean; videoUpdate: Video | null;
   /** A channel opened from outside the phone screens, such as a video's page. */
   channelRequest: { id: string; request: number } | null;
@@ -43,7 +43,7 @@ type Props = {
 };
 
 /** The phone layout: a top bar with the account menu, the current screen, and bottom tabs. */
-export function PhoneApp({ api, t, language, hidden, brandName, brandColor, profileName, profileColor, navConfig, sort, shortsEnabled, videoUpdate, channelRequest, settings, onOpen, onVideoLongPress }: Props) {
+export function PhoneApp({ api, t, language, hidden, brandName, brandColor, profiles, navConfig, sort, shortsEnabled, videoUpdate, channelRequest, settings, onOpen, onVideoLongPress }: Props) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("home");
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["home"]));
@@ -122,9 +122,9 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
         <Text style={styles.backGlyph}>‹</Text>
       </Pressable> : tab === "home" ? <LogoMark size={28} color={brandColor} /> : null}
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
-      <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profileName}`} onPress={() => setAccount(true)}
-        style={[styles.avatar, { backgroundColor: profileColor }]}>
-        <Text style={styles.initial}>{profileName.slice(0, 1).toUpperCase()}</Text>
+      <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}${profiles.incognito ? `, ${t("incognitoMode")}` : ""}`} onPress={() => setAccount(true)}
+        style={[styles.avatarRing, profiles.incognito && styles.incognitoRing]}>
+        <PhoneProfileAvatar api={api} profile={profiles.active} size={30} />
       </Pressable>
     </View>
     <View style={styles.body}>
@@ -142,7 +142,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
         </Pressable>;
       })}
     </View>
-    {account ? <PhoneAccountSheet name={profileName} color={profileColor} t={t} onClose={() => setAccount(false)}
+    {account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
       onHistory={() => { setAccount(false); push({ kind: "feed", destination: "/history", title: t("navHistory") }); }}
       onSettings={() => { setAccount(false); push({ kind: "settings" }); }} /> : null}
   </View>;
@@ -156,8 +156,9 @@ const styles = StyleSheet.create({
   back: { width: 28, alignItems: "flex-start" },
   backGlyph: { color: phoneColors.text, fontSize: 34, lineHeight: 36, marginTop: -4 },
   title: { flex: 1, ...phoneType.heading, color: phoneColors.text },
-  avatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  initial: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  // Incognito is shown as a ring around the avatar.
+  avatarRing: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
+  incognitoRing: { borderColor: phoneColors.textMuted, borderStyle: "dashed" },
   body: { flex: 1 },
   layer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   gone: { display: "none" },
