@@ -72,7 +72,10 @@ export function createChannelSyncJobManager(dependencies: ChannelSyncJobDependen
   const latestByUser = new Map<number, ChannelSyncJob>();
   const activeByUser = new Map<number, ChannelSyncJob>();
   const activeRuns = new Set<Promise<void>>();
-  let sequence = 0;
+  // Clients keep whichever job has the higher sequence. Start from the clock
+  // rather than 0 so a job created after a server restart still outranks one a
+  // page held from before it; otherwise that page shows the dead job forever.
+  let sequence = now().getTime();
 
   const changed = (job: ChannelSyncJob) => {
     job.revision++;
