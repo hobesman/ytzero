@@ -3,6 +3,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { Readable } from "node:stream";
 import { publishAppEvent } from "../appEvents";
 import { database } from "../database";
+import { deviceFileResponse, enqueueDeviceDownload } from "../deviceDownloads";
 import { getUserSetting } from "../db";
 import { childLocalOnly, isChildUser } from "../childTime";
 import { DOWNLOADS_ADMIN_SETTING_KEYS, dlSettings, downloadCookiesConfigured, downloadSettings, profileDownloadsEnabled, removeDownloadCookies, saveDownloadCookies, setDownloadSettings, setProfileDownloadsEnabled } from "../downloadConfig";
@@ -246,9 +247,9 @@ api.post("/videos/:id/download", async (c) => {
   if (video.live_status === "live" || video.live_status === "upcoming") {
     return c.json({ error: "live streams cannot be downloaded while they are active" }, 409);
   }
-  const body = await c.req.json().catch(() => ({})) as { priority?: boolean; keep?: boolean; playlist_context?: unknown };
+  const body = await c.req.json().catch(() => ({})) as { priority?: boolean; keep?: boolean; device?: boolean; playlist_context?: unknown };
   if (body.priority) await prioritizeDownload(uid, id);
-  else await enqueueDownload(uid, id, "manual", false, false, await playlistDownloadContext(uid, id, body.playlist_context));
+  else await (body.device ? enqueueDeviceDownload(uid, id) : enqueueDownload(uid, id, "manual", false, false, await playlistDownloadContext(uid, id, body.playlist_context)));
   if (body.keep) await setDownloadPinned(uid, id, true);
   return c.json({ ok: true, download: await getDownload(uid, id) });
 });
@@ -503,11 +504,9 @@ api.get("/videos/:id/file", async (c) => {
     ?? c.req.param("id");
   const extension = row.path.endsWith(".webm") ? "webm" : "mp4";
   const filename = `${title.replace(/[\\/:*?\"<>|]/g, "_")}.${extension}`;
-  return new Response(Bun.file(row.path), {
-    headers: {
-      "Content-Type": extension === "webm" ? "video/webm" : "video/mp4",
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
-    },
+  return await deviceFileResponse(currentUserId(c), c.req.param("id"), row.path, {
+    "Content-Type": extension === "webm" ? "video/webm" : "video/mp4",
+    "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
   });
 });
 

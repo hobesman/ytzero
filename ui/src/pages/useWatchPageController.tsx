@@ -197,6 +197,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
   const [directFallback, setDirectFallback] = useState(false);
   const [directProgressive, setDirectProgressive] = useState(false);
   const downloadPollGenerationRef = useRef(0);
+  const downloadRequestInFlightRef = useRef<string | null>(null);
   // Path to the next playlist video, read by the player's onStateChange when a
   // video ends. A ref keeps the player effect free of playlist dependencies.
   const nextInPlaylistRef = useRef<string | null>(null);
@@ -1202,9 +1203,8 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     transportLocked: watchTogetherTransportLocked,
   });
 
-  // While this video is being fetched — or is playing via the experimental
-  // Track background downloads. A normal remote player remains mounted when
-  // the file becomes ready; the viewer explicitly chooses when to reload it.
+  // Track background downloads; a remote player stays until the viewer reloads.
+  // A "no download" answer while our own request is in flight is stale.
   useEffect(() => {
     const generation = ++downloadPollGenerationRef.current;
     let cancelled = false;
@@ -1228,7 +1228,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
           setDownloadReadyToReload(true);
         }
         setBackgroundDownload({ percent: result.progress?.percent ?? null, speed: result.progress?.speed ?? null, error: result.download?.error ?? null });
-        setVideo((prev) => prev?.video_id === id ? { ...prev, download_status: status, download_pinned: result.download?.pinned ?? 0 } : prev);
+        setVideo((prev) => prev?.video_id === id && !(status === null && downloadRequestInFlightRef.current === id) ? { ...prev, download_status: status, download_pinned: result.download?.pinned ?? 0 } : prev);
       }).catch(() => {}).finally(() => {
         inFlight = false;
         if (isCurrent() && reloadQueued) { reloadQueued = false; load(); }
@@ -1292,16 +1292,20 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
       .finally(() => setChildRequesting(false));
   };
 
-  const requestDownload = (keep = false) => {
+  const requestDownload = (keep = false, device = false) => {
     if (!video) return;
     setDownloadRequestError(false);
     setDownloadReadyToReload(false);
     if (playerKind === "youtube") setPlayerSource("youtube");
     setVideo((prev) => prev ? { ...prev, download_status: "queued", download_pinned: keep ? 1 : prev.download_pinned } : prev);
-    api.requestDownload(video.video_id, false, keep).catch(() => {
+    downloadRequestInFlightRef.current = video.video_id;
+    api.requestDownload(video.video_id, false, keep, undefined, device).then((result) => {
+      setVideo((prev) => prev?.video_id === video.video_id ? { ...prev, download_status: result.download?.status ?? null } : prev);
+      if (!result.download) setDownloadRequestError(true);
+    }).catch(() => {
       setVideo((prev) => prev ? { ...prev, download_status: null } : prev);
       setDownloadRequestError(true);
-    });
+    }).finally(() => { if (downloadRequestInFlightRef.current === video.video_id) downloadRequestInFlightRef.current = null; });
   };
 
   const toggleDownloadPinned = () => {
@@ -1354,12 +1358,10 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     }
   };
 
+  const shareSeconds = () => shareWithTimestamp ? currentPlaybackSeconds() : 0;
   const shareLink = (destination: "webpage" | "youtube") => {
     if (!video) return;
-    let seconds = 0;
-    if (shareWithTimestamp) {
-      seconds = resolveShareTimestamp(enhancePlayerStateRef.current?.state.currentTime, () => playerRef.current?.getCurrentTime?.(), streamPositionRef.current, progressRef.current?.position);
-    }
+    const seconds = shareSeconds();
     return destination === "webpage"
       ? `${window.location.origin}/watch/${video.video_id}${seconds ? `?t=${seconds}` : ""}`
       : markYouTubeUrl(`https://www.youtube.com/watch?v=${video.video_id}${seconds ? `&t=${seconds}s` : ""}`);
@@ -1475,7 +1477,6 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     }
   };
 
-
   return {
     activePlaylistItemRef,
     audioActive,
@@ -1575,6 +1576,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     settings,
     shareLink,
     shareOpen,
+    shareSeconds,
     shareWithTimestamp,
     sharedStartSeconds,
     shortcutFeedback,
@@ -1599,6 +1601,7 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     upNextLoadingNext,
     usingLocal,
     video,
+    setVideo,
     videoCreators,
     videoInfo,
     routePreview,

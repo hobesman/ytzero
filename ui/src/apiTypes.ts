@@ -48,6 +48,7 @@ export interface Video {
   channel_subscriber_count: string | null;
   download_status?: DownloadStatus | null;
   download_pinned?: number;
+  download_source?: string | null; // "device": fetched for the browser, no server copy kept
   download_playlist_protected?: number;
   local_media_source?: "download" | "tubearchivist" | null;
   tubearchivist_available?: number;
@@ -481,7 +482,7 @@ export type DownloadStatus = "queued" | "downloading" | "done" | "error";
 export interface DownloadItem {
   video_id: string;
   status: DownloadStatus;
-  source: "manual" | "scheduled" | "feed";
+  source: "manual" | "scheduled" | "feed" | "device";
   quality: string | null;
   size_bytes: number | null;
   error: string | null;
@@ -999,7 +1000,6 @@ export const BUCKET_LABELS: Record<Bucket, string> = {
   tomorrow_evening: "Jutro wieczorem",
   weekend: "Weekend",
 };
-
 
 export interface InsightProfileRef {
   id: number;
