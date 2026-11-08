@@ -1,5 +1,5 @@
 import { database } from "./database";
-import { classifyIsShort, fetchAllChannelStreams, fetchAllChannelVideos, fetchChannelAbout, fetchChannelFeed, fetchChannelPlaylists, fetchChannelStreams, fetchChannelSubscriberCountFromWatch, fetchChannelVideosDurations, fetchLiveInfo, fetchPlaylistFeed, fetchPlaylistSnapshot, fetchVideoInfo, fetchVideoPublishedAt, isPrivateVideoError } from "./youtube";
+import { classifyIsShort, fetchAllChannelStreams, fetchAllChannelVideos, fetchChannelAbout, fetchChannelFeed, fetchChannelPlaylists, fetchChannelStreams, fetchChannelVideos, fetchChannelSubscriberCountFromWatch, fetchChannelVideosDurations, fetchLiveInfo, fetchPlaylistFeed, fetchPlaylistSnapshot, fetchVideoInfo, fetchVideoPublishedAt, isPrivateVideoError } from "./youtube";
 import { MetadataCookieFallbackBudget } from "./videoMetadataFallback";
 import { applyAutoTags } from "./autotags";
 import { applyPlaylistRulesToVideo } from "./userPlaylists";
@@ -18,10 +18,11 @@ import { manualScheduleIsDue, nextScheduleOccurrenceMs, parseManualRefreshSchedu
 import { liveStatusChanged, resolveActiveLivestreams, type StoredLiveStatus } from "./liveStatus";
 import { channelSyncJobIsRunning } from "./channelSyncRuntime";
 import { isYouTubeRateLimitError, isYouTubeRefusalError } from "./youtubeRateLimit";
-import { RSS_VIDEO_UPSERT_SQL } from "./videoUpserts";
+import { RSS_VIDEO_UPSERT_SQL, SCRAPED_VIDEO_UPSERT_SQL } from "./videoUpserts";
 import { syncChannelVideoAvailability } from "./videoAvailabilitySync";
 import { inferIsShortFromMetadata, shortCheckRetryInterval } from "./shortClassification";
 const upsertVideo = database.prepare(RSS_VIDEO_UPSERT_SQL);
+const upsertScrapedVideo = database.prepare(SCRAPED_VIDEO_UPSERT_SQL);
 const videoExists = database.prepare("SELECT 1 FROM videos WHERE video_id = ?");
 // Politeness limits for the playlist scan during a manual sync, to avoid
 // tripping YouTube's rate limiting (HTTP 429).
@@ -366,29 +367,105 @@ export async function syncChannelPlaylists(channelId: string, userId?: number): 
   return { playlists, added, synced, errors };
 }
 
+interface RecentUpload {
+  videoId: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  publishedAt: string | null;
+  publishedAtApproximate: boolean;
+  views: number | null;
+  likes: number | null;
+  duration: string | null;
+  membersOnly: boolean;
+}
+
+interface RecentUploads {
+  source: "rss" | "uploads-page";
+  channelTitle: string;
+  videos: RecentUpload[];
+}
+
+/** A channel's newest uploads for the quick refresh. RSS is the normal source,
+ * but YouTube's feed endpoint has returned 404 for every channel for long
+ * stretches. The first page of the channel's /videos tab then stands in: it
+ * has no descriptions, exact dates or livestreams, which full syncs and the
+ * metadata maintenance fill in later. */
+async function fetchRecentUploads(channelId: string, userId?: number): Promise<RecentUploads> {
+  let rssError: unknown;
+  try {
+    const feed = await fetchChannelFeed(channelId, userId);
+    return {
+      source: "rss",
+      channelTitle: feed.channelTitle,
+      videos: feed.videos.map((video) => ({
+        videoId: video.videoId, title: video.title, description: video.description,
+        thumbnail: video.thumbnail, publishedAt: video.publishedAt, publishedAtApproximate: false,
+        views: video.views, likes: video.likes, duration: null, membersOnly: false,
+      })),
+    };
+  } catch (error) {
+    // A rate limit or address refusal asks for less traffic, not another
+    // endpoint: scraping now would only deepen the refusal.
+    if (isYouTubeRefusalError(error)) throw error;
+    rssError = error;
+  }
+
+  const rssMessage = rssError instanceof Error ? rssError.message : String(rssError);
+  log.warn("channel.refresh.rss_fallback", { channelId, error: rssMessage });
+  let scraped: Awaited<ReturnType<typeof fetchChannelVideos>>;
+  try {
+    scraped = await fetchChannelVideos(channelId, userId);
+  } catch (error) {
+    if (isYouTubeRefusalError(error)) throw error;
+    throw new Error(`${rssMessage}; uploads page fallback failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return {
+    source: "uploads-page",
+    channelTitle: "",
+    videos: scraped.map((video) => ({
+      videoId: video.videoId, title: video.title, description: "",
+      thumbnail: video.thumbnail, publishedAt: video.publishedAt,
+      publishedAtApproximate: video.publishedAtApproximate,
+      views: video.viewCount, likes: null, duration: video.duration || null,
+      membersOnly: video.membersOnly,
+    })),
+  };
+}
+
 export async function refreshChannel(channelId: string, userId?: number): Promise<{ added: number }> {
   const startedAt = Date.now();
-  const feed = await fetchChannelFeed(channelId, userId);
+  const recent = await fetchRecentUploads(channelId, userId);
   const inheritChannelTags = database.prepare(
     "INSERT OR IGNORE INTO video_tags (video_id, tag_id, source) SELECT ?, tag_id, 'channel' FROM channel_tags WHERE channel_id = ?"
   );
 
   let added = 0; const discoveredVideoIds: string[] = [];
-  for (const v of feed.videos) {
+  for (const v of recent.videos) {
     const isNew = !await videoExists.get(v.videoId);
-    await upsertVideo.run(v.videoId, channelId, v.title, v.description, v.thumbnail, v.publishedAt, v.views, v.likes);
+    if (recent.source === "rss") {
+      await upsertVideo.run(v.videoId, channelId, v.title, v.description, v.thumbnail, v.publishedAt, v.views, v.likes);
+    } else {
+      // The RSS upsert would wipe stored descriptions, clear members-only
+      // badges and promote approximate dates to exact ones.
+      await upsertScrapedVideo.run(
+        v.videoId, channelId, v.title, v.description, v.thumbnail, v.publishedAt,
+        v.publishedAt && v.publishedAtApproximate ? 1 : 0,
+        v.membersOnly ? 1 : 0, v.views, v.likes, v.duration,
+      );
+    }
     if (isNew) {
       await notifyTagRuleMatches(v.videoId, await applyAutoTags(v.videoId, v.title, v.description));
       await applyFilterRules(v.videoId, channelId, v.title, v.description);
       await applyPlaylistRulesToVideo(v.videoId);
       await inheritChannelTags.run(v.videoId, channelId);
       added++; discoveredVideoIds.push(v.videoId);
-      log.info("video.added", { source: "rss", channelId, videoId: v.videoId, title: v.title, publishedAt: v.publishedAt });
+      log.info("video.added", { source: recent.source, channelId, videoId: v.videoId, title: v.title, publishedAt: v.publishedAt });
     }
   }
   const availability = await syncChannelVideoAvailability(
     channelId,
-    new Set(feed.videos.map((video) => video.videoId)),
+    new Set(recent.videos.map((video) => video.videoId)),
   );
   if (availability.rateLimited) throw new Error("YouTube availability check failed (429)");
 
@@ -401,7 +478,9 @@ export async function refreshChannel(channelId: string, userId?: number): Promis
        AND COALESCE(published_at, created_at) >= datetime('now', ?)
      LIMIT 1`
   ).get(channelId, VIDEO_MAINTENANCE_CUTOFF);
-  if (missingDuration) {
+  // The fallback already read this same /videos page and stored its durations;
+  // fetching it again would only double the requests to YouTube.
+  if (missingDuration && recent.source === "rss") {
     try {
       const durations = await fetchChannelVideosDurations(channelId, userId);
       const upd = database.prepare("UPDATE videos SET duration = ? WHERE video_id = ? AND (duration IS NULL OR TRIM(duration) = '')");
@@ -413,18 +492,18 @@ export async function refreshChannel(channelId: string, userId?: number): Promis
 
   // Duration is a free, authoritative negative Shorts signal. Populate it
   // before asking the Shorts route so ordinary long videos never hit YouTube.
-  await backfillShorts(feed.videos.map((v) => v.videoId));
+  await backfillShorts(recent.videos.map((v) => v.videoId));
 
-  if (feed.channelTitle) {
+  if (recent.channelTitle) {
     await database.prepare(
       "UPDATE channels SET title = ?, last_refreshed_at = datetime('now') WHERE channel_id = ? AND title = ''"
-    ).run(feed.channelTitle, channelId);
+    ).run(recent.channelTitle, channelId);
   }
   await refreshChannelMetadata(channelId).catch((e) => {
     log.warn("channel.metadata_refresh_failed", { channelId, error: e instanceof Error ? e.message : String(e) });
   });
   await database.prepare("UPDATE channels SET last_refreshed_at = datetime('now') WHERE channel_id = ?").run(channelId);
-  await notifyChannelVideos(channelId, discoveredVideoIds); if (added > 0) log.info("channel.refresh.added", { channelId, title: feed.channelTitle, added, ms: Date.now() - startedAt });
+  await notifyChannelVideos(channelId, discoveredVideoIds); if (added > 0) log.info("channel.refresh.added", { channelId, title: recent.channelTitle, source: recent.source, added, ms: Date.now() - startedAt });
   return { added };
 }
 
@@ -747,30 +826,7 @@ async function runChannelSync(channelId: string, userId?: number): Promise<Chann
   const scrapedVideos = [...new Map([...scraped, ...streams].map((v) => [v.videoId, v])).values()];
 
   const feedMap = new Map(feed.videos.map((v) => [v.videoId, v]));
-  const insertOrUpdate = database.prepare(`
-    INSERT INTO videos (video_id, channel_id, title, description, thumbnail, published_at, published_at_approximate, members_only, views, likes, duration)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(video_id) DO UPDATE SET
-      title = excluded.title,
-      thumbnail = CASE WHEN TRIM(excluded.thumbnail) != '' THEN excluded.thumbnail ELSE videos.thumbnail END,
-      published_at = CASE
-        WHEN excluded.published_at IS NULL OR excluded.published_at = '' THEN videos.published_at
-        WHEN excluded.published_at_approximate = 0 THEN excluded.published_at
-        ELSE COALESCE(videos.published_at, excluded.published_at)
-      END,
-      published_at_approximate = CASE
-        WHEN excluded.published_at IS NULL OR excluded.published_at = '' THEN videos.published_at_approximate
-        WHEN excluded.published_at_approximate = 0 THEN 0
-        WHEN videos.published_at IS NULL OR videos.published_at = '' THEN 1
-        ELSE videos.published_at_approximate
-      END,
-      members_only = excluded.members_only,
-      views = COALESCE(excluded.views, videos.views),
-      duration = COALESCE(excluded.duration, videos.duration),
-      is_private = 0,
-      is_unavailable = 0,
-      availability_checked_at = datetime('now')
-  `);
+  const insertOrUpdate = upsertScrapedVideo;
   const markArchivedStream = database.prepare(
     "UPDATE videos SET live_status = 'was_live' WHERE video_id = ? AND live_status = 'none'"
   );
