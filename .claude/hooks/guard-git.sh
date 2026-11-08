@@ -9,6 +9,9 @@ payload=$(cat)
 cmd=$(json_field command "$payload")
 cwd=$(json_field cwd "$payload")
 [ -n "$cmd" ] || allow
+# Check only what the shell would run, not quoted text or here-document bodies:
+# a commit message that mentions a stash command must not be refused for it.
+cmd=$(command_text "$cmd")
 [ -n "$cwd" ] && cd "$cwd" 2>/dev/null
 
 # --- the shared stash stack -------------------------------------------------
