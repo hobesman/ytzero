@@ -4,12 +4,15 @@ type Messages = {
   openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
   navLibrary: string; phoneLayout: string; phoneLayoutHint: string; phoneScreenNotReady: string; account: string;
+  enterFullscreen: string; exitFullscreen: string;
 };
 
 export const phoneMessages: Record<Language, Messages> = {
   en: {
     openSignInPage: "Open sign-in page",
     playbackSpeed: "Playback speed",
+    enterFullscreen: "Full screen",
+    exitFullscreen: "Exit full screen",
     navLibrary: "Library",
     phoneLayout: "Phone layout (preview)",
     phoneLayoutHint: "Use the new phone design. Some screens are still being built.",
@@ -24,6 +27,8 @@ export const phoneMessages: Record<Language, Messages> = {
   pl: {
     openSignInPage: "Otwórz stronę logowania",
     playbackSpeed: "Prędkość odtwarzania",
+    enterFullscreen: "Pełny ekran",
+    exitFullscreen: "Zamknij pełny ekran",
     navLibrary: "Biblioteka",
     phoneLayout: "Układ na telefon (podgląd)",
     phoneLayoutHint: "Używaj nowego wyglądu na telefon. Niektóre ekrany są jeszcze w budowie.",
@@ -38,6 +43,8 @@ export const phoneMessages: Record<Language, Messages> = {
   de: {
     openSignInPage: "Anmeldeseite öffnen",
     playbackSpeed: "Wiedergabegeschwindigkeit",
+    enterFullscreen: "Vollbild",
+    exitFullscreen: "Vollbild beenden",
     navLibrary: "Mediathek",
     phoneLayout: "Smartphone-Layout (Vorschau)",
     phoneLayoutHint: "Das neue Smartphone-Design verwenden. Einige Bildschirme sind noch in Arbeit.",
@@ -52,6 +59,8 @@ export const phoneMessages: Record<Language, Messages> = {
   fr: {
     openSignInPage: "Ouvrir la page de connexion",
     playbackSpeed: "Vitesse de lecture",
+    enterFullscreen: "Plein écran",
+    exitFullscreen: "Quitter le plein écran",
     navLibrary: "Bibliothèque",
     phoneLayout: "Disposition téléphone (aperçu)",
     phoneLayoutHint: "Utiliser le nouveau design pour téléphone. Certains écrans sont encore en préparation.",
@@ -66,6 +75,8 @@ export const phoneMessages: Record<Language, Messages> = {
   es: {
     openSignInPage: "Abrir la página de inicio de sesión",
     playbackSpeed: "Velocidad de reproducción",
+    enterFullscreen: "Pantalla completa",
+    exitFullscreen: "Salir de pantalla completa",
     navLibrary: "Biblioteca",
     phoneLayout: "Diseño para teléfono (vista previa)",
     phoneLayoutHint: "Usa el nuevo diseño para teléfono. Algunas pantallas aún están en desarrollo.",
@@ -80,6 +91,8 @@ export const phoneMessages: Record<Language, Messages> = {
   "pt-BR": {
     openSignInPage: "Abrir página de login",
     playbackSpeed: "Velocidade de reprodução",
+    enterFullscreen: "Tela cheia",
+    exitFullscreen: "Sair da tela cheia",
     navLibrary: "Biblioteca",
     phoneLayout: "Layout para celular (prévia)",
     phoneLayoutHint: "Use o novo design para celular. Algumas telas ainda estão em construção.",
@@ -94,6 +107,8 @@ export const phoneMessages: Record<Language, Messages> = {
   ru: {
     openSignInPage: "Открыть страницу входа",
     playbackSpeed: "Скорость воспроизведения",
+    enterFullscreen: "Во весь экран",
+    exitFullscreen: "Выйти из полноэкранного режима",
     navLibrary: "Библиотека",
     phoneLayout: "Макет для телефона (предпросмотр)",
     phoneLayoutHint: "Использовать новый дизайн для телефона. Некоторые экраны ещё в разработке.",
@@ -108,6 +123,8 @@ export const phoneMessages: Record<Language, Messages> = {
   ja: {
     openSignInPage: "サインインページを開く",
     playbackSpeed: "再生速度",
+    enterFullscreen: "全画面表示",
+    exitFullscreen: "全画面表示を終了",
     navLibrary: "ライブラリ",
     phoneLayout: "スマートフォン用レイアウト（プレビュー）",
     phoneLayoutHint: "新しいスマートフォン用デザインを使います。一部の画面はまだ作成中です。",
@@ -122,6 +139,8 @@ export const phoneMessages: Record<Language, Messages> = {
   hu: {
     openSignInPage: "Bejelentkezési oldal megnyitása",
     playbackSpeed: "Lejátszási sebesség",
+    enterFullscreen: "Teljes képernyő",
+    exitFullscreen: "Kilépés a teljes képernyőből",
     navLibrary: "Könyvtár",
     phoneLayout: "Telefonos elrendezés (előnézet)",
     phoneLayoutHint: "Az új telefonos dizájn használata. Néhány képernyő még készül.",

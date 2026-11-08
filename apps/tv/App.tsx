@@ -2,7 +2,7 @@ import { isFocusInteraction } from "./src/focusEntry";
 import { lastActivatedVideoTarget, requestTvFocus, TvContentFocusRequests, useTvShellFocus } from "./src/focus";
 import { restoreFocus } from "./src/focusRestoration";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Animated, BackHandler, Platform, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, View, type FocusDestination } from "react-native";
+import { Animated, BackHandler, Platform, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
 import { YtZeroApi } from "./src/api";
 import { deviceLanguage, normalizeLanguage, translator, type Translate } from "./src/i18n";
 import { InstanceScreen } from "./src/screens/InstanceScreen";
@@ -116,6 +116,7 @@ function TvApp() {
   // The phone design (a preview) replaces the scaled TV layout on Android phones.
   const [phoneDesign, setPhoneDesign] = useState(false);
   const phoneMode = phoneDesign && phoneDesignAvailable;
+  const [phonePlaying, setPhonePlaying] = useState(false);
   const phoneLayout = usePhoneScale(!phoneMode && screen !== "instance" && screen !== "pair");
   const { width, height } = phoneLayout.size;
   const backdropController = useMemo(createBackdropController, []);
@@ -302,6 +303,12 @@ function TvApp() {
         return true;
       }
       if (screen === "detail") {
+        // Phones: Back from a playing video's page keeps it playing in the mini player.
+        if (phoneMode && phonePlaying) {
+          setPlayerDocked(true);
+          setScreen(detailReturnScreen);
+          return true;
+        }
         setSelected(null);
         setScreen(detailReturnScreen);
         return true;
@@ -326,7 +333,7 @@ function TvApp() {
       subscription.remove();
       TVEventControl.disableTVMenuKey();
     };
-  }, [detailReturnScreen, pairingFromSettings, returnDestination, screen]);
+  }, [detailReturnScreen, pairingFromSettings, phoneMode, phonePlaying, returnDestination, screen]);
 
   const navigate = useCallback((destination: TvDestination) => {
     setSelectedPlaylistId(null);
@@ -594,17 +601,30 @@ function TvApp() {
     await savePhoneLayout(deviceStore, value);
     setPhoneDesign(value);
   }, []);
-  // The phone design browses in portrait and lets an open video rotate; the scaled TV layout stays landscape.
+  // The phone design browses in portrait. On a video's page the phone may rotate, and turning it
+  // sideways while the video plays goes fullscreen; leaving fullscreen holds portrait for that video.
+  // The scaled TV layout stays landscape.
   const videoOpen = screen === "detail" && !playerDocked;
+  const [videoFullscreen, setVideoFullscreen] = useState(false);
+  const [portraitHeld, setPortraitHeld] = useState(false);
+  const windowSize = useWindowDimensions();
   useEffect(() => {
-    if (phoneDesignAvailable) setPhoneOrientation(!phoneMode ? "landscape" : videoOpen ? "sensor" : "portrait");
-  }, [phoneMode, videoOpen]);
-  // The phone design has no details screen yet, so a video always starts playing.
-  const openPhoneVideo = useCallback<OpenVideo>((video, context, _play, position) => {
+    if (!phoneDesignAvailable) return;
+    setPhoneOrientation(!phoneMode ? "landscape" : !videoOpen ? "portrait" : videoFullscreen ? "landscape" : portraitHeld ? "portrait" : "sensor");
+  }, [phoneMode, portraitHeld, videoFullscreen, videoOpen]);
+  useEffect(() => { setVideoFullscreen(false); setPortraitHeld(false); }, [videoOpen, selected?.video_id]);
+  useEffect(() => {
+    if (phoneMode && videoOpen && phonePlaying && !videoFullscreen && !portraitHeld && windowSize.width > windowSize.height) setVideoFullscreen(true);
+  }, [phoneMode, phonePlaying, portraitHeld, videoFullscreen, videoOpen, windowSize.height, windowSize.width]);
+  const toggleVideoFullscreen = useCallback(() => {
+    if (videoFullscreen) setPortraitHeld(true);
+    setVideoFullscreen(!videoFullscreen);
+  }, [videoFullscreen]);
+  const openPhoneVideo = useCallback<OpenVideo>((video, context, play, position) => {
     setDetailReturnScreen("/");
     setReturnDestination("/");
     if (screenRef.current !== "detail") setScreen("/");
-    openVideo(video, context, true, position);
+    openVideo(video, context, play, position);
   }, [openVideo]);
   const phoneSettings = useMemo(() => ({
     instanceUrl, openDetails, phoneLayout: phoneDesign,
@@ -655,6 +675,10 @@ function TvApp() {
         onDockPlayer={dockPlayer}
         onExpandPlayer={expandPlayer}
         onDockedPlayerClosed={closeDockedPlayer}
+        phone={phoneMode}
+        playerFullscreen={videoFullscreen}
+        onToggleFullscreen={toggleVideoFullscreen}
+        onPlayingChange={setPhonePlaying}
       />
     );
 

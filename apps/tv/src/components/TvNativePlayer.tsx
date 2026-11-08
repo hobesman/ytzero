@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createVideoPlayer, VideoView } from "expo-video";
-import { AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedOptions } from "../playbackSpeeds";
 import { TvChoiceSheet } from "./TvChoiceSheet";
@@ -34,6 +35,8 @@ type Props = {
   onClose: (result: PlaybackResult, next?: Video, playedVideo?: Video) => void;
   /** Phones: Back minimizes the player to a corner, and the viewer keeps browsing. */
   docked?: boolean; onDock?: () => void; onExpand?: () => void;
+  /** Phones: "inline" draws the player in the details page; fullscreen uses the Modal. */
+  presentation?: "modal" | "inline"; onToggleFullscreen?: () => void;
 };
 const presentsNativeFullscreen = Platform.OS === "ios";
 // Android plays inline with ExoPlayer's controls, whose speed menu stops at 2×,
@@ -58,7 +61,7 @@ function playbackFailure(error: unknown): Failure {
 
 /** One modal and one AVKit controller for the entire Shorts session. */
 export function TvNativePlayer(props: Props) {
-  const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading, docked = false } = props;
+  const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading, docked = false, presentation = "modal" } = props;
   const dockable = canDock && Boolean(props.onDock);
   const miniPlayerSlot = useMiniPlayerSlot();
   const latest = useRef(props);
@@ -327,6 +330,13 @@ export function TvNativePlayer(props: Props) {
       .finally(() => { if (activating.current === active) activating.current = null; });
   };
   useEffect(() => { present(); }, [active, ready]);
+  // The inline player has no Modal to show; it is on screen as soon as it mounts.
+  useEffect(() => {
+    if (presentation !== "inline" || modalShown.current) return;
+    modalShown.current = true;
+    setModalVisible(true);
+    present();
+  }, [presentation]);
   useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close(); }, true);
 
   useEffect(() => {
@@ -440,39 +450,69 @@ export function TvNativePlayer(props: Props) {
   }, [active, dismissing, error, modalVisible, presented, ready]);
 
   const currentVideo = active?.video ?? video;
+  const inline = presentation === "inline";
+  const showButtons = presented && !dismissing && (speedButton || paused);
+  const surface = <>
+    {/* A touch shows ExoPlayer's controls; show the app's buttons alongside them. */}
+    <View style={styles.video} onTouchStart={revealSpeedButton}>
+    <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
+      fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
+      buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
+      onFullscreenExit={() => {
+        // On Android, leaving a fullscreen the viewer chose returns to the inline player.
+        if (!presentsNativeFullscreen) return;
+        fullscreen.current = false;
+        setPresented(false);
+        if (!failure.current) void close();
+      }} />
+    {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && styles.inlineButtons]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
+        style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
+        onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
+        <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
+      </Pressable>
+      {props.onToggleFullscreen ? <Pressable accessibilityRole="button" accessibilityLabel={t(inline ? "enterFullscreen" : "exitFullscreen")} hitSlop={12}
+        style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]} onPress={props.onToggleFullscreen}>
+        <Svg width={20} height={20} viewBox="0 0 24 24">
+          <Path stroke={colors.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none"
+            d={inline ? "M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" : "M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"} />
+        </Svg>
+      </Pressable> : null}
+    </View> : null}
+    </View>
+  </>;
+  const speedChoice = speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
+    options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
+    onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); }}
+    onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : null;
+
+  // Phones: the player drawn in the details page, above its title and actions.
+  if (inline && !docked) return <View style={styles.inline}>
+    {surface}
+    {speedChoice}
+    {!presented && !dismissing ? <View style={styles.inlinePanel}>
+      {error ? <>
+        <Text style={styles.inlineError}>{t(error)}</Text>
+        {error !== "playbackRestricted" ? <Pressable accessibilityRole="button" style={styles.inlineRetry} onPress={() => { switching.current = false; setAttempt((value) => value + 1); }}>
+          <Text style={styles.speedButtonText}>{t("tryAgain")}</Text>
+        </Pressable> : null}
+      </> : <ActivityIndicator color={colors.text} size="large" accessibilityLabel={t("preparingPlayback")} />}
+    </View> : null}
+  </View>;
+
   return (
-    <Modal visible={!docked} animationType="none" onShow={() => { modalShown.current = true; setModalVisible(true); if (!presented) present(); }} onRequestClose={() => {
-      if (dockable && presented && !error) props.onDock?.();
+    <Modal visible={!docked && !inline} animationType="none" supportedOrientations={["portrait", "landscape"]}
+      onShow={() => { modalShown.current = true; setModalVisible(true); if (!presented) present(); }} onRequestClose={() => {
+      // Phones: Back leaves fullscreen for the details page.
+      if (props.onToggleFullscreen) props.onToggleFullscreen();
+      else if (dockable && presented && !error) props.onDock?.();
       else if (fullscreen.current) void exitPresentation(); else void close();
     }}>
       <SafeAreaProvider>
       <TvFocusScope style={styles.screen}>
         {/* Android draws this Modal edge to edge; keep the controls clear of the system bars. */}
-        <SafeAreaView edges={playerSafeEdges} style={styles.video}>
-        {/* A touch shows ExoPlayer's controls; show the speed button alongside them. */}
-        <View style={styles.video} onTouchStart={revealSpeedButton}>
-        <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
-          fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
-          buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
-          onFullscreenExit={() => {
-            // On Android, leaving a fullscreen the viewer chose returns to the inline player.
-            if (!presentsNativeFullscreen) return;
-            fullscreen.current = false;
-            setPresented(false);
-            if (!failure.current) void close();
-          }} />
-        {ownsSpeedControl && presented && !dismissing && (speedButton || paused) ? <Pressable accessibilityRole="button"
-          accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
-          style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
-          onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
-          <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
-        </Pressable> : null}
-        </View>
-        </SafeAreaView>
-        {speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
-          options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
-          onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); }}
-          onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : null}
+        <SafeAreaView edges={playerSafeEdges} style={styles.video}>{surface}</SafeAreaView>
+        {speedChoice}
         {!presented && !dismissing ? <View style={styles.panel}>
           {!error ? <TvLoadingMark accessibilityLabel={t("preparingPlayback")} size={48} /> : null}
           <Text style={styles.eyebrow}>{error ? t("playbackErrorTitle") : t("preparingPlayback")}</Text>
@@ -498,8 +538,14 @@ const styles = StyleSheet.create({
   title: { maxWidth: 1060, textAlign: "center", color: colors.text, fontSize: 38, lineHeight: 48, fontWeight: "700" },
   description: { maxWidth: 960, color: colors.textMuted, fontSize: typography.caption.fontSize, lineHeight: 32, textAlign: "center" },
   actions: { flexDirection: "row", gap: 20, marginTop: 16 },
-  speedButton: { position: "absolute", top: 16, right: 16, minWidth: 56, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
-    backgroundColor: "rgba(0, 0, 0, 0.6)", alignItems: "center" },
+  playerButtons: { position: "absolute", top: 16, right: 16, flexDirection: "row", gap: 10 },
+  inlineButtons: { top: 8, right: 8 },
+  inline: { flex: 1, backgroundColor: colors.black },
+  inlinePanel: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", gap: 12, padding: 16, backgroundColor: colors.black },
+  inlineError: { color: colors.text, fontSize: 14, textAlign: "center" },
+  inlineRetry: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)" },
+  speedButton: { minWidth: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)" },
   speedButtonPressed: { backgroundColor: "rgba(255, 255, 255, 0.25)" },
   speedButtonText: { color: colors.text, fontSize: 16, lineHeight: 20, fontWeight: "700" },
 });
