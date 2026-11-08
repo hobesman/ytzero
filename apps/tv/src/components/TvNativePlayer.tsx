@@ -319,6 +319,9 @@ export function TvNativePlayer(props: Props) {
         logDiagnostic(`player playToEnd at ${player.currentTime}/${player.duration}`);
         const current = session.current;
         if (!current || current.entry !== active || current.finished || switching.current) return;
+        // Android's ExoPlayer reports "ended" while still empty, before the
+        // source loads. Only a player that played or knows its length can end.
+        if (!current.didPlay && !(player.duration > 0)) { logDiagnostic("ignored playToEnd before load"); return; }
         current.completed = active.video.live_status !== "live";
         const next = latest.current.advanceOnEnd ? latest.current.nextVideo : null;
         if (next) void advance(next);

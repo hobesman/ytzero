@@ -26,6 +26,7 @@ import { TvLaunchAnimation } from "./src/components/TvLaunchAnimation";
 import { DiagnosticOverlay } from "./src/components/DiagnosticOverlay";
 import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
+import { setSessionCookie } from "./src/sessionCookie";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
@@ -156,6 +157,16 @@ function TvApp() {
   const t = useMemo(() => translator(language), [language]);
   const api = useMemo(() => instanceUrl ? new YtZeroApi(instanceUrl, accessToken) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
+  // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
+  const cookieInstance = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = cookieInstance.current;
+    cookieInstance.current = instanceUrl ?? null;
+    void (async () => {
+      if (previous && previous !== instanceUrl) await setSessionCookie(previous, null);
+      if (instanceUrl) await setSessionCookie(instanceUrl, accessToken ?? null);
+    })().catch(() => {});
+  }, [accessToken, instanceUrl]);
   const browsingScreen = screen === "detail" ? detailReturnScreen : screen;
   const shellDestination: TvDestination | null = browsingScreen === "playlist" ? "/followed-playlists" : browsingScreen === "channel" ? returnDestination : browsingScreen === "/settings" || isTvBrowseDestination(browsingScreen) ? browsingScreen : null;
   const hasShell = Boolean(api) && shellDestination !== null;
