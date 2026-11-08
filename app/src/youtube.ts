@@ -1,7 +1,8 @@
 import { XMLParser } from "fast-xml-parser";
 import { createRequire } from "module";
 import { decodeHtmlEntities } from "./htmlEntities";
-import { log } from "./logger";
+import { youtubeFetch } from "./youtubeFetch";
+import { walkContinuationPages } from "./continuationPages";
 import { createYoutubeSearch, parseAbbreviatedCount } from "./youtubeSearch";
 import { isYouTubeRateLimitError, isYouTubeRefusalError, readYouTubeResponse, YouTubeRefusalError, youtubeRefusalGate } from "./youtubeRateLimit";
 import { DeletedVideoError, fetchVideoOEmbedAvailability, isDeletedVideoError, isPrivateVideoError, PrivateVideoError } from "./youtubeVideoAvailability";
@@ -16,27 +17,6 @@ const InnerTubeClient = _require("innertube.js");
 const _yt = new InnerTubeClient();
 
 const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
-
-function positiveMilliseconds(value: string | undefined, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-/** Upper bound for one YouTube request. Without it, a connection YouTube
- * stops answering hangs its caller forever: a full channel sync then spins
- * indefinitely, and every later sync for that profile queues behind it. */
-const YOUTUBE_FETCH_TIMEOUT_MS = positiveMilliseconds(process.env.YOUTUBE_FETCH_TIMEOUT_MS, 30_000);
-
-async function youtubeFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  try {
-    return await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(YOUTUBE_FETCH_TIMEOUT_MS) });
-  } catch (error) {
-    if ((error as { name?: string } | null)?.name === "TimeoutError") {
-      throw new Error(`YouTube request timed out after ${Math.round(YOUTUBE_FETCH_TIMEOUT_MS / 1_000)}s (${new URL(url).pathname})`);
-    }
-    throw error;
-  }
-}
 
 export interface FeedVideo {
   videoId: string;
@@ -834,41 +814,14 @@ async function fetchChannelTabVideos(
   if (!fullHistory) return out;
 
   const config = innertubeBrowseConfig(html);
-  let token = playlistContinuationToken(data);
-  if (token && !config) throw new Error(`channel ${tab} continuation configuration missing`);
-  const requestedTokens = new Set<string>();
-  let pageFailed = false;
-  for (let page = 0; config && token && page < MAX_BROWSE_CONTINUATION_PAGES; page++) {
-    if (requestedTokens.has(token)) throw new Error(`channel ${tab} continuation repeated`);
-    requestedTokens.add(token);
-    let continuation: any;
-    try {
-      continuation = await fetchBrowseContinuation(token, config, language);
-    } catch (error) {
-      // A rate limit or address refusal must still stop the sync so it backs
-      // off from YouTube. Anything else (a timeout, a stray 5xx) only loses
-      // the older pages: keep the newer videos already collected.
-      if (isYouTubeRefusalError(error)) throw error;
-      log.warn("channel.history_page_failed", {
-        channelId, tab, page: page + 1, collected: out.length,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      pageFailed = true;
-      break;
-    }
-    collectChannelTabVideos(continuation, out, seen);
-    token = playlistContinuationToken(continuation);
-  }
-  // A very large channel can have more history than the page cap allows. Keep
-  // the (most recent) videos already collected instead of discarding the whole
-  // sync: the pages walk newest-first, so the recent uploads that matter are
-  // present, and later syncs pick up anything newer. The cap still bounds how
-  // hard one sync scrapes YouTube.
-  if (token && !pageFailed) {
-    log.warn("channel.history_truncated", {
-      channelId, tab, pages: MAX_BROWSE_CONTINUATION_PAGES, collected: out.length,
-    });
-  }
+  const firstToken = playlistContinuationToken(data);
+  if (firstToken && !config) throw new Error(`channel ${tab} continuation configuration missing`);
+  if (config) await walkContinuationPages({
+    label: `channel ${tab}`, logFields: { channelId, tab }, firstToken, maxPages: MAX_BROWSE_CONTINUATION_PAGES,
+    fetchPage: (token) => fetchBrowseContinuation(token, config, language),
+    collect: (page) => collectChannelTabVideos(page, out, seen),
+    nextToken: playlistContinuationToken, collected: () => out.length,
+  });
   return out;
 }
 

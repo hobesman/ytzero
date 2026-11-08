@@ -454,10 +454,6 @@ api.put("/channels/:id/speed", async (c) => {
   const { speed } = await c.req.json<{ speed: string | null }>();
   const value = !speed || speed === "default" ? null : normalizePlaybackSpeed(speed);
   if (speed && speed !== "default" && value === null) return c.json({ error: "invalid playback speed" }, 400);
-  // user_channels.followed defaults to 1, so a settings row created for a
-  // channel the profile does not follow must say followed = 0 explicitly.
-  // Otherwise changing the speed while watching an external video silently
-  // subscribes to its channel. An existing row keeps its follow state.
   await database.prepare(
     `INSERT INTO user_channels (user_id, channel_id, followed, playback_speed) VALUES (?, ?, 0, ?)
      ON CONFLICT(user_id, channel_id) DO UPDATE SET playback_speed = excluded.playback_speed`
