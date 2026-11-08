@@ -480,7 +480,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   async function readIndex(source: DirectVideoMediaSource, signal: AbortSignal): Promise<
     | { kind: "ok"; indexed: IndexedSource }
     | { kind: "unsupported" }
-    | { kind: "failed" }
+    | { kind: "failed"; reason: string }
   > {
     let requestedBytes = INITIAL_INDEX_BYTES;
     while (!signal.aborted && requestedBytes <= MAX_INDEX_BYTES) {
@@ -489,15 +489,16 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         const response = await fetchRange(source, 0, requestedBytes - 1, operation.signal);
         if (!response || response.status === 403 || response.status === 404 || response.status === 410) {
           await response?.body?.cancel().catch(() => {});
-          return { kind: "failed" };
+          return { kind: "failed", reason: response ? `http_${response.status}` : "no_response" };
         }
         const range = validatedContentRange(response, 0, requestedBytes - 1);
         if (!range) {
           await response.body?.cancel().catch(() => {});
-          return { kind: "failed" };
+          return { kind: "failed", reason: `invalid_range_${response.status}` };
         }
         const buffer = await response.arrayBuffer().catch(() => null);
-        if (!buffer || buffer.byteLength !== range.length || operation.signal.aborted) return { kind: "failed" };
+        if (operation.signal.aborted) return { kind: "failed", reason: "timeout" };
+        if (!buffer || buffer.byteLength !== range.length) return { kind: "failed", reason: "short_body" };
         const bytes = new Uint8Array(buffer);
         const parsed = parseMediaSidx(bytes, range.total);
         if (parsed.kind === "need_more") {
@@ -513,7 +514,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         operation.dispose();
       }
     }
-    return { kind: "failed" };
+    return { kind: "failed", reason: signal.aborted ? "aborted" : "index_too_large" };
   }
 
   function presentationFor(videoId: string, sources: DirectVideoSources, video: IndexedSource, audio: IndexedSource) {
@@ -556,6 +557,12 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       readIndex(sources.audio, signal),
     ]);
     if (signal.aborted || video.kind === "failed" || audio.kind === "failed") {
+      if (!signal.aborted) log.warn("downloads.direct_stream_index_failed", {
+        userId, videoId,
+        videoFormatId: sources.video.formatId, audioFormatId: sources.audio.formatId,
+        video: video.kind === "failed" ? video.reason : video.kind,
+        audio: audio.kind === "failed" ? audio.reason : audio.kind,
+      });
       // A refused signed URL must not poison every manifest retry for hours.
       const key = keyFor(userId, videoId);
       if (sourceCache.get(key)?.sources === sources) sourceCache.delete(key);

@@ -3,6 +3,9 @@ import { existsSync, statSync } from "node:fs";
 import { validateSession } from "./auth";
 import { childStatus, type ChildStatus } from "./childTime";
 import { database } from "./database";
+import { directVideoStreaming } from "./directVideoStreaming";
+import { log } from "./logger";
+import { nativeKindForDirectPlaylist } from "./nativePlaybackKind";
 import { ensureMobilePlayback, getDownload, ytdlpStatus } from "./downloader";
 import { authorizeHlsPlaylist, MediaTicketStore, ticketAllowsPath, type NativeMediaKind } from "./mediaTickets";
 import { tubeArchivistConfigured } from "./tubeArchivist";
@@ -43,7 +46,7 @@ export async function nativePlaybackAccess(userId: number, videoId: string): Pro
   return { video, child };
 }
 
-export async function nativePlaybackSource(userId: number, videoId: string): Promise<
+export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal): Promise<
   { kind: NativeMediaKind } | { preparing: true } | { error: string; status: 403 | 404 | 409 | 503 }
 > {
   const access = await nativePlaybackAccess(userId, videoId);
@@ -71,7 +74,11 @@ export async function nativePlaybackSource(userId: number, videoId: string): Pro
   // AVPlayer can combine the H.264/AAC renditions even when YouTube offers no
   // progressive MP4. This path never starts an offline download, including
   // when experimental play-while-downloading is enabled in the web client.
-  return { kind: "direct-hls" };
+  // Building the playlist here caches the session for the client's request.
+  const playlist = await directVideoStreaming.getDirectHlsPlaylist(userId, videoId, "index.m3u8", signal, null);
+  const kind = nativeKindForDirectPlaylist(playlist.kind);
+  if (kind === "direct") log.info("downloads.native_playback_progressive_fallback", { userId, videoId, reason: playlist.kind });
+  return { kind };
 }
 
 /** Called in place of ordinary auth only when a media capability is present. */
