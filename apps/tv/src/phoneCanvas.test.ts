@@ -18,3 +18,11 @@ describe("phoneCanvas", () => {
     expect(phoneCanvas(0, 0, false)).toBeNull();
   });
 });
+
+describe("phoneCanvas in portrait", () => {
+  test("fits the TV layout's width", () => {
+    const canvas = phoneCanvas(410, 860, false)!;
+    expect(canvas.width).toBeCloseTo(1280);
+    expect(canvas.scale).toBeCloseTo(410 / 1280);
+  });
+});

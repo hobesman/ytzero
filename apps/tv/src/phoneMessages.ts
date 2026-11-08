@@ -3,12 +3,18 @@ import type { Language } from "./types";
 type Messages = {
   openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
+  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; phoneScreenNotReady: string; account: string;
 };
 
 export const phoneMessages: Record<Language, Messages> = {
   en: {
     openSignInPage: "Open sign-in page",
     playbackSpeed: "Playback speed",
+    navLibrary: "Library",
+    phoneLayout: "Phone layout (preview)",
+    phoneLayoutHint: "Use the new phone design. Some screens are still being built.",
+    phoneScreenNotReady: "This screen isn't in the phone layout yet. Turn off the phone layout in Settings to use it.",
+    account: "Account",
     miniPlayerExpand: "Expand player",
     miniPlayerClose: "Close player",
     miniPlayerPlay: "Play",
@@ -18,6 +24,11 @@ export const phoneMessages: Record<Language, Messages> = {
   pl: {
     openSignInPage: "Otwórz stronę logowania",
     playbackSpeed: "Prędkość odtwarzania",
+    navLibrary: "Biblioteka",
+    phoneLayout: "Układ na telefon (podgląd)",
+    phoneLayoutHint: "Używaj nowego wyglądu na telefon. Niektóre ekrany są jeszcze w budowie.",
+    phoneScreenNotReady: "Tego ekranu nie ma jeszcze w układzie na telefon. Wyłącz układ na telefon w Ustawieniach, aby z niego skorzystać.",
+    account: "Konto",
     miniPlayerExpand: "Rozwiń odtwarzacz",
     miniPlayerClose: "Zamknij odtwarzacz",
     miniPlayerPlay: "Odtwórz",
@@ -27,6 +38,11 @@ export const phoneMessages: Record<Language, Messages> = {
   de: {
     openSignInPage: "Anmeldeseite öffnen",
     playbackSpeed: "Wiedergabegeschwindigkeit",
+    navLibrary: "Mediathek",
+    phoneLayout: "Smartphone-Layout (Vorschau)",
+    phoneLayoutHint: "Das neue Smartphone-Design verwenden. Einige Bildschirme sind noch in Arbeit.",
+    phoneScreenNotReady: "Dieser Bildschirm ist im Smartphone-Layout noch nicht verfügbar. Schalte das Smartphone-Layout in den Einstellungen aus, um ihn zu verwenden.",
+    account: "Konto",
     miniPlayerExpand: "Player vergrößern",
     miniPlayerClose: "Player schließen",
     miniPlayerPlay: "Abspielen",
@@ -36,6 +52,11 @@ export const phoneMessages: Record<Language, Messages> = {
   fr: {
     openSignInPage: "Ouvrir la page de connexion",
     playbackSpeed: "Vitesse de lecture",
+    navLibrary: "Bibliothèque",
+    phoneLayout: "Disposition téléphone (aperçu)",
+    phoneLayoutHint: "Utiliser le nouveau design pour téléphone. Certains écrans sont encore en préparation.",
+    phoneScreenNotReady: "Cet écran n'est pas encore disponible dans la disposition téléphone. Désactivez-la dans les Paramètres pour l'utiliser.",
+    account: "Compte",
     miniPlayerExpand: "Agrandir le lecteur",
     miniPlayerClose: "Fermer le lecteur",
     miniPlayerPlay: "Lire",
@@ -45,6 +66,11 @@ export const phoneMessages: Record<Language, Messages> = {
   es: {
     openSignInPage: "Abrir la página de inicio de sesión",
     playbackSpeed: "Velocidad de reproducción",
+    navLibrary: "Biblioteca",
+    phoneLayout: "Diseño para teléfono (vista previa)",
+    phoneLayoutHint: "Usa el nuevo diseño para teléfono. Algunas pantallas aún están en desarrollo.",
+    phoneScreenNotReady: "Esta pantalla aún no está en el diseño para teléfono. Desactiva el diseño para teléfono en Ajustes para usarla.",
+    account: "Cuenta",
     miniPlayerExpand: "Ampliar reproductor",
     miniPlayerClose: "Cerrar reproductor",
     miniPlayerPlay: "Reproducir",
@@ -54,6 +80,11 @@ export const phoneMessages: Record<Language, Messages> = {
   "pt-BR": {
     openSignInPage: "Abrir página de login",
     playbackSpeed: "Velocidade de reprodução",
+    navLibrary: "Biblioteca",
+    phoneLayout: "Layout para celular (prévia)",
+    phoneLayoutHint: "Use o novo design para celular. Algumas telas ainda estão em construção.",
+    phoneScreenNotReady: "Esta tela ainda não está no layout para celular. Desative o layout para celular nas Configurações para usá-la.",
+    account: "Conta",
     miniPlayerExpand: "Expandir player",
     miniPlayerClose: "Fechar player",
     miniPlayerPlay: "Reproduzir",
@@ -63,6 +94,11 @@ export const phoneMessages: Record<Language, Messages> = {
   ru: {
     openSignInPage: "Открыть страницу входа",
     playbackSpeed: "Скорость воспроизведения",
+    navLibrary: "Библиотека",
+    phoneLayout: "Макет для телефона (предпросмотр)",
+    phoneLayoutHint: "Использовать новый дизайн для телефона. Некоторые экраны ещё в разработке.",
+    phoneScreenNotReady: "Этого экрана пока нет в макете для телефона. Отключите макет для телефона в настройках, чтобы им воспользоваться.",
+    account: "Аккаунт",
     miniPlayerExpand: "Развернуть плеер",
     miniPlayerClose: "Закрыть плеер",
     miniPlayerPlay: "Воспроизвести",
@@ -72,6 +108,11 @@ export const phoneMessages: Record<Language, Messages> = {
   ja: {
     openSignInPage: "サインインページを開く",
     playbackSpeed: "再生速度",
+    navLibrary: "ライブラリ",
+    phoneLayout: "スマートフォン用レイアウト（プレビュー）",
+    phoneLayoutHint: "新しいスマートフォン用デザインを使います。一部の画面はまだ作成中です。",
+    phoneScreenNotReady: "この画面はまだスマートフォン用レイアウトに対応していません。使うには設定でスマートフォン用レイアウトをオフにしてください。",
+    account: "アカウント",
     miniPlayerExpand: "プレーヤーを拡大",
     miniPlayerClose: "プレーヤーを閉じる",
     miniPlayerPlay: "再生",
@@ -81,6 +122,11 @@ export const phoneMessages: Record<Language, Messages> = {
   hu: {
     openSignInPage: "Bejelentkezési oldal megnyitása",
     playbackSpeed: "Lejátszási sebesség",
+    navLibrary: "Könyvtár",
+    phoneLayout: "Telefonos elrendezés (előnézet)",
+    phoneLayoutHint: "Az új telefonos dizájn használata. Néhány képernyő még készül.",
+    phoneScreenNotReady: "Ez a képernyő még nem érhető el a telefonos elrendezésben. A használatához kapcsold ki a telefonos elrendezést a Beállításokban.",
+    account: "Fiók",
     miniPlayerExpand: "Lejátszó kinagyítása",
     miniPlayerClose: "Lejátszó bezárása",
     miniPlayerPlay: "Lejátszás",

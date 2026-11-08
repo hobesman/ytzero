@@ -632,6 +632,12 @@ archive with no such capability restores with public sharing denied.
   the local preference unchanged. On tvOS it uses the user-independent Keychain;
   the existing preference migrates without changing its value.
 
+- The Android phone layout preview (`ytzero.tv.phone-layout`, SecureStore) is
+  machine-bound presentation configuration for that phone, shared across
+  profiles. Missing or invalid values keep the scaled television layout. It is
+  never sent to the instance and is excluded from portable and exact server
+  backups; no server backup adapter or archive shape changes.
+
 - The last active profile id stored in browser `localStorage` is a
   machine-bound presentation convenience. It is scoped to that browser and
   origin, is validated against the current profile list before use, and is

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { loadOpenDetails, OPEN_DETAILS_KEY, saveOpenDetails, shouldPlayVideo } from "./devicePreferences";
+import { loadOpenDetails, loadPhoneLayout, OPEN_DETAILS_KEY, PHONE_LAYOUT_KEY, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./devicePreferences";
 
 describe("device thumbnail preference", () => {
   test("defaults to playback and persists the optional details choice only on this device", async () => {
@@ -32,5 +32,18 @@ describe("device thumbnail preference", () => {
   });
   test("storage errors propagate so settings cannot claim an unsaved change", async () => {
     await expect(saveOpenDetails({ getItemAsync: async () => null, setItemAsync: async () => { throw new Error("unavailable"); } }, true)).rejects.toThrow("unavailable");
+  });
+});
+
+describe("phone layout preview", () => {
+  test("defaults off and persists only on this device", async () => {
+    const values = new Map<string, string>();
+    const store = { getItemAsync: async (key: string) => values.get(key) ?? null, setItemAsync: async (key: string, value: string) => { values.set(key, value); } };
+    expect(await loadPhoneLayout(store)).toBe(false);
+    await savePhoneLayout(store, true);
+    expect(await loadPhoneLayout(store)).toBe(true);
+    expect([...values.keys()]).toEqual([PHONE_LAYOUT_KEY]);
+    values.set(PHONE_LAYOUT_KEY, "yes");
+    expect(await loadPhoneLayout(store)).toBe(false);
   });
 });
