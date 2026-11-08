@@ -30,6 +30,7 @@ import { accessControlSnapshot } from "../accessControl";
 import { externalRoleMappingConfig, type ExternalRoleMappingConfig } from "../externalRoleMappings";
 import { registerAuthStatusRoute } from "./authStatusRoute";
 import { registerDeviceAuthRoutes } from "./deviceAuthRoutes";
+import { registerPasswordLoginRoutes } from "./passwordLoginRoutes";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -77,31 +78,7 @@ const OIDC_FLOW_COOKIE = "ytzero_oidc_flow";
 registerDeviceAuthRoutes(api, { canSwitchProfiles, currentUserId });
 registerAuthStatusRoute(api, { canDelegateProfileAdmins, canSwitchProfiles, hideOtherProfilesInPicker, isAdmin, isPrimaryUser, sessionToken });
 
-api.post("/auth/password/login", async (c) => {
-  const method = authMethod();
-  const { username, password } = await c.req.json().catch(() => ({}));
-  if (method === "shared") {
-    const expectedUser = sharedAuth.username();
-    if (expectedUser && String(username ?? "") !== expectedUser) return c.json({ error: "invalid credentials" }, 401);
-    if (!(await sharedAuth.verifyPassword(String(password ?? "")))) {
-      return c.json({ error: "invalid credentials" }, 401);
-    }
-    c.header("Set-Cookie", authSessionCookie(await createSession(null, "account")));
-    log.info("auth.login", { method, scope: "account" });
-    return c.json({ ok: true });
-  }
-  if (method === "per_profile") {
-    const row = await database.prepare("SELECT * FROM users WHERE username = ? COLLATE NOCASE").get(String(username ?? "")) as UserRow | null;
-    if (!row?.password_hash || !(await sharedAuth.verifyHash(String(password ?? ""), row.password_hash))) {
-      return c.json({ error: "invalid credentials" }, 401);
-    }
-    c.header("Set-Cookie", authSessionCookie(await createSession(row.id, "profile")));
-    c.header("Set-Cookie", profileCookie(row.id), { append: true });
-    log.info("auth.login", { method, scope: "profile", id: row.id });
-    return c.json({ ok: true, active_id: row.id });
-  }
-  return c.json({ error: "password login not enabled" }, 400);
-});
+registerPasswordLoginRoutes(api, profileCookie);
 
 api.post("/auth/passkey/login/options", async (c) => {
   const method = authMethod();

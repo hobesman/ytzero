@@ -74,6 +74,7 @@ describe("HTTP route manifest", () => {
       "GET /auth/device/verification",
       "POST /auth/device/authorize",
       "POST /auth/device/token",
+      "POST /auth/device/password",
     ];
     const childDownloadRequestRoutes = [
       "POST /child/download-request",
@@ -84,7 +85,7 @@ describe("HTTP route manifest", () => {
     const nativePlaybackRoutes = ["POST", "PUT", "DELETE"].map((method) => `${method} /videos/:id/playback-ticket`);
     for (const route of nativePlaybackRoutes) expect(routes).toContain(route);
     expect(routes).toContain("PUT /channel-playlists/:id/sort");
-    expect(routes).toHaveLength(280);
+    expect(routes).toHaveLength(281);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);

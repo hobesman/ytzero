@@ -10,16 +10,18 @@ type Props = {
   video: Video; language: Language; t: Translate; compact?: boolean;
   thumbnail: ImageSourcePropType; channelAvatar: ImageSourcePropType | null;
   onPress: (video: Video) => void;
+  /** A long press opens the video's actions. */
+  onLongPress?: (video: Video) => void;
 };
 
 /** A phone feed card: full-width thumbnail, then channel avatar, title and details. */
-export const PhoneVideoCard = memo(function PhoneVideoCard({ video, language, t, compact = false, thumbnail, channelAvatar, onPress }: Props) {
+export const PhoneVideoCard = memo(function PhoneVideoCard({ video, language, t, compact = false, thumbnail, channelAvatar, onPress, onLongPress }: Props) {
   const metadata = useMemo(() => formatVideoCardMetadata(video, language, t("views")), [language, t, video]);
   const duration = useMemo(() => formatVideoDuration(video.duration), [video.duration]);
   const progress = video.watch_position && video.watch_duration ? Math.max(0, Math.min(1, video.watch_position / video.watch_duration)) : 0;
   const live = video.live_status === "live";
   return <Pressable accessibilityRole="button" accessibilityLabel={`${video.title}. ${video.channel_title}`}
-    onPress={() => onPress(video)} style={({ pressed }) => [compact ? styles.compact : styles.card, pressed && styles.pressed]}>
+    onPress={() => onPress(video)} onLongPress={onLongPress ? () => onLongPress(video) : undefined} style={({ pressed }) => [compact ? styles.compact : styles.card, pressed && styles.pressed]}>
     <View style={[styles.thumbnailFrame, compact && styles.compactThumbnail]}>
       <Image source={thumbnail} style={styles.thumbnail} resizeMode="cover" />
       {live ? <View style={[styles.badge, styles.live]}><Text style={styles.badgeText}>{t("liveBadge")}</Text></View>

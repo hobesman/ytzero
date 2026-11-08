@@ -30,11 +30,14 @@ import { TvScreenTransition } from "./src/components/TvScreenTransition";
 import { TvMotionProvider } from "./src/motion";
 import { setSessionCookie } from "./src/sessionCookie";
 import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
+import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
+import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
-import { clearAccessToken, loadConnection, saveConnection } from "./src/storage";
+import { clearAccessToken, loadConnection, saveConnection, savedProfileStore } from "./src/storage";
+import type { SavedProfile } from "./src/savedProfiles";
 import type { AuthStatus, Language, PairingAuthorization, Video } from "./src/types";
 import { colors, sidebarRailWidth, topBarMetrics } from "./src/theme";
 import { tvVideoCardActionConfig, type VideoCardActionConfig } from "./src/videoCardActions";
@@ -117,6 +120,7 @@ function TvApp() {
   const [phoneDesign, setPhoneDesign] = useState(phoneDesignAvailable);
   const phoneMode = phoneDesign && phoneDesignAvailable;
   const [phonePlaying, setPhonePlaying] = useState(false);
+  const [phoneChannelRequest, setPhoneChannelRequest] = useState<{ id: string; request: number } | null>(null);
   // Phones: a fullscreen video, and holding portrait after the viewer leaves fullscreen.
   const [videoFullscreen, setVideoFullscreen] = useState(false);
   const [portraitHeld, setPortraitHeld] = useState(false);
@@ -173,7 +177,8 @@ function TvApp() {
   const [autoplay, setAutoplay] = useState(false);
   const [startPosition, setStartPosition] = useState<number | undefined>();
   const [videoUpdate, setVideoUpdate] = useState<Video | null>(null);
-  const t = useMemo(() => translator(language), [language]);
+  // Phones and tablets say "this device" where a television says "this television".
+  const t = useMemo(() => withDeviceWording(translator(language), language, Platform.isTV), [language]);
   const api = useMemo(() => instanceUrl ? new YtZeroApi(instanceUrl, accessToken) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
   // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
@@ -475,8 +480,8 @@ function TvApp() {
     return () => { active = false; };
   }, [beginPairing, initializeProfileSession, bootAttempt]);
 
-  const authorize = useCallback(async (token: string) => {
-    const authorizedInstanceUrl = pairingInstanceUrl || instanceUrl;
+  /** Signs this device in with a token: a new pairing, or a profile saved on this phone. */
+  const activateSession = useCallback(async (authorizedInstanceUrl: string, token: string) => {
     const authenticated = new YtZeroApi(authorizedInstanceUrl, token);
     const auth = await authenticated.authStatus();
     if (!auth.authenticated) throw new Error("pairing authorization expired");
@@ -494,7 +499,41 @@ function TvApp() {
     setVideoUpdate(null);
     setReturnDestination("/");
     setScreen(destination);
-  }, [instanceUrl, pairingInstanceUrl, initializeProfileSession]);
+  }, [initializeProfileSession]);
+  const authorize = useCallback(async (token: string) => {
+    await activateSession(pairingInstanceUrl || instanceUrl, token);
+  }, [activateSession, instanceUrl, pairingInstanceUrl]);
+
+  // Phones remember each profile they pair to when the instance gives every
+  // profile its own login (no in-app switching), and switch between them.
+  const [savedLogins, setSavedLogins] = useState<SavedProfile[]>([]);
+  const remembersProfiles = !Platform.isTV && Boolean(profileState && !profileState.canSwitch);
+  useEffect(() => {
+    if (!instanceUrl || !accessToken || !profileState || profileState.canSwitch || Platform.isTV) { setSavedLogins([]); return; }
+    const { active } = profileState;
+    let current = true;
+    void savedProfileStore.remember({ instanceUrl, profileId: active.id, name: active.name, avatar: active.avatar, avatarColor: active.avatar_color, accessToken })
+      .then(() => savedProfileStore.list(instanceUrl)).then((list) => { if (current) setSavedLogins(list); }).catch(() => {});
+    return () => { current = false; };
+  }, [accessToken, instanceUrl, profileState]);
+  const switchToSavedProfile = useCallback(async (saved: SavedProfile) => {
+    try { await activateSession(saved.instanceUrl, saved.accessToken); }
+    catch (error) {
+      // A sign-in revoked elsewhere is dropped; the viewer can add the profile again.
+      if (error instanceof Error && error.message === "pairing authorization expired") {
+        await savedProfileStore.forget(saved.instanceUrl, saved.profileId);
+        setSavedLogins(await savedProfileStore.list(saved.instanceUrl));
+      }
+      throw error;
+    }
+  }, [activateSession]);
+  const addProfile = useCallback(async () => {
+    setPairingFromSettings(true);
+    setSelected(null);
+    setSelectedPlaylistId(null);
+    setSelectedChannelId(null);
+    await createPairing(instanceUrl, false);
+  }, [createPairing, instanceUrl]);
 
   const retryPairing = useCallback(async () => {
     await createPairing(pairingInstanceUrl || instanceUrl, !pairingFromSettings);
@@ -512,8 +551,15 @@ function TvApp() {
     setSelectedPlaylistId(null);
     setSelectedChannelId(null);
     setPairingFromSettings(false);
+    // Phones with other saved profiles move to the most recent one instead of pairing again.
+    if (profileState && !Platform.isTV) {
+      await savedProfileStore.forget(instanceUrl, profileState.active.id).catch(() => {});
+      for (const saved of await savedProfileStore.list(instanceUrl).catch(() => [])) {
+        try { await switchToSavedProfile(saved); return; } catch { /* Try the next saved profile. */ }
+      }
+    }
     await beginPairing(instanceUrl);
-  }, [api, beginPairing, instanceUrl]);
+  }, [api, beginPairing, instanceUrl, profileState, switchToSavedProfile]);
 
   const startInstanceChange = useCallback(async () => {
     setPairingFromSettings(true);
@@ -580,18 +626,33 @@ function TvApp() {
 
   const openChannel = useCallback((channelId: string) => {
     setVideoActionRequest(null);
+    // Phones: the channel opens on the phone screens' stack; a playing video moves to the mini player.
+    if (phoneMode) {
+      if (screenRef.current === "detail") {
+        if (phonePlaying) setPlayerDocked(true);
+        else setSelected(null);
+      }
+      setPhoneChannelRequest((current) => ({ id: channelId, request: (current?.request ?? 0) + 1 }));
+      setScreen("/");
+      return;
+    }
     if (!playerDockedRef.current) setSelected(null);
     setSelectedChannelId(channelId);
     setContentFocusTarget(null);
     setContentFocusRequest((request) => request + 1);
     setScreen("channel");
-  }, []);
+  }, [phoneMode, phonePlaying]);
   const openSearch = useCallback(() => navigate("/search"), [navigate]);
   const openChannelResult = useCallback((channel: import("./src/types").Channel) => openChannel(channel.channel_id), [openChannel]);
 
   const openVideoActions = useCallback((video: Video, onChange: (updated: Video) => void, options?: VideoActionOptions) => {
     setVideoActionRequest({ video, onChange, options });
   }, []);
+  const changeActionVideo = (updated: Video) => {
+    videoActionRequest?.onChange(updated);
+    setVideoActionRequest((current) => current ? { ...current, video: updated } : null);
+    setSelected((current) => current?.video_id === updated.video_id ? updated : current);
+  };
 
   const closeChannel = useCallback(() => {
     setSelectedPlaylistId(null);
@@ -815,9 +876,11 @@ function TvApp() {
     <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
-      {phoneMode && hasShell && api && profileState ? <PhoneApp api={api} t={t} language={language} hidden={screen === "detail"}
-        brandName={brandName} brandColor={brandColor} profileName={profileState.active.name} profileColor={profileState.active.avatar_color || colors.accent}
-        navConfig={sidebarNav} sort={feedSort} videoUpdate={videoUpdate} settings={phoneSettings} onOpen={openPhoneVideo} /> : <>
+      {phoneMode && hasShell && api && profileState ? <PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail"}
+        brandName={brandName} brandColor={brandColor} profiles={{ active: profileState.active, profiles: profileState.profiles, canSwitch: profileState.canSwitch, childLockEnabled: profileState.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile,
+          saved: remembersProfiles ? { profiles: savedLogins, onSwitch: switchToSavedProfile, onAdd: () => void addProfile().catch(() => {}) } : undefined }}
+        navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
+        settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /> : <>
       {screen !== "detail" && browsingScreen === "/" && api
         ? <TvHomeBackdrop api={api} controller={backdropController} height={height} opacity={backdropOpacity} />
         : null}
@@ -871,18 +934,18 @@ function TvApp() {
         pointerEvents={screen === "detail" ? "auto" : "none"} accessibilityElementsHidden={screen !== "detail"} importantForAccessibility={screen === "detail" ? "auto" : "no-hide-descendants"}>
         {autoplay ? detailContent : <TvScreenTransition>{detailContent}</TvScreenTransition>}
       </View> : null}
-      {api ? (
+      {api && phoneMode && videoActionRequest ? <PhoneVideoActionSheet key={videoActionRequest.video.video_id}
+        actionConfig={videoActionConfig} api={api} t={t} video={videoActionRequest.video}
+        onClose={() => setVideoActionRequest(null)} onOpenChannel={openChannel} onRemove={videoActionRequest.options?.onRemove}
+        onVideoChange={changeActionVideo} /> : null}
+      {api && !phoneMode ? (
         <TvVideoActionMenu
           actionConfig={videoActionConfig}
           api={api}
           onClose={() => setVideoActionRequest(null)}
           onOpenChannel={openChannel}
           onRemove={videoActionRequest?.options?.onRemove}
-          onVideoChange={(updated) => {
-            videoActionRequest?.onChange(updated);
-            setVideoActionRequest((current) => current ? { ...current, video: updated } : null);
-            setSelected((current) => current?.video_id === updated.video_id ? updated : current);
-          }}
+          onVideoChange={changeActionVideo}
           preserveMenuKey={screen === "detail" || screen === "playlist" || screen === "channel"}
           t={t}
           video={videoActionRequest?.video ?? null}

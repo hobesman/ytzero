@@ -641,6 +641,15 @@ archive with no such capability restores with public sharing denied.
   never sent to the instance and is excluded from portable and exact server
   backups; no server backup adapter or archive shape changes.
 
+- Saved phone profile sign-ins (`ytzero.tv.saved-profiles.v1`, SecureStore,
+  phones and tablets only) are **secrets**: one profile-scoped bearer per profile
+  this phone paired to, kept only when the instance gives each profile its own
+  login, so the avatar menu can switch between them. Pairing a new instance
+  drops the previous instance's entries; signing out revokes and forgets the
+  current profile's entry; a token rejected by the server is forgotten. Never
+  sent anywhere but its own instance, and excluded from portable and exact
+  server backups; no server backup adapter or archive shape changes.
+
 - The last active profile id stored in browser `localStorage` is a
   machine-bound presentation convenience. It is scoped to that browser and
   origin, is validated against the current profile list before use, and is

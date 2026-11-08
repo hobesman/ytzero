@@ -21,7 +21,9 @@ import expo.modules.kotlin.modules.ModuleDefinition
  * from the edge shows them briefly.
  */
 class YtZeroPhoneOrientationModule : Module() {
-  private var mode = "landscape"
+  // Unset until the app chooses: applying a default at launch rotated the
+  // phone layout to landscape and straight back.
+  private var mode: String? = null
   private var immersive = false
 
   override fun definition() = ModuleDefinition {
@@ -42,7 +44,7 @@ class YtZeroPhoneOrientationModule : Module() {
     applyImmersive()
     val activity = appContext.currentActivity ?: return
     if (activity.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK)) return
-    val requested = when (mode) {
+    val requested = when (mode ?: return) {
       "portrait" -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
       "sensor" -> ActivityInfo.SCREEN_ORIENTATION_FULL_USER
       else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE

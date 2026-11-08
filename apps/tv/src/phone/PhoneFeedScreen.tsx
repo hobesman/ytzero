@@ -13,10 +13,11 @@ import { phoneColors, phoneType } from "./phoneTheme";
 type Props = {
   api: YtZeroApi; destination: TvBrowseDestination; sort: "published" | "arrival";
   language: Language; t: Translate; onOpen: OpenVideo; header?: React.ReactNode; videoUpdate: Video | null;
+  onVideoLongPress: (video: Video, onChange: (updated: Video) => void) => void;
 };
 
 /** Any browse destination as a phone list; Home adds Continue watching above its feed. */
-export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, header, videoUpdate }: Props) {
+export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, header, videoUpdate, onVideoLongPress }: Props) {
   const home = destination === "/";
   const [videos, setVideos] = useState<Video[]>([]);
   const [inProgress, setInProgress] = useState<Video[]>([]);
@@ -71,6 +72,14 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
     return cached;
   }, [api]);
   const open = useCallback((video: Video) => onOpen(video, queue), [onOpen, queue]);
+  // An action that moves a video in or out of Rejected removes it from this list.
+  const applyAction = useCallback((updated: Video) => {
+    const keep = (destination === "/archive") === (updated.status === "archived");
+    const apply = (list: Video[]) => keep ? list.map((video) => video.video_id === updated.video_id ? updated : video) : list.filter((video) => video.video_id !== updated.video_id);
+    setVideos(apply);
+    setInProgress(apply);
+  }, [destination]);
+  const longPress = useCallback((video: Video) => onVideoLongPress(video, applyAction), [applyAction, onVideoLongPress]);
   const openInProgress = useCallback((video: Video) => onOpen(video, undefined, true), [onOpen]);
 
   const listHeader = <>
@@ -79,7 +88,7 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
       <Text style={styles.sectionTitle}>{t("continueWatching")}</Text>
       <FlatList horizontal data={inProgress} keyExtractor={(video) => video.video_id} showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.shelfList}
-        renderItem={({ item }) => <PhoneVideoCard compact video={item} language={language} t={t} onPress={openInProgress}
+        renderItem={({ item }) => <PhoneVideoCard compact video={item} language={language} t={t} onPress={openInProgress} onLongPress={longPress}
           thumbnail={source(item.thumbnail)!} channelAvatar={null} />} />
     </View> : null}
   </>;
@@ -87,7 +96,7 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
   if (loading && videos.length === 0) return <View style={styles.center}><ActivityIndicator color={phoneColors.text} size="large" /></View>;
   return <FlatList data={feed} keyExtractor={(video) => video.video_id}
     ListHeaderComponent={listHeader}
-    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open}
+    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress}
       thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />}
     onEndReachedThreshold={1.5} onEndReached={() => { if (hasMore && !loadingMore && !loading && !error) void load(page + 1); }}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(0, true)} tintColor={phoneColors.text} colors={[phoneColors.accent]} progressBackgroundColor={phoneColors.surface} />}

@@ -4,8 +4,10 @@ import Svg, { Path } from "react-native-svg";
 import type { YtZeroApi } from "../api";
 import { formatVideoDuration } from "../duration";
 import type { Translate } from "../i18n";
-import type { Language, Video } from "../types";
+import type { Language, Video, VideoComment } from "../types";
+import { PhoneComments } from "./PhoneComments";
 import { formatVideoCardMetadata } from "../videoMetadata";
+import { PhoneChip } from "./PhoneChip";
 import { PhoneVideoCard } from "./PhoneVideoCard";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -15,7 +17,10 @@ type Props = {
   queued: boolean; canQueue: boolean; queueFull: boolean;
   language: Language; t: Translate; playbackTime: (seconds: number) => string;
   onRetry: () => void; onPlay: (position: number) => void; onToggleQueue: () => void;
-  onOpenNext: () => void; onOpenRelated: (video: Video) => void;
+  onOpenNext: () => void; onOpenRelated: (video: Video) => void; onOpenChannel?: () => void;
+  onMore: () => void; onRelatedLongPress: (video: Video) => void;
+  /** Comments, or null when the profile hides them. */
+  comments: { list: VideoComment[] | null; loading: boolean; error: boolean; onLoad: () => void } | null;
   /** The video fills the page, with the system bars hidden. */
   fullscreen: boolean;
   /** The inline player, drawn over the 16:9 area at the top while a video plays. */
@@ -53,25 +58,28 @@ export function PhoneWatchBody(props: Props) {
     {fullscreen ? null : <ScrollView style={styles.fill} contentContainerStyle={styles.content}>
       {loadError ? <View style={styles.notice}>
         <Text style={styles.noticeText}>{t("videoLoadError")}</Text>
-        <Chip label={t("tryAgain")} onPress={props.onRetry} />
+        <PhoneChip label={t("tryAgain")} onPress={props.onRetry} />
       </View> : null}
       <Text accessibilityRole="header" style={styles.title}>{video.title}</Text>
       {metadata ? <Text style={styles.meta}>{metadata}</Text> : null}
-      <View style={styles.channel}>
+      <Pressable accessibilityRole="button" accessibilityLabel={video.channel_title ?? ""} disabled={!props.onOpenChannel} onPress={props.onOpenChannel}
+        style={({ pressed }) => [styles.channel, pressed && styles.pressed]}>
         {channelAvatar ? <Image source={channelAvatar} style={styles.avatar} />
           : <View style={[styles.avatar, styles.avatarFallback]}><Text style={styles.avatarLetter}>{(video.channel_title ?? "?").slice(0, 1)}</Text></View>}
         <Text numberOfLines={1} style={styles.channelName}>{video.channel_title}</Text>
         {loading ? <ActivityIndicator color={phoneColors.textMuted} /> : null}
-      </View>
+      </Pressable>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-        {!playing ? <Chip primary label={startAt > 0 ? `${t("resumePlayback")} · ${props.playbackTime(startAt)}` : t("playVideo")} onPress={() => props.onPlay(startAt)} /> : null}
-        {!playing && startAt > 0 ? <Chip label={t("playFromStart")} onPress={() => props.onPlay(0)} /> : null}
-        {queued || canQueue ? <Chip label={t(queued ? "removeFromQueue" : queueFull ? "queueFull" : "addToQueue")} disabled={!queued && queueFull} onPress={props.onToggleQueue} /> : null}
+        {!playing ? <PhoneChip primary label={startAt > 0 ? `${t("resumePlayback")} · ${props.playbackTime(startAt)}` : t("playVideo")} onPress={() => props.onPlay(startAt)} /> : null}
+        {!playing && startAt > 0 ? <PhoneChip label={t("playFromStart")} onPress={() => props.onPlay(0)} /> : null}
+        {queued || canQueue ? <PhoneChip label={t(queued ? "removeFromQueue" : queueFull ? "queueFull" : "addToQueue")} disabled={!queued && queueFull} onPress={props.onToggleQueue} /> : null}
+        <PhoneChip label={t("more")} onPress={props.onMore} />
       </ScrollView>
       {saveFailed ? <Text style={styles.error}>{t("playbackSaveError")}</Text> : null}
       {video.description ? <Pressable accessibilityRole="button" accessibilityLabel={t("descriptionTitle")} onPress={() => setExpanded((value) => !value)} style={styles.description}>
         <Text numberOfLines={expanded ? undefined : 3} style={styles.descriptionText}>{video.description}</Text>
       </Pressable> : null}
+      {props.comments ? <PhoneComments api={api} comments={props.comments.list} loading={props.comments.loading} error={props.comments.error} t={t} onLoad={props.comments.onLoad} /> : null}
       {nextVideo ? <>
         <Text style={styles.section}>{t("upNext")}</Text>
         <PhoneVideoCard video={nextVideo} language={language} t={t} onPress={props.onOpenNext}
@@ -79,18 +87,11 @@ export function PhoneWatchBody(props: Props) {
       </> : null}
       {showRelated && related.length > 0 ? <>
         <Text style={styles.section}>{t("relatedVideos")}</Text>
-        {related.map((item) => <PhoneVideoCard key={item.video_id} video={item} language={language} t={t} onPress={props.onOpenRelated}
+        {related.map((item) => <PhoneVideoCard key={item.video_id} video={item} language={language} t={t} onPress={props.onOpenRelated} onLongPress={props.onRelatedLongPress}
           thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />)}
       </> : null}
     </ScrollView>}
   </View>;
-}
-
-function Chip({ label, primary, disabled, onPress }: { label: string; primary?: boolean; disabled?: boolean; onPress: () => void }) {
-  return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress}
-    style={({ pressed }) => [styles.chip, primary && styles.chipPrimary, (pressed || disabled) && styles.chipPressed]}>
-    <Text style={[styles.chipText, primary && styles.chipPrimaryText]}>{label}</Text>
-  </Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -110,13 +111,9 @@ const styles = StyleSheet.create({
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: phoneColors.surface },
   avatarFallback: { alignItems: "center", justifyContent: "center" },
   avatarLetter: { color: phoneColors.text, fontSize: 15, fontWeight: "700" },
+  pressed: { opacity: 0.6 },
   channelName: { flex: 1, ...phoneType.title, color: phoneColors.text },
   actions: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 14 },
-  chip: { paddingHorizontal: 16, paddingVertical: 9, borderRadius: 18, backgroundColor: phoneColors.surfaceRaised },
-  chipPrimary: { backgroundColor: phoneColors.text },
-  chipPressed: { opacity: 0.6 },
-  chipText: { ...phoneType.body, fontWeight: "600", color: phoneColors.text },
-  chipPrimaryText: { color: "#000" },
   error: { ...phoneType.body, color: phoneColors.danger, paddingHorizontal: 16, paddingTop: 10 },
   description: { margin: 16, marginBottom: 4, padding: 12, borderRadius: 12, backgroundColor: phoneColors.surface },
   descriptionText: { ...phoneType.body, color: phoneColors.text },
