@@ -12,7 +12,10 @@ export const loadOpenDetails = async (store: Store, legacy?: Store): Promise<boo
 export const saveOpenDetails = (store: Store, value: boolean): Promise<void> => store.setItemAsync(OPEN_DETAILS_KEY, String(value));
 export const shouldPlayVideo = (openDetails: boolean, explicit?: boolean): boolean => explicit ?? !openDetails;
 
-/** The phone layout preview (Android phones only); off until the phone design is complete. */
+/** The phone layout (Android phones only). Unset follows the device: on for phones; an explicit choice wins. */
 export const PHONE_LAYOUT_KEY = "ytzero.tv.phone-layout";
-export const loadPhoneLayout = async (store: Store): Promise<boolean> => (await store.getItemAsync(PHONE_LAYOUT_KEY)) === "true";
+export const loadPhoneLayout = async (store: Store, deviceDefault: boolean): Promise<boolean> => {
+  const value = await store.getItemAsync(PHONE_LAYOUT_KEY);
+  return value === "true" ? true : value === "false" ? false : deviceDefault;
+};
 export const savePhoneLayout = (store: Store, value: boolean): Promise<void> => store.setItemAsync(PHONE_LAYOUT_KEY, String(value));

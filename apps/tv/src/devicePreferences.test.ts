@@ -35,15 +35,18 @@ describe("device thumbnail preference", () => {
   });
 });
 
-describe("phone layout preview", () => {
-  test("defaults off and persists only on this device", async () => {
+describe("phone layout", () => {
+  test("follows the device until chosen, then persists only on this device", async () => {
     const values = new Map<string, string>();
     const store = { getItemAsync: async (key: string) => values.get(key) ?? null, setItemAsync: async (key: string, value: string) => { values.set(key, value); } };
-    expect(await loadPhoneLayout(store)).toBe(false);
+    expect(await loadPhoneLayout(store, true)).toBe(true);
+    expect(await loadPhoneLayout(store, false)).toBe(false);
+    await savePhoneLayout(store, false);
+    expect(await loadPhoneLayout(store, true)).toBe(false);
     await savePhoneLayout(store, true);
-    expect(await loadPhoneLayout(store)).toBe(true);
+    expect(await loadPhoneLayout(store, false)).toBe(true);
     expect([...values.keys()]).toEqual([PHONE_LAYOUT_KEY]);
     values.set(PHONE_LAYOUT_KEY, "yes");
-    expect(await loadPhoneLayout(store)).toBe(false);
+    expect(await loadPhoneLayout(store, true)).toBe(true);
   });
 });

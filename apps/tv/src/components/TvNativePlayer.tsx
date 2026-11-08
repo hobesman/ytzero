@@ -44,7 +44,7 @@ const presentsNativeFullscreen = Platform.OS === "ios";
 const ownsSpeedControl = Platform.OS === "android";
 const playsInBackground = Platform.OS === "android";
 const canDock = Platform.OS === "android" && !Platform.isTV;
-const speedButtonTimeout = 4000;
+const speedButtonTimeout = 2500;
 // tvOS keeps its full-screen AVKit presentation and its own overscan handling.
 const playerSafeEdges: Edge[] = Platform.OS === "android" ? ["top", "right", "bottom", "left"] : [];
 

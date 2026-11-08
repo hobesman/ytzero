@@ -113,8 +113,8 @@ function TvApp() {
   const previousScreen = useRef<Screen>("boot");
   const [screen, setScreen] = useState<Screen>("boot");
   // Setup screens have phone layouts of their own; everything else is the TV layout, scaled on phones.
-  // The phone design (a preview) replaces the scaled TV layout on Android phones.
-  const [phoneDesign, setPhoneDesign] = useState(false);
+  // Android phones use the phone design by default; Settings can switch to the scaled TV layout.
+  const [phoneDesign, setPhoneDesign] = useState(phoneDesignAvailable);
   const phoneMode = phoneDesign && phoneDesignAvailable;
   const [phonePlaying, setPhonePlaying] = useState(false);
   // Phones: a fullscreen video, and holding portrait after the viewer leaves fullscreen.
@@ -436,7 +436,7 @@ function TvApp() {
     setScreen("boot");
     void (async () => {
       try {
-        const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore).catch(() => false)]);
+        const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable)]);
         if (!active) return;
         setOpenDetails(detailsPreference);
         setPhoneDesign(phonePreference);
