@@ -43,6 +43,9 @@ still costs time nobody planned for.
 - One branch merges at a time.
 - `origin` is the fork and `upstream` is `Pelski/ytzero`. Never push to upstream
   or open a PR against it unless the user asks.
+- `gh` in a fresh clone defaults to upstream (`Pelski/ytzero`). Run
+  `gh repo set-default hobesman/ytzero` there, or pass `--repo hobesman/ytzero`
+  to every `gh pr` command. This checkout already has the default set.
 
 ## Shipping
 
