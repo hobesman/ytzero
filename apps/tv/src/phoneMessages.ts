@@ -1,7 +1,7 @@
 import type { Language } from "./types";
 
 type Messages = {
-  openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string; streamQuality: string; qualityAuto: string;
+  openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string; streamQuality: string; qualityAuto: string; qualityFast: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
   navLibrary: string; phoneLayout: string; phoneLayoutHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
@@ -15,6 +15,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Playback speed",
     streamQuality: "Video quality",
     qualityAuto: "Auto",
+    qualityFast: "Fast start",
     passwordSignIn: "Sign in with username and password",
     username: "Username",
     password: "Password",
@@ -41,6 +42,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Prędkość odtwarzania",
     streamQuality: "Jakość wideo",
     qualityAuto: "Automatycznie",
+    qualityFast: "Szybki start",
     passwordSignIn: "Zaloguj się nazwą użytkownika i hasłem",
     username: "Nazwa użytkownika",
     password: "Hasło",
@@ -67,6 +69,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Wiedergabegeschwindigkeit",
     streamQuality: "Videoqualität",
     qualityAuto: "Automatisch",
+    qualityFast: "Schnellstart",
     passwordSignIn: "Mit Benutzername und Passwort anmelden",
     username: "Benutzername",
     password: "Passwort",
@@ -93,6 +96,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Vitesse de lecture",
     streamQuality: "Qualité vidéo",
     qualityAuto: "Automatique",
+    qualityFast: "Démarrage rapide",
     passwordSignIn: "Se connecter avec un nom d’utilisateur et un mot de passe",
     username: "Nom d’utilisateur",
     password: "Mot de passe",
@@ -119,6 +123,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Velocidad de reproducción",
     streamQuality: "Calidad de vídeo",
     qualityAuto: "Automática",
+    qualityFast: "Inicio rápido",
     passwordSignIn: "Iniciar sesión con usuario y contraseña",
     username: "Usuario",
     password: "Contraseña",
@@ -145,6 +150,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Velocidade de reprodução",
     streamQuality: "Qualidade do vídeo",
     qualityAuto: "Automática",
+    qualityFast: "Início rápido",
     passwordSignIn: "Entrar com usuário e senha",
     username: "Usuário",
     password: "Senha",
@@ -171,6 +177,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Скорость воспроизведения",
     streamQuality: "Качество видео",
     qualityAuto: "Авто",
+    qualityFast: "Быстрый старт",
     passwordSignIn: "Войти по имени пользователя и паролю",
     username: "Имя пользователя",
     password: "Пароль",
@@ -197,6 +204,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "再生速度",
     streamQuality: "画質",
     qualityAuto: "自動",
+    qualityFast: "すばやく再生",
     passwordSignIn: "ユーザー名とパスワードでサインイン",
     username: "ユーザー名",
     password: "パスワード",
@@ -223,6 +231,7 @@ export const phoneMessages: Record<Language, Messages> = {
     playbackSpeed: "Lejátszási sebesség",
     streamQuality: "Videóminőség",
     qualityAuto: "Automatikus",
+    qualityFast: "Gyors indítás",
     passwordSignIn: "Bejelentkezés felhasználónévvel és jelszóval",
     username: "Felhasználónév",
     password: "Jelszó",

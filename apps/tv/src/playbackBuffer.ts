@@ -34,7 +34,7 @@ export class PlaybackBuffer {
     private control: PlaybackControl = { play: async (player) => { player.play(); }, pause: async (player) => { player.pause(); } },
     /** The profile's default speed, used when the video's channel has none. */
     private defaultSpeed: () => unknown = () => 1,
-    /** The stream quality to ask for ("" for the server's choice). */
+    /** The stream quality to ask for ("" for the server's choice, "fast" for the progressive stream). */
     private quality: () => string = () => "",
   ) {}
 
@@ -135,7 +135,7 @@ export class PlaybackBuffer {
         loaded = false;
         playable = false;
         sourceUri = "";
-        loading = loadSource();
+        loading = firstSource();
       },
       dispose: () => {
         if (disposed) return;
@@ -182,7 +182,9 @@ export class PlaybackBuffer {
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }
       } catch (error) { fail(error); }
     };
-    loading = loadSource();
+    // "fast" goes straight to the progressive stream: no high-quality attempt to wait out.
+    const firstSource = () => loadSource(!live && this.quality() === "fast" ? "progressive" : undefined);
+    loading = firstSource();
     return entry;
   }
 
