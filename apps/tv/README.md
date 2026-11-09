@@ -170,6 +170,20 @@ bun run android
 ```
 
 Expo Go does not support this TV fork, so use a generated development build.
+
+### Android phone releases
+
+The **Android APK** workflow (`.github/workflows/android-apk.yml`) builds the
+arm64 release APK on every push to `main` that touches `apps/tv`, and publishes
+it as a GitHub release tagged `android-<build>`. The build number is the APK's
+`versionCode` (set through `app.config.ts`) and is inlined into the bundle as
+`EXPO_PUBLIC_ANDROID_BUILD`. On an Android phone, **Settings → App updates**
+compares it with the newest release and offers the APK download, and the avatar
+menu shows **Update available** while a newer build waits. Builds made by hand
+carry no number, so any release counts as newer. Releases are signed with the
+stock Expo debug keystore, the same key as the hand-made builds, so they install
+as updates; the workflow fails if the signing key ever changes. The check is
+kept in memory only and stores nothing on the device.
 See [`../../docs/tv-app-research.md`](../../docs/tv-app-research.md) for the
 architecture and constraints, and [`../../docs/tvos-design-audit.md`](../../docs/tvos-design-audit.md)
 for the design decisions and validation.
