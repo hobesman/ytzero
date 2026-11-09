@@ -1,11 +1,12 @@
 import { database } from "./database";
-import { classifyIsShort, fetchAllChannelStreams, fetchAllChannelVideos, fetchChannelAbout, fetchChannelFeed, fetchChannelPlaylists, fetchChannelStreams, fetchChannelSubscriberCountFromWatch, fetchChannelVideosDurations, fetchLiveInfo, fetchPlaylistFeed, fetchPlaylistSnapshot, fetchVideoInfo, fetchVideoPublishedAt, isPrivateVideoError } from "./youtube";
+import { classifyIsShort, fetchAllChannelStreams, fetchAllChannelVideos, fetchChannelAbout, fetchChannelFeed, fetchChannelPlaylists, fetchChannelStreams, fetchChannelSubscriberCountFromWatch, fetchChannelVideosDurations, fetchLiveInfo, fetchPlaylistSnapshot, fetchVideoInfo, fetchVideoPublishedAt, isPrivateVideoError } from "./youtube";
 import { MetadataCookieFallbackBudget } from "./videoMetadataFallback";
 import { applyAutoTags } from "./autotags";
 import { applyPlaylistRulesToVideo } from "./userPlaylists";
 import { applyFilterRules } from "./filterRules";
 import { log } from "./logger";
 import { CHANNEL_PLAYLIST_CACHE_VERSION, ensureChannelPlaylist, saveChannelPlaylists, savePlaylistMemberships } from "./channelPlaylists";
+import { fetchPlaylistFeedOrStored } from "./playlistFeedFallback";
 import { preserveChannelMedia, preservePlaylistMedia } from "./channelMedia";
 import { notifyChannelVideos, notifyFollowedPlaylistVideos, notifyTagRuleMatches } from "./notifications";
 import { IMPORTED_CHANNEL_ID } from "./takeout";
@@ -245,7 +246,7 @@ const ensureChannel = database.prepare(`
  * The channel row is created (as external) when not already present.
  */
 export async function importPlaylistVideos(playlistId: string, force = false, userId?: number): Promise<{ added: number; channelId: string }> {
-  const feed = await fetchPlaylistFeed(playlistId, force, userId);
+  const feed = await fetchPlaylistFeedOrStored(playlistId, force, userId);
   if (!feed.channelId) return { added: 0, channelId: "" };
   const snapshot = await fetchPlaylistSnapshot(playlistId, force, userId).catch((error) => {
     if (isYouTubeRateLimitError(error)) throw error;
