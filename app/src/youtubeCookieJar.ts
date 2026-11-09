@@ -1,5 +1,6 @@
 import { chmodSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { downloadCookiesConfigured, downloadCookiesFile } from "./downloadConfig";
+import { profileCookiesSuppressed } from "./youtubeAnonymous";
 import { log } from "./logger";
 import { readYouTubeResponse } from "./youtubeRateLimit";
 import { resolveYouTubeLanguage, youtubeRequestHeaders } from "./youtubeRequestLanguage";
@@ -228,6 +229,8 @@ function responseSetCookies(response: Response): string[] {
 }
 
 function effectiveCookieProfile(userId?: number): number | null {
+  // An anonymous request's answer says nothing about any profile's jar.
+  if (profileCookiesSuppressed()) return null;
   const effectiveUserId = resolveYouTubeLanguage(userId).userId;
   return effectiveUserId && downloadCookiesConfigured(effectiveUserId) ? effectiveUserId : null;
 }

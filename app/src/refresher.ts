@@ -22,6 +22,7 @@ import { RSS_VIDEO_UPSERT_SQL, SCRAPED_VIDEO_UPSERT_SQL } from "./videoUpserts";
 import { fetchRecentUploads } from "./recentUploads";
 import { syncChannelVideoAvailability } from "./videoAvailabilitySync";
 import { inferIsShortFromMetadata, shortCheckRetryInterval } from "./shortClassification";
+import { withoutProfileCookies } from "./youtubeAnonymous";
 const upsertVideo = database.prepare(RSS_VIDEO_UPSERT_SQL);
 const upsertScrapedVideo = database.prepare(SCRAPED_VIDEO_UPSERT_SQL);
 const videoExists = database.prepare("SELECT 1 FROM videos WHERE video_id = ?");
@@ -1326,7 +1327,7 @@ export async function refreshAll(options: { force?: boolean; manualOnly?: boolea
       try {
         const r = await refreshChannel(channelId);
         added += r.added;
-        if (await refreshLiveStatus(channelId, { notify: false })) liveChanged = true;
+        if (await withoutProfileCookies(() => refreshLiveStatus(channelId, { notify: false }))) liveChanged = true;
         await markSucceeded.run(channelId);
       } catch (e) {
         const error = e instanceof Error ? e.message : String(e);
@@ -1399,7 +1400,7 @@ export async function refreshAllLiveStatuses(): Promise<void> {
     let changed = false;
     for (const { channel_id } of channels) {
       try {
-        if (await refreshLiveStatus(channel_id, { notify: false })) changed = true;
+        if (await withoutProfileCookies(() => refreshLiveStatus(channel_id, { notify: false }))) changed = true;
       } catch (e) {
         errors++;
         log.error("live.refresh_failed", { channelId: channel_id, error: e instanceof Error ? e.message : String(e) });

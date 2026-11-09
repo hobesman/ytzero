@@ -165,6 +165,24 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       expect((await youtubeCookieHealth(PROFILE)).recognition).toBe("recognized");
     });
 
+    test("background work without profile cookies neither sends nor rotates the account's jar", async () => {
+      const { withoutProfileCookies } = await import("./youtubeAnonymous");
+      const { youtubeRequestHeaders } = await import("./youtubeRequestLanguage");
+      writeJar();
+      expect(youtubeRequestHeaders(PROFILE).Cookie).toContain("SID=account-session");
+
+      await withoutProfileCookies(async () => {
+        await Promise.resolve();
+        expect(youtubeRequestHeaders(PROFILE).Cookie).not.toContain("SID=");
+        // A visitor's answer: signed out, with a visitor's cookies.
+        await readYouTubeBodyWithCookies(youtubeResponse('{"LOGGED_IN":false}'), PROFILE, "https://www.youtube.com/");
+      });
+      expect(jarOnDisk()).toBe(JAR);
+      // The account wasn't disowned: ordinary requests still rotate the jar.
+      await readYouTubeBodyWithCookies(youtubeResponse("neither answer"), PROFILE, "https://www.youtube.com/");
+      expect(jarOnDisk()).toContain("\tSID\tstranger-visitor");
+    });
+
     test("still merges rotation from a response that answers neither way", async () => {
       writeJar();
 
