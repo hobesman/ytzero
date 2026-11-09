@@ -310,10 +310,14 @@ export class YtZeroApi {
     return this.request(`/videos/${encodeURIComponent(id)}/comments?sort=top`);
   }
 
-  /** `prefer: "progressive"` asks for the single stream after a high-quality stream failed. */
-  async playbackTicket(id: string, signal?: AbortSignal, prefer?: "progressive"): Promise<PlaybackTicket> {
+  /**
+   * `prefer: "progressive"` asks for the single stream after a high-quality stream failed.
+   * `quality` ("auto" or a height) shapes a streamed video; servers that predate it ignore it.
+   */
+  async playbackTicket(id: string, signal?: AbortSignal, prefer?: "progressive", quality?: string): Promise<PlaybackTicket> {
+    const body = { ...(prefer ? { prefer } : {}), ...(quality && !prefer ? { quality } : {}) };
     for (;;) {
-      const result = await this.request<PlaybackTicket | { preparing: true }>(`/videos/${encodeURIComponent(id)}/playback-ticket`, { method: "POST", body: JSON.stringify(prefer ? { prefer } : {}), signal });
+      const result = await this.request<PlaybackTicket | { preparing: true }>(`/videos/${encodeURIComponent(id)}/playback-ticket`, { method: "POST", body: JSON.stringify(body), signal });
       if (!("preparing" in result)) return result;
       await new Promise<void>((resolve, reject) => {
         const abort = () => { clearTimeout(timer); signal?.removeEventListener("abort", abort); reject(new Error("playback cancelled")); };

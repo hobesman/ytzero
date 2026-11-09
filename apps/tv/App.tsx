@@ -18,6 +18,7 @@ import { systemProfilesNative } from "./src/systemProfilesNative";
 import { loadSystemProfilesEnabled, saveSystemProfilesEnabled, parseProfilePreference, profilePreference, resolveSystemProfile, type ProfileState, type ProfilePreference } from "./src/systemProfiles";
 import { TvSetupLayout } from "./src/components/TvSetupLayout";
 import { loadOpenDetails, loadPhoneLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
+import { loadStreamQuality } from "./src/streamQuality";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TvSidebar } from "./src/components/TvSidebar";
 import { TvProfileMenu } from "./src/components/TvProfileMenu";
@@ -441,7 +442,8 @@ function TvApp() {
     setScreen("boot");
     void (async () => {
       try {
-        const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable)]);
+        const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable),
+          loadStreamQuality(deviceStore).catch(() => "auto")]);
         if (!active) return;
         setOpenDetails(detailsPreference);
         setPhoneDesign(phonePreference);

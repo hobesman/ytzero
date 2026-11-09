@@ -2,6 +2,7 @@ import type { Context, Hono } from "hono";
 import { bearerSessionToken } from "../deviceSessionAuth";
 import { MEDIA_TICKET_TTL_MS, mediaTicketPath } from "../mediaTickets";
 import { mediaTickets, nativePlaybackAccess, nativePlaybackSource } from "../nativePlayback";
+import { parseDirectStreamQuality } from "../downloadVideoDirectStreaming";
 
 type Environment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 
@@ -12,15 +13,18 @@ export function registerNativePlaybackRoutes(api: Hono<Environment>, currentUser
     if (!sessionToken) return c.json({ error: "device session required" }, 401);
     const userId = currentUserId(c);
     const videoId = c.req.param("id");
-    const { prefer } = await c.req.json().catch(() => ({}));
-    const source = await nativePlaybackSource(userId, videoId, c.req.raw.signal, prefer === "progressive");
+    const { prefer, quality: requested } = await c.req.json().catch(() => ({}));
+    const quality = parseDirectStreamQuality(requested);
+    const source = await nativePlaybackSource(userId, videoId, c.req.raw.signal, prefer === "progressive", quality);
     if ("error" in source) return c.json({ error: source.error }, source.status);
     if ("preparing" in source) {
       c.header("Retry-After", "2");
       return c.json({ preparing: true }, 202);
     }
     const ticket = mediaTickets.issue({ userId, videoId, sessionToken, kind: source.kind });
-    const path = mediaTicketPath({ videoId, kind: source.kind });
+    const base = mediaTicketPath({ videoId, kind: source.kind });
+    // The quality rides on the master playlist URL; its child URIs carry it on.
+    const path = source.kind === "direct-hls" && quality ? `${base}?q=${quality}` : base;
     return c.json({ ticket, url: `${path}${path.includes("?") ? "&" : "?"}media_ticket=${ticket}`, content_type: source.kind === "hls" || source.kind === "direct-hls" || source.kind === "live-hls" ? "hls" : "progressive", expires_in: MEDIA_TICKET_TTL_MS / 1000 });
   });
 

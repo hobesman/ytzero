@@ -377,3 +377,35 @@ describe("full-quality stream fallback", () => {
     } finally { h.pool.dispose(); await flush(); }
   });
 });
+
+describe("stream quality", () => {
+  test("asks for the chosen quality and reloads at the same position when it changes", async () => {
+    const h = harness();
+    let quality = "auto";
+    const requested: Array<string | undefined> = [];
+    h.api.playbackTicket = async (id: string, _signal?: AbortSignal, _prefer?: "progressive", asked?: string) => {
+      requested.push(asked);
+      return { ticket: `${id}-${requested.length}`, url: `/api/videos/${id}/direct-hls/index.m3u8?q=${asked}`, content_type: "hls", expires_in: 60 };
+    };
+    const pool = new PlaybackBuffer(h.api, () => {
+      const player = new FakePlayer(); h.players.push(player); return player as unknown as VideoPlayer;
+    }, async (player, seconds) => { player.currentTime = seconds; }, (entry) => h.failures.push(entry.video.video_id), undefined, h.control, undefined, () => quality);
+    try {
+      const entry = pool.prepare({ ...video("q"), is_short: 0 }, 0);
+      await entry.ready;
+      expect(await pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 30;
+      quality = "480";
+      entry.reload();
+      await flush(); await flush();
+      expect(requested).toEqual(["auto", "480"]);
+      expect(String((player.source as { uri: string }).uri)).toContain("q=480");
+      expect(player.currentTime).toBe(30);
+      expect(player.playing).toBe(true);
+      // The first stream's ticket is released once the new one is in place.
+      expect(h.released).toEqual(["q"]);
+      expect(h.failures).toEqual([]);
+    } finally { pool.dispose(); await flush(); }
+  });
+});
