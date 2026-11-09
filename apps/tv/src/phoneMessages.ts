@@ -1,7 +1,7 @@
 import type { Language } from "./types";
 
 type Messages = {
-  openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string; streamQuality: string; qualityAuto: string; qualityFast: string;
+  openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string; streamQuality: string; qualityAuto: string; qualityFast: string; qualityFastHint: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
   navLibrary: string; phoneLayout: string; phoneLayoutHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
@@ -16,6 +16,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Video quality",
     qualityAuto: "Auto",
     qualityFast: "Fast start",
+    qualityFastHint: "Start videos sooner in lower quality instead of trying high quality first. You can still pick a higher quality in the player.",
     passwordSignIn: "Sign in with username and password",
     username: "Username",
     password: "Password",
@@ -43,6 +44,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Jakość wideo",
     qualityAuto: "Automatycznie",
     qualityFast: "Szybki start",
+    qualityFastHint: "Uruchamiaj filmy szybciej w niższej jakości, zamiast najpierw próbować wysokiej. Wyższą jakość nadal możesz wybrać w odtwarzaczu.",
     passwordSignIn: "Zaloguj się nazwą użytkownika i hasłem",
     username: "Nazwa użytkownika",
     password: "Hasło",
@@ -70,6 +72,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Videoqualität",
     qualityAuto: "Automatisch",
     qualityFast: "Schnellstart",
+    qualityFastHint: "Videos schneller in niedrigerer Qualität starten, statt zuerst hohe Qualität zu versuchen. Eine höhere Qualität kannst du weiterhin im Player wählen.",
     passwordSignIn: "Mit Benutzername und Passwort anmelden",
     username: "Benutzername",
     password: "Passwort",
@@ -97,6 +100,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Qualité vidéo",
     qualityAuto: "Automatique",
     qualityFast: "Démarrage rapide",
+    qualityFastHint: "Lancer les vidéos plus vite en qualité inférieure au lieu d’essayer d’abord la haute qualité. Vous pouvez toujours choisir une meilleure qualité dans le lecteur.",
     passwordSignIn: "Se connecter avec un nom d’utilisateur et un mot de passe",
     username: "Nom d’utilisateur",
     password: "Mot de passe",
@@ -124,6 +128,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Calidad de vídeo",
     qualityAuto: "Automática",
     qualityFast: "Inicio rápido",
+    qualityFastHint: "Inicia los vídeos antes en menor calidad en lugar de intentar primero la alta calidad. Puedes elegir una calidad mayor en el reproductor.",
     passwordSignIn: "Iniciar sesión con usuario y contraseña",
     username: "Usuario",
     password: "Contraseña",
@@ -151,6 +156,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Qualidade do vídeo",
     qualityAuto: "Automática",
     qualityFast: "Início rápido",
+    qualityFastHint: "Inicie os vídeos mais rápido em qualidade menor, em vez de tentar a alta qualidade primeiro. Você ainda pode escolher uma qualidade maior no player.",
     passwordSignIn: "Entrar com usuário e senha",
     username: "Usuário",
     password: "Senha",
@@ -178,6 +184,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Качество видео",
     qualityAuto: "Авто",
     qualityFast: "Быстрый старт",
+    qualityFastHint: "Запускать видео быстрее в более низком качестве, не пробуя сначала высокое. Более высокое качество по-прежнему можно выбрать в плеере.",
     passwordSignIn: "Войти по имени пользователя и паролю",
     username: "Имя пользователя",
     password: "Пароль",
@@ -205,6 +212,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "画質",
     qualityAuto: "自動",
     qualityFast: "すばやく再生",
+    qualityFastHint: "高画質を先に試さず、低めの画質で動画をすばやく再生します。プレーヤーで高い画質を選ぶこともできます。",
     passwordSignIn: "ユーザー名とパスワードでサインイン",
     username: "ユーザー名",
     password: "パスワード",
@@ -232,6 +240,7 @@ export const phoneMessages: Record<Language, Messages> = {
     streamQuality: "Videóminőség",
     qualityAuto: "Automatikus",
     qualityFast: "Gyors indítás",
+    qualityFastHint: "A videók gyorsabban indulnak alacsonyabb minőségben, ahelyett hogy előbb a magas minőséggel próbálkoznának. A lejátszóban továbbra is választhatsz jobb minőséget.",
     passwordSignIn: "Bejelentkezés felhasználónévvel és jelszóval",
     username: "Felhasználónév",
     password: "Jelszó",

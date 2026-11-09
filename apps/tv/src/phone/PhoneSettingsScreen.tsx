@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Switch, Text } from "react-native";
 import type { YtZeroApi } from "../api";
+import { deviceStore } from "../deviceStore";
 import type { Translate } from "../i18n";
+import { saveStreamQuality, streamQuality } from "../streamQuality";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
@@ -17,6 +19,12 @@ export type PhoneSettings = {
 export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; settings: PhoneSettings; t: Translate }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The same device choice as the player's quality menu: on is "fast", off is "auto".
+  const [fastStart, setFastStart] = useState(() => streamQuality() === "fast");
+  const changeFastStart = async (value: boolean) => {
+    await saveStreamQuality(deviceStore, value ? "fast" : "auto");
+    setFastStart(value);
+  };
   const run = async (action: () => Promise<void>) => {
     if (busy) return;
     setBusy(true); setFailed(false);
@@ -27,6 +35,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
   return <ScrollView contentContainerStyle={styles.content}>
     <PhoneSectionTitle title={t("devicePlayback")} />
     <PhoneProfilePlaybackSettings api={api} t={t} />
+    <PhoneListRow title={t("qualityFast")} detail={t("qualityFastHint")} trailing={toggle(fastStart, changeFastStart)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />
