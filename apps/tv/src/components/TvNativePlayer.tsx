@@ -77,6 +77,8 @@ type Session = {
   position: { position: number; duration: number }; startPosition: number;
   /** Whether this video's position is saved (not live, not incognito). */
   tracked: boolean; lastBeat: number;
+  /** The position the server last held, as far as this device knows: another device may move it. */
+  server: number | null;
   didPlay: boolean; completed: boolean; history: Promise<boolean> | null; finished: Promise<PlaybackResult> | null;
 };
 function playbackFailure(error: unknown): Failure {
@@ -190,20 +192,22 @@ export function TvNativePlayer(props: Props) {
     setSwitchingVideo(false);
   };
 
-  const begin = (entry: BufferedPlayback) => {
+  // `server`: the position the server held, when the video cannot tell (a retry after this device played it).
+  const begin = (entry: BufferedPlayback, server = entry.video.watch_position ?? null) => {
     const position = entry.player.status === "readyToPlay" ? entry.player.currentTime : entry.initialPosition;
     // Swiping back quickly must not let a slow save from the previous visit
     // overwrite the newer visit's progress or completion.
     const previousSave = finishedSessions.current.get(entry.video.video_id);
     const videoId = entry.video.video_id;
     const tracked = entry.video.live_status !== "live" && (!incognito || isChild);
-    session.current = {
-      entry, startPosition: position, position: { position, duration: 0 }, tracked, lastBeat: 0, didPlay: false, completed: false, history: null, finished: null,
+    const started: Session = {
+      entry, startPosition: position, position: { position, duration: 0 }, tracked, lastBeat: 0, server, didPlay: false, completed: false, history: null, finished: null,
       // The device keeps each position until the server has it (see localProgress.ts).
       progress: new PlaybackProgress(tracked,
-        async (value) => { await previousSave; await api.savePlaybackProgress(videoId, value); localProgress.synced(videoId, value); },
+        async (value) => { await previousSave; await api.savePlaybackProgress(videoId, value); started.server = value.position; localProgress.synced(videoId, value); },
         async () => { await previousSave; await api.markWatched(videoId); localProgress.clear(videoId); }),
     };
+    session.current = started;
     setReady(false);
     setActive(entry);
     void entry.ready.then(async () => {
@@ -221,7 +225,7 @@ export function TvNativePlayer(props: Props) {
     if (current.didPlay) current.position = playerPosition(current.entry.player, current.position);
     const value = current.entry.video.live_status === "live" ? { position: 0, duration: 0 }
       : current.didPlay ? current.position : { position: current.startPosition, duration: 0 };
-    if (current.tracked && current.didPlay && !current.completed) localProgress.record(current.entry.video.video_id, value, true);
+    if (current.tracked && current.didPlay && !current.completed) localProgress.record(current.entry.video.video_id, value, true, current.server);
     // A retained previous player resumes from its last frame, or restarts if it ended.
     current.entry.video = { ...current.entry.video, watch_position: value.position, watch_duration: value.duration,
       watched: current.completed ? 1 : current.entry.video.watched };
@@ -279,7 +283,7 @@ export function TvNativePlayer(props: Props) {
       if (current.didPlay && !current.finished) {
         current.position = playerPosition(current.entry.player, current.position);
         current.progress.update(current.position);
-        if (current.tracked) localProgress.record(current.entry.video.video_id, current.position, true);
+        if (current.tracked) localProgress.record(current.entry.video.video_id, current.position, true, current.server);
       }
     }
     failure.current = reason;
@@ -372,7 +376,7 @@ export function TvNativePlayer(props: Props) {
     const target = previous?.entry.video ?? initial.current.video;
     const position = previous?.didPlay ? previous.position.position : previous?.startPosition ?? initial.current.startPosition;
     if (previous) { void finish(previous); buffer.retain([]); }
-    begin(buffer.prepare(target, position));
+    begin(buffer.prepare(target, position), previous?.server);
   }, [attempt, buffer]);
 
   const present = () => {
@@ -454,7 +458,7 @@ export function TvNativePlayer(props: Props) {
         if (!(currentTime > 0) && current.position.position > 0) return;
         current.position = { position: currentTime, duration: player.duration };
         if (!current.didPlay || !current.tracked || !validPlaybackPosition(current.position)) return;
-        localProgress.record(active.video.video_id, current.position);
+        localProgress.record(active.video.video_id, current.position, false, current.server);
         const now = Date.now();
         if (player.playing && now - current.lastBeat >= heartbeatInterval) {
           current.lastBeat = now;
@@ -465,7 +469,7 @@ export function TvNativePlayer(props: Props) {
         const current = session.current;
         if (current?.entry !== active || isPlaying || !current.didPlay || current.finished || failure.current) return;
         current.progress.update(current.position);
-        if (current.tracked) localProgress.record(active.video.video_id, current.position, true);
+        if (current.tracked) localProgress.record(active.video.video_id, current.position, true, current.server);
       }),
       player.addListener("playToEnd", () => {
         const current = session.current;
@@ -540,7 +544,7 @@ export function TvNativePlayer(props: Props) {
         if (current.didPlay && !current.finished && !failure.current) {
           current.progress.update(current.position);
           // Android may end a background app without warning.
-          if (current.tracked) localProgress.record(current.entry.video.video_id, current.position, true);
+          if (current.tracked) localProgress.record(current.entry.video.video_id, current.position, true, current.server);
         }
         buffer.retain([current.entry.video.video_id]);
       }

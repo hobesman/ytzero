@@ -8,8 +8,14 @@ import { validPlaybackPosition } from "./playback";
  * server confirms a save of that position, so an app crash, a killed
  * background process or a failed save leaves the newest position on the device.
  * It is used when the video is resumed and sent to the server on the next start.
+ *
+ * Each entry also remembers `base`: the position this device last knew the
+ * server to hold. If the server now holds something else, another device
+ * played the video since, and its position is the newer one: the entry is not
+ * used and is never sent over it.
  */
-export type LocalPosition = PlaybackPosition & { at: number };
+export type LocalPosition = PlaybackPosition & { at: number; base?: number | null };
+type ServerVideo = { video_id: string; watch_position?: number | null; watch_duration?: number | null };
 type Store = { getItemAsync(key: string): Promise<string | null>; setItemAsync(key: string, value: string): Promise<void> };
 type Entries = Record<string, Record<string, LocalPosition>>;
 
@@ -29,7 +35,8 @@ export function localProgressStore(store: Store, now: () => number = Date.now) {
 
   const valid = (value: unknown): value is LocalPosition => {
     const item = value as LocalPosition | null;
-    return Boolean(item) && Number.isFinite(item!.at) && validPlaybackPosition(item!);
+    return Boolean(item) && Number.isFinite(item!.at) && validPlaybackPosition(item!)
+      && (item!.base === undefined || item!.base === null || Number.isFinite(item!.base));
   };
 
   const prune = () => {
@@ -55,6 +62,10 @@ export function localProgressStore(store: Store, now: () => number = Date.now) {
     } catch { /* An unreadable store starts empty. */ }
   })();
 
+  // Another device saved a different position after this device last synced.
+  const movedElsewhere = (value: LocalPosition, video: ServerVideo) =>
+    value.base !== undefined && Math.abs((video.watch_position ?? 0) - (value.base ?? 0)) >= 1;
+
   const write = () => {
     dirty = false;
     lastWrite = now();
@@ -79,10 +90,15 @@ export function localProgressStore(store: Store, now: () => number = Date.now) {
       prune();
       changed(true);
     },
-    /** Records the current position; `immediately` writes it now instead of within a few seconds. */
-    record(videoId: string, value: PlaybackPosition, immediately = false) {
+    /**
+     * Records the current position; `immediately` writes it now instead of within a few seconds.
+     * `server` is the position the server held when this stretch of playback began.
+     */
+    record(videoId: string, value: PlaybackPosition, immediately = false, server?: number | null) {
       if (!owner || !validPlaybackPosition(value) || value.position <= 0) return;
-      (entries[owner] ??= {})[videoId] = { position: value.position, duration: value.duration, at: now() };
+      const videos = entries[owner] ??= {};
+      const base = videos[videoId] ? videos[videoId]!.base : server;
+      videos[videoId] = { position: value.position, duration: value.duration, at: now(), ...(base === undefined ? {} : { base }) };
       prune();
       changed(immediately);
     },
@@ -91,7 +107,13 @@ export function localProgressStore(store: Store, now: () => number = Date.now) {
       const videos = owner ? entries[owner] : undefined;
       const value = videos?.[videoId];
       // Within a second: positions recorded while the save was on its way still count.
-      if (!value || Math.abs(value.position - saved.position) >= 1) return;
+      if (!value) return;
+      if (Math.abs(value.position - saved.position) >= 1) {
+        // Newer than this save, which the server now holds.
+        value.base = saved.position;
+        changed(false);
+        return;
+      }
       delete videos![videoId];
       prune();
       changed(true);
@@ -99,13 +121,23 @@ export function localProgressStore(store: Store, now: () => number = Date.now) {
     pending(videoId: string): LocalPosition | null {
       return (owner && entries[owner]?.[videoId]) || null;
     },
-    /** The video with this device's unsynced position, which is newer than the server's. */
-    apply<T extends { video_id: string; watch_position?: number | null; watch_duration?: number | null }>(video: T): T {
+    /**
+     * The video with this device's unsynced position, unless the server's
+     * position shows another device played it since. The video may come from
+     * an older list, so a mismatch only skips the entry here; `flush` reads
+     * the server itself before dropping it.
+     */
+    apply<T extends ServerVideo>(video: T): T {
       const value = this.pending(video.video_id);
-      return value ? { ...video, watch_position: value.position, watch_duration: value.duration } : video;
+      if (!value || movedElsewhere(value, video)) return video;
+      return { ...video, watch_position: value.position, watch_duration: value.duration };
     },
-    /** Sends every unsynced position of the current owner to the server. */
-    async flush(save: (videoId: string, value: PlaybackPosition) => Promise<unknown>) {
+    /**
+     * Sends every unsynced position of the current owner to the server, after
+     * reading the server's current one: a position another device saved since
+     * is newer, so this device's entry is dropped instead of sent over it.
+     */
+    async flush(save: (videoId: string, value: PlaybackPosition) => Promise<unknown>, current: (videoId: string) => Promise<ServerVideo>) {
       await load;
       const key = owner;
       if (!key) return;
@@ -113,6 +145,9 @@ export function localProgressStore(store: Store, now: () => number = Date.now) {
         if (owner !== key) return;
         const saved = { position: value.position, duration: value.duration };
         try {
+          const video = await current(videoId);
+          if (owner !== key || entries[key]?.[videoId] !== value) continue;
+          if (movedElsewhere(value, video)) { this.clear(videoId); continue; }
           await save(videoId, saved);
           if (owner === key) this.synced(videoId, saved);
         } catch { /* Kept for the next attempt. */ }

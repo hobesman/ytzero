@@ -58,10 +58,51 @@ describe("unsynced watch positions", () => {
     await progress.flush(async (id, value) => {
       sent.push(`${id}@${value.position}`);
       if (id === "b") throw new Error("offline");
-    });
+    }, async (id) => ({ video_id: id, watch_position: null }));
     expect(sent.sort()).toEqual(["a@60", "b@70"]);
     expect(progress.pending("a")).toBeNull();
     expect(progress.pending("b")?.position).toBe(70);
+  });
+
+  test("a position another device saved since wins over this device's unsynced one", async () => {
+    const progress = localProgressStore(memoryStore());
+    await progress.ready;
+    progress.setOwner("o");
+    // This device started at the server's 100 and got to 300 without syncing.
+    progress.record("a", { position: 200, duration: 1000 }, false, 100);
+    progress.record("a", { position: 300, duration: 1000 }, false, 150);
+    expect(progress.pending("a")?.base).toBe(100);
+    expect(progress.apply({ video_id: "a", watch_position: 100, watch_duration: 1000 }).watch_position).toBe(300);
+    // Another device has since saved 700: the server's position is used and kept.
+    expect(progress.apply({ video_id: "a", watch_position: 700, watch_duration: 1000 }).watch_position).toBe(700);
+    const sent: string[] = [];
+    await progress.flush(async (id, value) => { sent.push(`${id}@${value.position}`); }, async (id) => ({ video_id: id, watch_position: 700 }));
+    expect(sent).toEqual([]);
+    expect(progress.pending("a")).toBeNull();
+  });
+
+  test("this device's own earlier save does not count as another device's", async () => {
+    const progress = localProgressStore(memoryStore());
+    await progress.ready;
+    progress.setOwner("o");
+    progress.record("a", { position: 200, duration: 1000 }, false, 100);
+    progress.record("a", { position: 260, duration: 1000 });
+    // The save of 200 arrives after the player moved on to 260.
+    progress.synced("a", { position: 200, duration: 1000 });
+    expect(progress.pending("a")?.base).toBe(200);
+    const sent: string[] = [];
+    await progress.flush(async (id, value) => { sent.push(`${id}@${value.position}`); }, async (id) => ({ video_id: id, watch_position: 200 }));
+    expect(sent).toEqual(["a@260"]);
+    expect(progress.pending("a")).toBeNull();
+  });
+
+  test("an unreachable server keeps the entry for later", async () => {
+    const progress = localProgressStore(memoryStore());
+    await progress.ready;
+    progress.setOwner("o");
+    progress.record("a", { position: 200, duration: 1000 }, false, 100);
+    await progress.flush(async () => {}, async () => { throw new Error("offline"); });
+    expect(progress.pending("a")?.position).toBe(200);
   });
 
   test("a finished video is forgotten; old or extra entries are dropped", async () => {
