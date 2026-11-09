@@ -45,6 +45,10 @@ const issue = async (session = token) => {
 };
 
 assert.equal((await request("/videos/native-test/playback-ticket", "POST", {}, "")).status, 401);
+// A client asking for the progressive stream still gets a downloaded file as a file.
+const preferred = await request("/videos/native-test/playback-ticket", "POST", { prefer: "progressive" });
+assert.equal(preferred.status, 200);
+assert.equal((await preferred.json() as { content_type: string }).content_type, "progressive");
 const first = await issue();
 // Request the same file without the long-lived API bearer, including byte seek.
 const ranged = await app.request(`http://localhost${first.url.replace("compat=1", "compat=0")}`, { headers: { Range: "bytes=4-7" } });

@@ -12,7 +12,8 @@ export function registerNativePlaybackRoutes(api: Hono<Environment>, currentUser
     if (!sessionToken) return c.json({ error: "device session required" }, 401);
     const userId = currentUserId(c);
     const videoId = c.req.param("id");
-    const source = await nativePlaybackSource(userId, videoId, c.req.raw.signal);
+    const { prefer } = await c.req.json().catch(() => ({}));
+    const source = await nativePlaybackSource(userId, videoId, c.req.raw.signal, prefer === "progressive");
     if ("error" in source) return c.json({ error: source.error }, source.status);
     if ("preparing" in source) {
       c.header("Retry-After", "2");
