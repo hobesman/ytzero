@@ -6,12 +6,13 @@ import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { feedBuilderMessages } from "./feedBuilder";
 import { tvPairingMessages } from "./tvPairing";
+import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 export const de: Locale = {
   messages: {
     ...surfaceMessages.de,
     ...clusterMessages.de,
     ...notificationMessages.de,
-    ...tvPairingMessages.de,
+    ...tvPairingMessages.de, ...playbackSpeedMemoryMessages.de,
     ...feedBuilderMessages.de,
     navToday: "Start",
     navSocial: "Social",

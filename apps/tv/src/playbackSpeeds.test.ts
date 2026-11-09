@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { playableSpeed, speedLabel, speedOptions } from "./playbackSpeeds";
+import { playableSpeed, speedLabel, speedMemoryTarget, speedOptions } from "./playbackSpeeds";
 
 describe("playback speeds", () => {
   test("accepts the server's range up to 4×", () => {
@@ -23,5 +23,16 @@ describe("playback speeds", () => {
   test("labels speeds compactly", () => {
     expect(speedLabel(1)).toBe("1×");
     expect(speedLabel("2.50")).toBe("2.5×");
+  });
+});
+
+describe("remembered speed changes", () => {
+  test("go to the channel's speed when it has one, else the profile default", () => {
+    expect(speedMemoryTarget("0", null, false)).toBeNull();
+    expect(speedMemoryTarget(undefined, "1.5", false)).toBeNull();
+    expect(speedMemoryTarget("1", null, false)).toBe("default");
+    expect(speedMemoryTarget("1", "", false)).toBe("default");
+    expect(speedMemoryTarget("1", "1.5", false)).toBe("channel");
+    expect(speedMemoryTarget("1", null, true)).toBeNull();
   });
 });

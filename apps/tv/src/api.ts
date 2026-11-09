@@ -4,6 +4,7 @@ import type { PlaylistSort } from "./playlist";
 import type { TvBrowseDestination } from "./navigation";
 import type { PlaybackTicket } from "./types";
 import type { PlaybackPosition } from "./playback";
+import type { SponsorSegment } from "./sponsorBlock";
 import { matchingChannels, searchChannel, searchVideo, type YoutubeSearchChannel, type YoutubeSearchVideo } from "./search";
 
 type BrowseResult = { videos: Video[]; page: number; hasMore: boolean };
@@ -437,6 +438,23 @@ export class YtZeroApi {
 
   dequeue(videoId: string): Promise<{ ok: true }> {
     return this.request(`/videos/${encodeURIComponent(videoId)}/dequeue`, { method: "POST", body: "{}" });
+  }
+
+  /** Profile settings on the server; the same ones the web settings page edits. */
+  updateSettings(patch: Partial<Record<keyof TvProfileSettings, string>>): Promise<{ ok: true }> {
+    return this.timedRequest("/settings", { method: "PUT", body: JSON.stringify(patch) });
+  }
+
+  setChannelSpeed(channelId: string, speed: string | null): Promise<{ ok: true }> {
+    return this.timedRequest(`/channels/${encodeURIComponent(channelId)}/speed`, { method: "PUT", body: JSON.stringify({ speed }) });
+  }
+
+  /** Counts the skipped time in Pulse, like the web player. */
+  recordSponsorBlockSkip(videoId: string, segment: SponsorSegment, skippedSeconds: number): Promise<{ ok: true; recorded: boolean }> {
+    return this.timedRequest(`/videos/${encodeURIComponent(videoId)}/sponsorblock-skip`, { method: "POST", body: JSON.stringify({
+      event_id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, segment_uuid: segment.UUID, category: segment.category,
+      skipped_seconds: skippedSeconds, segment_start: segment.segment[0], segment_end: segment.segment[1],
+    }) });
   }
 
   likeVideo(videoId: string, liked: boolean): Promise<{ ok: true }> {

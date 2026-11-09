@@ -181,6 +181,13 @@ export type TvProfileSettings = {
   show_shorts?: string;
   watch_show_related?: string;
   watch_show_comments?: "disabled" | "scroll" | "auto" | "0" | "1";
+  /** The profile's default speed; a channel's own speed comes first. */
+  player_speed?: string;
+  /** "1": a speed chosen in the player becomes the default, or the channel's speed when it has one. */
+  player_speed_remember?: string;
+  sponsorblock_enabled?: string;
+  /** JSON array of SponsorBlock category ids. */
+  sponsorblock_categories?: string;
   video_card_action_buttons?: string;
 };
 

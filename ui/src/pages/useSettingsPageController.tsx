@@ -198,7 +198,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
   const [subColor, setSubColor] = useState("#ffffff");
   const [subBg, setSubBg] = useState(75);
   const [playerQuality, setPlayerQuality] = useState("auto");
-  const [playerSpeed, setPlayerSpeed] = useState("1");
+  const [playerSpeed, setPlayerSpeed] = useState("1"); const [playerSpeedRemember, setPlayerSpeedRemember] = useState(false);
   const [playerSpeedOptions, setPlayerSpeedOptions] = useState<string[]>([]);
   const [keyboardSeekSeconds, setKeyboardSeekSeconds] = useState("5");
   const [screenshotFormat, setScreenshotFormat] = useState<PlayerScreenshotFormat>("jpeg");
@@ -484,7 +484,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
       setSubColor(r.settings.player_sub_color || "#ffffff");
       setSubBg(Number.isFinite(Number(r.settings.player_sub_bg)) ? Number(r.settings.player_sub_bg) : 75);
       setPlayerQuality(r.settings.player_quality);
-      setPlayerSpeed(r.settings.player_speed ?? "1");
+      setPlayerSpeed(r.settings.player_speed ?? "1"); setPlayerSpeedRemember(r.settings.player_speed_remember === "1");
       setPlayerSpeedOptions(parseCustomPlaybackSpeeds(r.settings.player_speed_options));
       setKeyboardSeekSeconds(r.settings.keyboard_seek_seconds ?? "5");
       setScreenshotFormat(parsePlayerScreenshotFormat(r.settings.player_screenshot_format));
@@ -1305,7 +1305,7 @@ export function useSettingsPageController({ showToast }: { showToast: (message: 
     playerCc,
     playerHl,
     playerQuality,
-    playerSpeed,
+    playerSpeed, playerSpeedRemember, setPlayerSpeedRemember,
     playerSpeedOptions,
     playlistIcon,
     playlistName,

@@ -56,7 +56,7 @@ export const BACKUP_SECTIONS: readonly BackupSectionDefinition[] = [
   { id: "instance.channels", schemaVersion: 4, scope: "instance", sensitivity: "normal", dependencies: [], category: "organization", path: () => "instance/channels.jsonl" },
   { id: "profiles.index", schemaVersion: 1, scope: "instance", sensitivity: "normal", dependencies: [], category: "profiles", path: () => "profiles/index.json" },
   { id: "profile.avatar", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "profiles", optional: true, path: (uuid = "") => `assets/avatars/${uuid}` },
-  { id: "profile.settings", schemaVersion: 12, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("settings.json") },
+  { id: "profile.settings", schemaVersion: 13, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("settings.json") },
   { id: "profile.feed-builder", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "profile.subscriptions", "profile.followed-playlists", "profile.tags", "profile.playlists"], category: "configuration", path: profilePath("feed-builder.json") },
   { id: "profile.notification-preferences", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index"], category: "configuration", path: profilePath("notification-preferences.jsonl") },
   { id: "profile.access-control", schemaVersion: 1, scope: "profile", sensitivity: "normal", dependencies: ["profiles.index", "instance.access-control"], category: "configuration", path: profilePath("access-control.json") },
@@ -94,7 +94,7 @@ function portableUserSettingValue(key: string, value: unknown): string {
   if (key === "language") return normalizeLanguage(value);
   if (key === "youtube_title_language") return normalizeYouTubeTitleLanguage(value);
   if (key === "player_speed") return normalizePlaybackSpeed(value) ?? SETTING_DEFAULTS.player_speed;
-  if (key === "player_speed_options") return normalizePlaybackSpeedOptionsSetting(value) ?? SETTING_DEFAULTS.player_speed_options;
+  if (key === "player_speed_options") return normalizePlaybackSpeedOptionsSetting(value) ?? SETTING_DEFAULTS.player_speed_options; if (key === "player_speed_remember") return value === "1" ? "1" : "0";
   if (key === "keyboard_shortcuts") return normalizeKeyboardShortcutSetting(value) ?? SETTING_DEFAULTS.keyboard_shortcuts; if (key.startsWith("video_card_")) return normalizeVideoCardSetting(key, value);
   if (key === "show_shorts") return value === "disabled" || value === "1" || value === "selected" ? value : "0";
   if (key === "watch_show_comments") return normalizeWatchCommentsMode(value);

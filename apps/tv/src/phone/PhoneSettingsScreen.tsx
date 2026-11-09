@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Switch, Text } from "react-native";
+import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
+import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -12,7 +14,7 @@ export type PhoneSettings = {
 };
 
 /** This device's settings, in the phone layout. */
-export function PhoneSettingsScreen({ settings, t }: { settings: PhoneSettings; t: Translate }) {
+export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; settings: PhoneSettings; t: Translate }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const run = async (action: () => Promise<void>) => {
@@ -24,6 +26,7 @@ export function PhoneSettingsScreen({ settings, t }: { settings: PhoneSettings; 
     onValueChange={(next) => void run(() => onChange(next))} trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />;
   return <ScrollView contentContainerStyle={styles.content}>
     <PhoneSectionTitle title={t("devicePlayback")} />
+    <PhoneProfilePlaybackSettings api={api} t={t} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />

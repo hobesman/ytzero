@@ -553,7 +553,7 @@ describe("portable backup classification and restore", () => {
     const exportedEntries = backup.readPortableZip(zip);
     const exportedManifest = JSON.parse(decoder.decode(exportedEntries.get("manifest.json")!));
     const profileSettingsSection = exportedManifest.sections.find((section: any) => section.id === "profile.settings");
-    expect(profileSettingsSection.schemaVersion).toBe(12);
+    expect(profileSettingsSection.schemaVersion).toBe(13);
     expect(JSON.parse(decoder.decode(exportedEntries.get(profileSettingsSection.path)!)).settings.watch_show_comments).toBe("auto");
     expect(JSON.parse(decoder.decode(exportedEntries.get(profileSettingsSection.path)!)).settings.keep_watched_in_feed).toBe("1");
     expect(JSON.parse(decoder.decode(exportedEntries.get(profileSettingsSection.path)!)).settings.channel_open_sync).toBe("recent");

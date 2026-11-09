@@ -5,6 +5,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 
 export const ja: Locale = {
   messages: {
@@ -12,7 +13,7 @@ export const ja: Locale = {
     ...feedBuilderMessages.ja,
     ...clusterMessages.ja,
     ...notificationMessages.ja,
-    ...tvPairingMessages.ja,
+    ...tvPairingMessages.ja, ...playbackSpeedMemoryMessages.ja,
     "navToday": "メインページ",
     "navSocial": "社会招聘",
     "navDiscovery": "ディスカバリー",

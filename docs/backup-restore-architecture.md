@@ -311,6 +311,13 @@ archive with no such capability restores with public sharing denied.
   replace uses the `off` application default. The sync cooldowns that keep an
   automatic page-open sync from repeating are runtime behaviour derived from
   channel refresh timestamps, which are rebuildable cache and never exported.
+  `player_speed_remember` is portable per-profile playback configuration
+  (`0` or `1`, default `0`). When enabled, a speed chosen in a player becomes
+  the profile's `player_speed`, or the channel's speed when that channel has
+  its own. It is recorded by `profile.settings` schema v13; schemas 1–12
+  remain readable: merge retains the target value when the key is absent,
+  while replace uses the disabled default. Restore normalizes anything but `1`
+  to `0`.
   Feed-builder configuration is portable personal configuration in the separate versioned `profile.feed-builder` section. It references portable tag and personal-playlist UUIDs plus channel and followed-playlist IDs, so that section depends on the corresponding organization sections. Its revision is preserved for optimistic concurrency; expired composed-feed session snapshots are rebuildable cache and are never exported.
   The visibility of the child-watching shortcut is also a portable per-profile
   presentation preference. It defaults to visible; live child activity remains

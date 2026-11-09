@@ -32,6 +32,7 @@ const CATALOG: CatalogEntry[] = [
   { view: "display:playback", label: "feedAutoplayDirection", description: "feedAutoplayDirectionHint" },
   { view: "display:playback", label: "quality", description: "qualityHint" },
   { view: "display:playback", label: "playbackSpeed", description: "playbackSpeedHint" },
+  { view: "display:playback", label: "rememberPlaybackSpeed", description: "rememberPlaybackSpeedHint" },
   { view: "display:playback", label: "customPlaybackSpeeds", description: "customPlaybackSpeedsHint" },
   { view: "display:playback", label: "keyboardSeekSeconds", description: "keyboardSeekSecondsHint" },
   { view: "display:playback", label: "keyboardShortcuts", description: "keyboardShortcutsHint" },

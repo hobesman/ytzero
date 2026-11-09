@@ -41,7 +41,7 @@ class FakePlayer {
   release() { this.released++; }
 }
 
-function harness() {
+function harness(defaultSpeed?: () => unknown) {
   const players: FakePlayer[] = [];
   const issued: string[] = [];
   const released: string[] = [];
@@ -55,7 +55,7 @@ function harness() {
   };
   const pool = new PlaybackBuffer(api, () => {
     const player = new FakePlayer(); players.push(player); return player as unknown as VideoPlayer;
-  }, async (player, seconds) => { player.currentTime = seconds; }, (entry) => failures.push(entry.video.video_id), undefined, control);
+  }, async (player, seconds) => { player.currentTime = seconds; }, (entry) => failures.push(entry.video.video_id), undefined, control, defaultSpeed);
   return { pool, players, issued, released, failures, api, control };
 }
 
@@ -261,6 +261,29 @@ describe("Shorts playback buffer", () => {
       await h.pool.pause();
       await h.pool.play(entry);
       expect(entry.player.playbackRate).toBe(2);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+
+  test("uses the profile's default speed, read at playback, unless the channel has its own", async () => {
+    let profileSpeed: unknown = "1.25";
+    const h = harness(() => profileSpeed);
+    try {
+      const plain = h.pool.prepare(video("a"));
+      const channel = h.pool.prepare({ ...video("b"), channel_playback_speed: "2" });
+      const live = h.pool.prepare({ ...video("c"), is_short: 0, live_status: "live" });
+      await Promise.all([plain.ready, channel.ready, live.ready]);
+      profileSpeed = "1.75";
+      await h.pool.play(plain);
+      expect(plain.player.playbackRate).toBe(1.75);
+      await h.pool.play(channel);
+      expect(channel.player.playbackRate).toBe(2);
+      await h.pool.play(live);
+      expect(live.player.playbackRate).toBe(1);
+      profileSpeed = "fast";
+      const invalid = h.pool.prepare(video("d"));
+      await invalid.ready;
+      await h.pool.play(invalid);
+      expect(invalid.player.playbackRate).toBe(1);
     } finally { h.pool.dispose(); await flush(); }
   });
 

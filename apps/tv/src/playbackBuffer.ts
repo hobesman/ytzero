@@ -19,7 +19,8 @@ export type BufferedPlayback = {
 export class PlaybackBuffer {
   private entries = new Map<string, BufferedPlayback>();
   private protectedIds = new Map<string, number>();
-  private initialRates = new WeakMap<BufferedPlayback, number>();
+  // null: no channel speed; the profile default is read when playback starts.
+  private initialRates = new WeakMap<BufferedPlayback, number | null>();
   private activeEntry: BufferedPlayback | null = null;
   private playbackVersion = 0;
   constructor(
@@ -29,6 +30,8 @@ export class PlaybackBuffer {
     private onFailure: (entry: BufferedPlayback, error: unknown) => void,
     private unload: (player: VideoPlayer) => Promise<void> = async (player) => { await player.replaceAsync(null); },
     private control: PlaybackControl = { play: async (player) => { player.play(); }, pause: async (player) => { player.pause(); } },
+    /** The profile's default speed, used when the video's channel has none. */
+    private defaultSpeed: () => unknown = () => 1,
   ) {}
 
   prepare(video: Video, position = resumePosition(video.watch_position, video.watch_duration, video.watched)): BufferedPlayback {
@@ -142,8 +145,7 @@ export class PlaybackBuffer {
       },
     };
     this.entries.set(video.video_id, entry);
-    const speed = playableSpeed(video.channel_playback_speed ?? 1);
-    this.initialRates.set(entry, !live && speed !== null ? speed : 1);
+    this.initialRates.set(entry, live ? 1 : playableSpeed(video.channel_playback_speed ?? null));
     // Loads a ticket's source into this player: first the server's choice,
     // then once, after a full-quality stream fails, the progressive stream.
     const loadSource = async (prefer?: "progressive") => {
@@ -183,8 +185,9 @@ export class PlaybackBuffer {
     if (!current()) return false;
     this.activeEntry = entry;
     try {
-      const speed = this.initialRates.get(entry);
-      if (speed !== undefined) {
+      const initial = this.initialRates.get(entry);
+      if (initial !== undefined) {
+        const speed = initial ?? playableSpeed(this.defaultSpeed()) ?? 1;
         // expo-video's Apple setter writes AVPlayer.rate, which starts playback.
         // Apply it only here, while the selected player is still muted.
         entry.player.playbackRate = speed;

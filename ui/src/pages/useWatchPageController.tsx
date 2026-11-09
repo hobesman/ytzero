@@ -1070,8 +1070,8 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     if (!moreOpen) setMoreView("root");
   }, [moreOpen]);
 
-  // Apply a speed: change playback now and persist it as this channel's override
-  // (null clears the override, falling back to the global default).
+  // Apply a speed: change playback now and persist it as this channel's override (null clears it, falling back to the
+  // global default). With "remember speed changes", a pick on a channel without its own speed becomes the default instead.
   const changeSpeed = (v: string | null) => {
     if (watchTogetherTransportLocked) {
       setMoreOpen(false);
@@ -1085,9 +1085,9 @@ export function useWatchPageController(audioModeRequested: boolean = false) {
     if (audioActive) applyFallback();
     else if (id) void sendPlayerCommand(id, "set-playback-rate", { rate: Number(eff) }).catch(applyFallback);
     else applyFallback();
-    setMoreOpen(false);
-    setSpeedOpen(false);
-    if (video) {
+    setMoreOpen(false); setSpeedOpen(false);
+    if (video && v !== null && video.channel_playback_speed == null && settings?.player_speed_remember === "1") { api.updateSettings({ player_speed: v }).catch(() => {}); setSettings((s) => s ? { ...s, player_speed: v } : s); }
+    else if (video) {
       api.setChannelSpeed(video.channel_id, v).catch(() => {});
       setVideo((prev) => (prev ? { ...prev, channel_playback_speed: v } : prev));
     }
