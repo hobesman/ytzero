@@ -1,0 +1,134 @@
+name: Android APK
+
+# Builds the Android phone APK of apps/tv and publishes it as a GitHub release
+# tagged android-<build>. The app's update check (apps/tv/src/appUpdate.ts)
+# compares its own build number with the newest of those releases.
+#
+# - push to main: published as a release, offered to phones as an update.
+# - workflow_dispatch: published too; from a branch other than main it is a
+#   prerelease, which the update check ignores.
+# - pull_request: built and checked only, kept as a workflow artifact.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - apps/tv/**
+      - .github/workflows/android-apk.yml
+  pull_request:
+    paths:
+      - apps/tv/**
+      - .github/workflows/android-apk.yml
+  workflow_dispatch:
+    inputs:
+      architectures:
+        description: Comma-separated ABIs (add x86_64 to install on an emulator)
+        default: arm64-v8a
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The stock debug keystore that every `expo prebuild` writes. The APKs built
+  # by hand before this workflow used it too, so builds from here install over
+  # them as updates. A different key would force an uninstall on the phone.
+  EXPECTED_SIGNER_SHA256: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c
+
+jobs:
+  build:
+    name: Build the release APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Number this build
+        # versionCode must grow with every build; 100 keeps it above the
+        # versionCode 1 of the APKs built by hand.
+        run: |
+          build=$((100 + GITHUB_RUN_NUMBER))
+          echo "EXPO_PUBLIC_ANDROID_BUILD=$build" >> "$GITHUB_ENV"
+          echo "EXPO_PUBLIC_UPDATE_REPOSITORY=$GITHUB_REPOSITORY" >> "$GITHUB_ENV"
+          echo "TAG=android-$build" >> "$GITHUB_ENV"
+          echo "APK_NAME=ytzero-android-$build.apk" >> "$GITHUB_ENV"
+          echo "ARCHITECTURES=${{ inputs.architectures || 'arm64-v8a' }}" >> "$GITHUB_ENV"
+
+      - name: Set up the Bun runtime
+        uses: oven-sh/setup-bun@v2
+
+      - name: Set up Node.js
+        # Expo autolinking and the Metro bundle need Node; Bun can't stand in.
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        working-directory: apps/tv
+        run: bun install --frozen-lockfile
+
+      - name: Generate the Android project
+        working-directory: apps/tv
+        env:
+          EXPO_TV: "1"
+        run: bunx expo prebuild --platform android --no-install
+
+      - name: Build the APK
+        working-directory: apps/tv/android
+        env:
+          EXPO_TV: "1"
+        run: ./gradlew assembleRelease --no-daemon "-PreactNativeArchitectures=$ARCHITECTURES"
+
+      - name: Check the version and signing key
+        run: |
+          apk=apps/tv/android/app/build/outputs/apk/release/app-release.apk
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$tools/aapt2" dump badging "$apk" | head -1
+          "$tools/aapt2" dump badging "$apk" | grep -q "versionCode='$EXPO_PUBLIC_ANDROID_BUILD'"
+          signer=$("$tools/apksigner" verify --print-certs "$apk" | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          echo "Signer SHA-256: $signer"
+          if [ "$signer" != "$EXPECTED_SIGNER_SHA256" ]; then
+            echo "::error::The APK is signed with an unexpected key; phones would refuse it as an update."
+            exit 1
+          fi
+          mkdir -p dist && cp "$apk" "dist/$APK_NAME"
+
+      - name: Keep the APK as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: dist/${{ env.APK_NAME }}
+          if-no-files-found: error
+
+      - name: Publish the release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short=$(git rev-parse --short HEAD)
+          subject=$(git log -1 --format=%s)
+          notes=$(printf 'YT Zero for Android phones, build %s.\n\nCommit %s on %s: %s\n' \
+            "$EXPO_PUBLIC_ANDROID_BUILD" "$short" "$GITHUB_REF_NAME" "$subject")
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            channel=(--latest)
+          else
+            channel=(--prerelease --latest=false)
+          fi
+          gh release create "$TAG" "dist/$APK_NAME" --target "$GITHUB_SHA" \
+            --title "Android build $EXPO_PUBLIC_ANDROID_BUILD" --notes "$notes" "${channel[@]}"
