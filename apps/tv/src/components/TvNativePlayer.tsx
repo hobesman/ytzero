@@ -4,7 +4,7 @@ import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Te
 import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
-import { heightLabel, qualityButtonLabel, saveStreamQuality, STREAM_QUALITIES, streamQuality, type StreamQuality } from "../streamQuality";
+import { heightLabel, qualityButtonLabel, qualityChoiceLabel, saveStreamQuality, STREAM_QUALITIES, streamQuality, type StreamQuality } from "../streamQuality";
 import { deviceStore } from "../deviceStore";
 import { sponsorCategories } from "../sponsorBlock";
 import { useSponsorBlock } from "../useSponsorBlock";
@@ -515,7 +515,8 @@ export function TvNativePlayer(props: Props) {
   const currentVideo = active?.video ?? video;
   const inline = presentation === "inline";
   const showButtons = presented && !dismissing && speedButton;
-  const qualityLabel = qualityButtonLabel(quality, trackHeight, t("qualityAuto"));
+  const qualityLabels = { auto: t("qualityAuto"), fast: t("qualityFast") };
+  const qualityLabel = qualityButtonLabel(quality, trackHeight, qualityLabels);
   const surface = <>
     <View style={styles.video}>
     {/* A tap shows or hides ExoPlayer's controls; the app's buttons follow it. The
@@ -565,8 +566,12 @@ export function TvNativePlayer(props: Props) {
     options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
     onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); rememberSpeed(active, value); }}
     onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : qualitySheet && active ? <TvChoiceSheet title={t("streamQuality")} t={t} value={quality}
-    options={STREAM_QUALITIES.map((value) => ({ value, label: value !== "auto" ? `${value}p`
-      : quality === "auto" && heightLabel(trackHeight) ? `${t("qualityAuto")} (${heightLabel(trackHeight)})` : t("qualityAuto") }))}
+    options={STREAM_QUALITIES.map((value) => {
+      const label = qualityChoiceLabel(value, qualityLabels);
+      // "Auto" and "Fast start" name no height: show the one playing beside the current choice.
+      const playing = (value === "auto" || value === "fast") && value === quality ? heightLabel(trackHeight) : null;
+      return { value, label: playing ? `${label} (${playing})` : label };
+    })}
     onSelect={(value) => {
       setQualitySheet(false);
       revealSpeedButton();

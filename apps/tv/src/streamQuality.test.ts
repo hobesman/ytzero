@@ -15,6 +15,7 @@ describe("stream quality", () => {
     expect(parseStreamQuality(null)).toBe("auto");
     expect(parseStreamQuality("4320")).toBe("auto");
     expect(parseStreamQuality("720")).toBe("720");
+    expect(parseStreamQuality("fast")).toBe("fast");
   });
 
   test("is remembered on the device", async () => {
@@ -30,8 +31,11 @@ describe("stream quality", () => {
   test("labels the playing height, else the choice", () => {
     expect(heightLabel(719.6)).toBe("720p");
     expect(heightLabel(0)).toBeNull();
-    expect(qualityButtonLabel("auto", 480, "Auto")).toBe("480p");
-    expect(qualityButtonLabel("auto", null, "Auto")).toBe("Auto");
-    expect(qualityButtonLabel("720", undefined, "Auto")).toBe("720p");
+    const labels = { auto: "Auto", fast: "Fast start" };
+    expect(qualityButtonLabel("auto", 480, labels)).toBe("480p");
+    expect(qualityButtonLabel("auto", null, labels)).toBe("Auto");
+    expect(qualityButtonLabel("fast", null, labels)).toBe("Fast start");
+    expect(qualityButtonLabel("fast", 360, labels)).toBe("360p");
+    expect(qualityButtonLabel("720", undefined, labels)).toBe("720p");
   });
 });

@@ -408,4 +408,49 @@ describe("stream quality", () => {
       expect(h.failures).toEqual([]);
     } finally { pool.dispose(); await flush(); }
   });
+
+  test("fast start asks for the progressive stream first, and switching away reloads the full-quality one", async () => {
+    const h = harness();
+    let quality = "fast";
+    const asked: Array<[string | undefined, string | undefined]> = [];
+    h.api.playbackTicket = async (id: string, _signal?: AbortSignal, prefer?: "progressive", requested?: string) => {
+      asked.push([prefer, requested]);
+      return prefer
+        ? { ticket: `${id}-${asked.length}`, url: `/api/videos/${id}/direct-stream`, content_type: "progressive", expires_in: 60 }
+        : { ticket: `${id}-${asked.length}`, url: `/api/videos/${id}/direct-hls/index.m3u8?q=${requested}`, content_type: "hls", expires_in: 60 };
+    };
+    const pool = new PlaybackBuffer(h.api, () => {
+      const player = new FakePlayer(); h.players.push(player); return player as unknown as VideoPlayer;
+    }, async (player, seconds) => { player.currentTime = seconds; }, (entry) => h.failures.push(entry.video.video_id), undefined, h.control, undefined, () => quality);
+    try {
+      const entry = pool.prepare({ ...video("f"), is_short: 0 }, 0);
+      await entry.ready;
+      expect(asked).toEqual([["progressive", undefined]]);
+      const player = h.players[0]!;
+      expect(String((player.source as { uri: string }).uri)).toContain("/direct-stream");
+      quality = "auto";
+      entry.reload();
+      await flush(); await flush();
+      expect(asked).toEqual([["progressive", undefined], [undefined, "auto"]]);
+      expect(String((player.source as { uri: string }).uri)).toContain("/direct-hls/");
+      expect(h.failures).toEqual([]);
+    } finally { pool.dispose(); await flush(); }
+  });
+
+  test("fast start leaves a live stream on its own source", async () => {
+    const h = harness();
+    const prefers: Array<string | undefined> = [];
+    h.api.playbackTicket = async (id: string, _signal?: AbortSignal, prefer?: "progressive") => {
+      prefers.push(prefer);
+      return { ticket: id, url: `/api/videos/${id}/live-hls/index.m3u8`, content_type: "hls", expires_in: 60 };
+    };
+    const pool = new PlaybackBuffer(h.api, () => {
+      const player = new FakePlayer(); h.players.push(player); return player as unknown as VideoPlayer;
+    }, async (player, seconds) => { player.currentTime = seconds; }, (entry) => h.failures.push(entry.video.video_id), undefined, h.control, undefined, () => "fast");
+    try {
+      pool.prepare({ ...video("live"), live_status: "live" }, 0);
+      await flush(); await flush();
+      expect(prefers).toEqual([undefined]);
+    } finally { pool.dispose(); await flush(); }
+  });
 });
