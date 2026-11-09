@@ -5,6 +5,7 @@ import { deviceStore } from "../deviceStore";
 import type { Translate } from "../i18n";
 import { saveStreamQuality, streamQuality } from "../streamQuality";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
+import { PhoneAppUpdateSettings } from "./PhoneAppUpdateSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -42,6 +43,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneListRow title={t("changeInstance")} onPress={() => void run(settings.onChangeInstance)} />
     <PhoneSectionTitle title={t("session")} />
     <PhoneListRow title={t("signOut")} detail={t("signOutHint")} danger onPress={() => void run(settings.onSignOut)} />
+    <PhoneAppUpdateSettings t={t} />
     {failed ? <Text style={styles.error}>{t("cannotConnect")}</Text> : null}
   </ScrollView>;
 }

@@ -7,6 +7,7 @@ import type { Translate } from "../i18n";
 import type { SavedProfile } from "../savedProfiles";
 import type { Profile } from "../types";
 import { PhoneChip } from "./PhoneChip";
+import { PhoneAppUpdateEntry } from "./PhoneAppUpdateSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -111,6 +112,7 @@ export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettin
             trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />} /> : null}
         <PhoneListRow icon={<SidebarIcon name="history" color={phoneColors.text} size={22} />} title={t("navHistory")} onPress={onHistory} />
         <PhoneListRow icon={<SidebarIcon name="settings" color={phoneColors.text} size={22} />} title={t("navSettings")} onPress={onSettings} />
+        <PhoneAppUpdateEntry t={t} />
         {state.saved ? <>
           <PhoneSectionTitle title={t("profiles")} />
           {otherSaved.map((profile) => <PhoneListRow key={profile.profileId} title={profile.name}
