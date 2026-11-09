@@ -240,7 +240,8 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   const player = playingFrom !== null ? <TvNativePlayer api={api} video={video} startPosition={playingFrom} incognito={incognito} isChild={isChild} t={t} onClose={closePlayer}
     docked={playerDocked} onDock={onDockPlayer} onExpand={onExpandPlayer} queueVideos={sequence.queueVideos} nextVideo={sequence.next} previousVideo={sequence.previous} queueContext={queueContext ?? video.playback_context ?? sequence.context}
     presentation={phone ? "inline" : "modal"} fullscreenActive={playerFullscreen} onToggleFullscreen={phone ? onToggleFullscreen : undefined}
-    queueLoading={sequence.loading}
+    queueLoading={sequence.loading} settings={settings}
+    onSettingsChange={(patch) => setSettings((current) => current ? { ...current, ...patch } : current)}
     onAdvance={(next) => { requestVersion.current++; setVideo(next); setPreview(next); }}
     onProgress={(played, result) => {
       if (result.saveFailed) setSaveFailed(true);

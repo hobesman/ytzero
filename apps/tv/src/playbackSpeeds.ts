@@ -18,3 +18,12 @@ export function speedOptions(current: number): string[] {
 export function speedLabel(speed: number | string): string {
   return `${Math.round(Number(speed) * 100) / 100}×`;
 }
+
+/**
+ * Where a speed chosen in the player is kept when the profile remembers speed
+ * changes: the channel's own speed when it has one, otherwise the profile default.
+ */
+export function speedMemoryTarget(remember: unknown, channelSpeed: string | null | undefined, live: boolean): "channel" | "default" | null {
+  if (remember !== "1" || live) return null;
+  return channelSpeed != null && channelSpeed !== "" ? "channel" : "default";
+}

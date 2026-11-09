@@ -12,8 +12,8 @@ import { useSettingsPageController } from "../../pages/useSettingsPageController
 import Popconfirm from "../Popconfirm";
 import { Button, ColorPicker, Divider, Inline, Input, InputGroup, SelectMenu, SettingRow, SettingsSection, Slider, Switch, Text } from "../ui";
 import { SidebarNavEditor, VideoCardActionEditor } from "./SettingsEditors"; import { KeyboardShortcutSettings } from "./KeyboardShortcutSettings";
-import PlaybackSpeedOptionsSetting from "./PlaybackSpeedOptionsSetting";
-import { resolvePlaybackSpeeds, serializeCustomPlaybackSpeeds } from "../../../../shared/playbackSpeeds";
+import PlaybackSpeedOptionsSetting from "./PlaybackSpeedOptionsSetting"; import { DefaultPlaybackSpeedSetting } from "./DefaultPlaybackSpeedSetting";
+import { serializeCustomPlaybackSpeeds } from "../../../../shared/playbackSpeeds";
 const VideoCardSwipeSetting = lazy(() => import("./VideoCardSwipeSetting").then((module) => ({ default: module.VideoCardSwipeSetting })));
 const FeedBuilderSettings = (import.meta as ImportMeta & { env: { DEV: boolean } }).env.DEV
   ? lazy(() => import("./FeedBuilderSettings").then((module) => ({ default: module.FeedBuilderSettings })))
@@ -72,7 +72,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
     playerCc,
     playerHl,
     playerQuality,
-    playerSpeed,
+    playerSpeed, playerSpeedRemember, setPlayerSpeedRemember,
     playerSpeedOptions,
     plugins,
     resetNavConfig,
@@ -387,17 +387,8 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
             />
           </SettingRow>
 
-          <SettingRow label={t("playbackSpeed")} description={t("playbackSpeedHint")}>
-            <SelectMenu
-              label={t("playbackSpeed")}
-              value={playerSpeed}
-              options={resolvePlaybackSpeeds(serializeCustomPlaybackSpeeds(playerSpeedOptions), playerSpeed).map((speed) => ({ value: speed, label: `${speed}×` }))}
-              onChange={(next) => {
-                setPlayerSpeed(next);
-                savePlayer({ player_speed: next });
-              }}
-            />
-          </SettingRow>
+          <DefaultPlaybackSpeedSetting speed={playerSpeed} customSpeeds={playerSpeedOptions} remember={playerSpeedRemember}
+            onSpeedChange={setPlayerSpeed} onRememberChange={setPlayerSpeedRemember} save={savePlayer} />
 
           <SettingRow className="playback-speed-options-setting-row" label={t("customPlaybackSpeeds")} description={t("customPlaybackSpeedsHint")} align="start">
             <PlaybackSpeedOptionsSetting

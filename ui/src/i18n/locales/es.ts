@@ -4,6 +4,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 import type { Locale } from "../types";
 
 export const es: Locale = {
@@ -12,7 +13,7 @@ export const es: Locale = {
     ...feedBuilderMessages.es,
     ...clusterMessages.es,
     ...notificationMessages.es,
-    ...tvPairingMessages.es,
+    ...tvPairingMessages.es, ...playbackSpeedMemoryMessages.es,
     navToday: "Inicio",
     navSocial: "Social",
     navDiscovery: "Descubrir",

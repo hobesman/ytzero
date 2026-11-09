@@ -273,7 +273,7 @@ export interface AppSettings {
   player_sub_color: string;
   player_sub_bg: string;
   player_quality: string;
-  player_speed: string;
+  player_speed: string; player_speed_remember?: string;
   player_speed_options: string;
   keyboard_seek_seconds: string; keyboard_shortcuts: string;
   enhance_enabled: string;

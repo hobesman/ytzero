@@ -3,7 +3,10 @@ import { createVideoPlayer, VideoView } from "expo-video";
 import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
-import { speedLabel, speedOptions } from "../playbackSpeeds";
+import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
+import { sponsorCategories } from "../sponsorBlock";
+import { useSponsorBlock } from "../useSponsorBlock";
+import { useKeepScreenAwake } from "../useKeepScreenAwake";
 import { TvChoiceSheet } from "./TvChoiceSheet";
 import { useMiniPlayerSlot } from "./MiniPlayerHost";
 import { TvMiniPlayer } from "./TvMiniPlayer";
@@ -11,7 +14,7 @@ import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
 import { PlaybackBuffer, type BufferedPlayback } from "../playbackBuffer";
-import type { Video } from "../types";
+import type { TvProfileSettings, Video } from "../types";
 import { colors, typography, screenPadding } from "../theme";
 import { TvBackButton } from "./TvBackButton";
 import { TvButton } from "./TvButton";
@@ -37,6 +40,8 @@ type Props = {
   docked?: boolean; onDock?: () => void; onExpand?: () => void;
   /** Phones: "inline" draws the player in the details page; fullscreen uses the Modal. */
   presentation?: "modal" | "inline"; onToggleFullscreen?: () => void; fullscreenActive?: boolean;
+  /** The profile's server settings: default speed, remembered speed, SponsorBlock. */
+  settings?: TvProfileSettings | null; onSettingsChange?: (patch: Partial<TvProfileSettings>) => void;
 };
 const presentsNativeFullscreen = Platform.OS === "ios";
 // Android plays inline with ExoPlayer's controls, whose speed menu stops at 2×,
@@ -44,7 +49,11 @@ const presentsNativeFullscreen = Platform.OS === "ios";
 const ownsSpeedControl = Platform.OS === "android";
 const playsInBackground = Platform.OS === "android";
 const canDock = Platform.OS === "android" && !Platform.isTV;
-const speedButtonTimeout = 2500;
+const speedButtonTimeout = 4000;
+const skippedNoticeTimeout = 3000;
+// A touch that moves this far, or lasts this long, is a drag (the seek bar), not a tap.
+const tapSlop = 12;
+const tapDuration = 400;
 // tvOS keeps its full-screen AVKit presentation and its own overscan handling.
 const playerSafeEdges: Edge[] = Platform.OS === "android" ? ["top", "right", "bottom", "left"] : [];
 
@@ -97,15 +106,27 @@ export function TvNativePlayer(props: Props) {
   const [rate, setRate] = useState(1);
   const [speedSheet, setSpeedSheet] = useState(false);
   const [speedButton, setSpeedButton] = useState(false);
-  const [paused, setPaused] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   const speedButtonTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const skippedNoticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const speedButtonShown = useRef(false);
+  const touchStart = useRef<{ x: number; y: number; time: number } | null>(null);
+  const showSpeedButton = (shown: boolean) => { speedButtonShown.current = shown; setSpeedButton(shown); };
+  // The app's buttons show with ExoPlayer's controls: a tap shows them for a
+  // few seconds (they stay while paused), and another tap hides them.
   const revealSpeedButton = () => {
     if (!ownsSpeedControl) return;
-    setSpeedButton(true);
+    showSpeedButton(true);
     clearTimeout(speedButtonTimer.current);
-    speedButtonTimer.current = setTimeout(() => setSpeedButton(false), speedButtonTimeout);
+    if (session.current?.entry.player.playing !== false) speedButtonTimer.current = setTimeout(() => showSpeedButton(false), speedButtonTimeout);
   };
-  useEffect(() => () => clearTimeout(speedButtonTimer.current), []);
+  const toggleSpeedButton = () => {
+    if (!speedButtonShown.current) { revealSpeedButton(); return; }
+    clearTimeout(speedButtonTimer.current);
+    showSpeedButton(false);
+  };
+  useEffect(() => () => { clearTimeout(speedButtonTimer.current); clearTimeout(skippedNoticeTimer.current); }, []);
   const closeRef = useRef<() => void>(() => {});
   // While docked, the same player shows in the mini player above the app.
   useEffect(() => {
@@ -116,7 +137,8 @@ export function TvNativePlayer(props: Props) {
   }, [active, docked, miniPlayerSlot, t]);
   const buffer = useMemo(() => new PlaybackBuffer(api, () => {
     const player = createVideoPlayer(null);
-    player.timeUpdateEventInterval = 1;
+    // Half a second keeps SponsorBlock skips close to each segment's start.
+    player.timeUpdateEventInterval = 0.5;
     // Android keeps playing with the screen off or the app in the background,
     // with a media notification for the active player (set below).
     player.staysActiveInBackground = playsInBackground;
@@ -124,7 +146,8 @@ export function TvNativePlayer(props: Props) {
     player.audioMixingMode = "doNotMix";
     player.bufferOptions = { preferredForwardBufferDuration: 5, maxBufferBytes: 8 * 1024 * 1024 };
     return player;
-  }, seekPlayer, (entry, cause) => handleFailure.current(entry, cause), unloadPlayer, { play: playPlayer, pause: pausePlayer }), [api]);
+  }, seekPlayer, (entry, cause) => handleFailure.current(entry, cause), unloadPlayer, { play: playPlayer, pause: pausePlayer },
+  () => latest.current.settings?.player_speed), [api]);
 
   const endTransition = () => {
     transitionLease.current?.();
@@ -347,7 +370,14 @@ export function TvNativePlayer(props: Props) {
     if (playsInBackground) player.showNowPlayingNotification = true;
     const subscriptions = [
       player.addListener("playbackRateChange", ({ playbackRate }) => setRate(playbackRate)),
-      player.addListener("playingChange", ({ isPlaying }) => setPaused(!isPlaying)),
+      player.addListener("playingChange", ({ isPlaying }) => {
+        setPlaying(isPlaying);
+        if (!ownsSpeedControl) return;
+        // Paused, the buttons stay until a tap hides them; playing again, they hide a few seconds later.
+        clearTimeout(speedButtonTimer.current);
+        if (!isPlaying) showSpeedButton(true);
+        else if (speedButtonShown.current) speedButtonTimer.current = setTimeout(() => showSpeedButton(false), speedButtonTimeout);
+      }),
       player.addListener("timeUpdate", ({ currentTime }) => {
         const current = session.current;
         if (!current || current.entry !== active || current.finished) return;
@@ -449,12 +479,42 @@ export function TvNativePlayer(props: Props) {
     if (target) return focusWhenReady(target, () => setPanelFocused(true));
   }, [active, dismissing, error, modalVisible, presented, ready]);
 
+  // The screen stays on while a video plays in the app; in the background it sleeps as usual.
+  useKeepScreenAwake(playing && !dismissing);
+  useSponsorBlock({ api, player: active?.player ?? null, video: active?.video ?? null,
+    categories: sponsorCategories(props.settings?.sponsorblock_enabled, props.settings?.sponsorblock_categories),
+    record: !incognito, onSkip: (seconds) => {
+      setSkippedNotice(t("sponsorSkipped").replace("{seconds}", String(Math.max(1, Math.round(seconds)))));
+      clearTimeout(skippedNoticeTimer.current);
+      skippedNoticeTimer.current = setTimeout(() => setSkippedNotice(null), skippedNoticeTimeout);
+    } });
+  // With "remember speed changes" on, a speed picked here outlasts this video.
+  const rememberSpeed = (entry: BufferedPlayback, value: string) => {
+    const state = latest.current;
+    const target = speedMemoryTarget(state.settings?.player_speed_remember, entry.video.channel_playback_speed, entry.video.live_status === "live");
+    const channelId = entry.video.channel_id;
+    if (target === "channel" && channelId) {
+      entry.video = { ...entry.video, channel_playback_speed: value };
+      void api.setChannelSpeed(channelId, value).catch(() => {});
+    } else if (target === "default") {
+      void api.updateSettings({ player_speed: value }).catch(() => {});
+      state.onSettingsChange?.({ player_speed: value });
+    }
+  };
+
   const currentVideo = active?.video ?? video;
   const inline = presentation === "inline";
-  const showButtons = presented && !dismissing && (speedButton || paused);
+  const showButtons = presented && !dismissing && speedButton;
   const surface = <>
-    {/* A touch shows ExoPlayer's controls; show the app's buttons alongside them. */}
-    <View style={styles.video} onTouchStart={revealSpeedButton}>
+    <View style={styles.video}>
+    {/* A tap shows or hides ExoPlayer's controls; the app's buttons follow it. The
+        buttons sit outside this view, so pressing them doesn't count as a tap. */}
+    <View style={styles.video} onTouchStart={({ nativeEvent }) => { touchStart.current = { x: nativeEvent.pageX, y: nativeEvent.pageY, time: Date.now() }; }}
+      onTouchEnd={({ nativeEvent }) => {
+        const start = touchStart.current;
+        touchStart.current = null;
+        if (start && Date.now() - start.time < tapDuration && Math.hypot(nativeEvent.pageX - start.x, nativeEvent.pageY - start.y) < tapSlop) toggleSpeedButton();
+      }}>
     <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
       fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
       buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
@@ -465,6 +525,10 @@ export function TvNativePlayer(props: Props) {
         setPresented(false);
         if (!failure.current) void close();
       }} />
+    </View>
+    {skippedNotice && presented ? <View pointerEvents="none" style={[styles.skippedNotice, inline && !props.fullscreenActive && styles.inlineSkippedNotice]}>
+      <Text style={styles.skippedNoticeText}>{skippedNotice}</Text>
+    </View> : null}
     {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && !props.fullscreenActive && styles.inlineButtons]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
         style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
@@ -483,7 +547,7 @@ export function TvNativePlayer(props: Props) {
   </>;
   const speedChoice = speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
     options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
-    onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); }}
+    onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); rememberSpeed(active, value); }}
     onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : null;
 
   // Phones: the player drawn in the details page, above its title and actions.
@@ -540,6 +604,9 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 20, marginTop: 16 },
   playerButtons: { position: "absolute", top: 16, right: 16, flexDirection: "row", gap: 10 },
   inlineButtons: { top: 8, right: 8 },
+  skippedNotice: { position: "absolute", top: 16, left: 16, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(0, 0, 0, 0.6)" },
+  inlineSkippedNotice: { top: 8, left: 8 },
+  skippedNoticeText: { color: colors.text, fontSize: 14, lineHeight: 18, fontWeight: "600" },
   inline: { flex: 1, backgroundColor: colors.black },
   inlinePanel: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", gap: 12, padding: 16, backgroundColor: colors.black },
   inlineError: { color: colors.text, fontSize: 14, textAlign: "center" },

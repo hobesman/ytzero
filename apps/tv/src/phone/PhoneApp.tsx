@@ -99,7 +99,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   const pushedScreen = (screen: Pushed): ReactNode => {
     switch (screen.kind) {
       case "feed": return <PhoneFeedScreen api={api} destination={screen.destination} sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
-      case "settings": return <PhoneSettingsScreen settings={settings} t={t} />;
+      case "settings": return <PhoneSettingsScreen api={api} settings={settings} t={t} />;
       case "bookmarks": return <PhoneBookmarksScreen api={api} t={t} videoUpdate={videoUpdate} onOpen={onOpen} />;
       case "playlists": return <PhoneFollowedPlaylistsScreen api={api} t={t} onOpenPlaylist={(playlist) => push({ kind: "playlist", id: playlist.playlist_id, title: playlist.title })} />;
       case "playlist": return <PhonePlaylistScreen api={api} playlistId={screen.id} language={language} t={t} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
