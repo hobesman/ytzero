@@ -13,7 +13,6 @@ on:
   push:
     branches:
       - main
-      - claude/android-apk-ci
     paths:
       - apps/tv/**
       - .github/workflows/android-apk.yml
@@ -60,7 +59,7 @@ jobs:
           echo "EXPO_PUBLIC_UPDATE_REPOSITORY=$GITHUB_REPOSITORY" >> "$GITHUB_ENV"
           echo "TAG=android-$build" >> "$GITHUB_ENV"
           echo "APK_NAME=ytzero-android-$build.apk" >> "$GITHUB_ENV"
-          echo "ARCHITECTURES=${{ inputs.architectures || 'arm64-v8a,x86_64' }}" >> "$GITHUB_ENV"
+          echo "ARCHITECTURES=${{ inputs.architectures || 'arm64-v8a' }}" >> "$GITHUB_ENV"
 
       - name: Set up the Bun runtime
         uses: oven-sh/setup-bun@v2
