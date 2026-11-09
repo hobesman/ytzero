@@ -20,6 +20,11 @@ export type BufferedPlayback = {
   error: unknown;
   /** Reloads the source at the current position, e.g. after the stream quality changed. */
   reload: () => void;
+  /**
+   * Replaces a ticket that lapsed while the app was away, before the viewer
+   * presses Play: the paused player would otherwise buffer forever on refused segments.
+   */
+  refresh: () => void;
   dispose: () => void;
 };
 
@@ -100,6 +105,12 @@ export class PlaybackBuffer {
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
       }),
       player.addListener("statusChange", ({ status, error }) => {
+        // A loaded stream that starts buffering after its ticket lapsed is
+        // being refused segments; ExoPlayer can keep retrying them without failing.
+        if (status === "loading" && sourceUri && loaded && !recovering && ticketStale()) {
+          restart(this.activeEntry === entry, true);
+          return;
+        }
         if (status === "error" && sourceUri) {
           // The ticket lapsed while paused or in the background: fetch a new
           // one and carry on from the same position, rather than dying silently.
@@ -155,6 +166,10 @@ export class PlaybackBuffer {
         if (disposed || entry.error || live || !sourceUri) return;
         restart(this.activeEntry === entry && player.playing);
       },
+      refresh: () => {
+        if (disposed || entry.error || !sourceUri || !loaded || recovering || !ticketStale()) return;
+        restart(this.activeEntry === entry && player.playing, true);
+      },
       dispose: () => {
         if (disposed) return;
         disposed = true;
@@ -208,6 +223,8 @@ export class PlaybackBuffer {
         clearTimeout(timeout);
         timeout = setTimeout(() => fail(new Error("Native source timed out")), 60_000);
         renewTimer = setInterval(() => {
+          // The timer stopped while the app was in the background: renewing a lapsed ticket fails.
+          if (loaded && !recovering && this.now() >= ticketValidUntil) { entry.refresh(); return; }
           void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).then((renewed) => {
             if (ticket !== authorization) return;
             ticketValidUntil = this.now() + renewed.expires_in * 1000;

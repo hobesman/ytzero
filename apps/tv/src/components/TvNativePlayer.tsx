@@ -539,6 +539,8 @@ export function TvNativePlayer(props: Props) {
     }, 5000);
     const state = AppState.addEventListener("change", (value) => {
       const current = session.current;
+      // A ticket that lapsed while away is replaced now, so Play works at once.
+      if (value === "active" && current && !failure.current) current.entry.refresh();
       if (value === "background" && current) {
         if (!playsInBackground) void buffer.pause().catch(() => {});
         if (current.didPlay && !current.finished && !failure.current) {

@@ -525,6 +525,91 @@ describe("expired playback tickets", () => {
     } finally { timers.restore(); h.pool.dispose(); await flush(); }
   });
 
+  // A buffer with a controllable clock, as after a long stay in the background.
+  function clockedHarness() {
+    const clock = { time: 0 };
+    const players: FakePlayer[] = [];
+    const failures: string[] = [];
+    const issued: string[] = [];
+    const renewals: string[] = [];
+    const api = {
+      playbackTicket: async (id: string) => {
+        issued.push(id);
+        return { ticket: `${id}-${issued.length}`, url: `/api/videos/${id}/direct-hls/index.m3u8`, content_type: "hls" as const, expires_in: 900 };
+      },
+      playbackSource: (value: PlaybackTicket) => ({ uri: "http://test.local" + value.url, contentType: value.content_type }),
+      renewPlaybackTicket: async (_id: string, ticket: string) => { renewals.push(ticket); return { expires_in: 900 }; },
+      releasePlaybackTicket: async () => ({ ok: true as const }),
+    };
+    const control = { play: async (player: VideoPlayer) => { player.play(); }, pause: async (player: VideoPlayer) => { player.pause(); } };
+    const pool = new PlaybackBuffer(api, () => { const player = new FakePlayer(); players.push(player); return player as unknown as VideoPlayer; },
+      async (player, seconds) => { player.currentTime = seconds; }, (entry) => failures.push(entry.video.video_id), undefined, control, undefined, undefined, () => clock.time);
+    return { clock, players, failures, issued, renewals, pool };
+  }
+
+  test("returning after the ticket lapsed fetches a new one before Play, and keeps the player paused", async () => {
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("away"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      const player = h.players[0]!;
+      player.currentTime = 45;
+      player.pause();
+      // A fresh ticket is left alone.
+      entry.refresh();
+      await flush();
+      expect(h.issued).toEqual(["away"]);
+      h.clock.time += 17 * 60_000;
+      entry.refresh();
+      await flush(); await flush();
+      expect(h.issued).toEqual(["away", "away"]);
+      expect(player.currentTime).toBe(45);
+      expect(player.playing).toBe(false);
+      expect(h.failures).toEqual([]);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+
+  test("a renewal timer that fires late replaces the lapsed ticket instead of renewing it", async () => {
+    const timers = captureIntervals();
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("late"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      h.players[0]!.currentTime = 60;
+      h.clock.time += 20 * 60_000;
+      timers.callbacks.at(-1)!();
+      await flush(); await flush();
+      expect(h.renewals).toEqual([]);
+      expect(h.issued).toEqual(["late", "late"]);
+      expect(h.players[0]!.playing).toBe(true);
+    } finally { timers.restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("a stale stream that starts buffering reloads at the same position and plays on", async () => {
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("stall"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      const player = h.players[0]!;
+      player.currentTime = 40;
+      // Buffering with a valid ticket is ordinary buffering.
+      player.emit("statusChange", { status: "loading" });
+      await flush();
+      expect(h.issued).toEqual(["stall"]);
+      player.emit("statusChange", { status: "readyToPlay" });
+      h.clock.time += 16 * 60_000;
+      player.emit("statusChange", { status: "loading" });
+      await flush(); await flush();
+      expect(h.issued).toEqual(["stall", "stall"]);
+      expect(player.currentTime).toBe(40);
+      expect(player.playing).toBe(true);
+      expect(h.failures).toEqual([]);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+
   test("a stream error after the ticket lapsed reloads it at the same position instead of failing", async () => {
     let time = 0;
     const players: FakePlayer[] = [];
