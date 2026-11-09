@@ -20,6 +20,8 @@ export interface VideoVodPlaylistInput {
   resourcePath?: "hls" | "direct-hls";
   /** Stable identity of the indexed representation, used to reject stale ranges. */
   resourceVersion?: string;
+  /** A requested stream quality, carried on every child URI so requests reach the same session. */
+  quality?: string;
   video: MediaSidxIndex;
   audio: MediaSidxIndex;
   metadata: VideoVodMetadata;
@@ -35,6 +37,11 @@ export interface VideoVodSegment {
 
 export interface VideoVodPresentation {
   masterPlaylist: string;
+  /** The master playlist's audio rendition line, shared when variants are combined. */
+  audioMedia: string;
+  /** The master playlist's variant stream line and its URI. */
+  variant: string;
+  bandwidth: number;
   videoPlaylist: string;
   audioPlaylist: string;
   targetDuration: number;
@@ -264,22 +271,27 @@ export function createVideoVodPresentation(input: VideoVodPlaylistInput): VideoV
   if (input.resourceVersion != null && !/^[A-Za-z0-9_-]{8,128}$/.test(input.resourceVersion)) {
     return unsupported("invalid_metadata");
   }
-  const query = input.resourceVersion ? `?v=${encodeURIComponent(input.resourceVersion)}` : "";
+  if (input.quality != null && !/^[a-z0-9]{0,8}$/.test(input.quality)) return unsupported("invalid_metadata");
+  const parameters = [
+    ...(input.quality ? [`q=${input.quality}`] : []),
+    ...(input.resourceVersion ? [`v=${encodeURIComponent(input.resourceVersion)}`] : []),
+  ];
+  const query = parameters.length ? `?${parameters.join("&")}` : "";
   const videoUri = `${baseUri}/video.mp4${query}`;
   const audioUri = `${baseUri}/audio.mp4${query}`;
   const channels = metadata.audioChannels == null ? "" : `,CHANNELS="${metadata.audioChannels}"`;
-  const masterPlaylist = [
-    "#EXTM3U",
-    "#EXT-X-VERSION:7",
-    `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Default",DEFAULT=YES,AUTOSELECT=YES,URI="${baseUri}/audio.m3u8${query}"${channels}`,
+  const audioMedia = `#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio",NAME="Default",DEFAULT=YES,AUTOSELECT=YES,URI="${baseUri}/audio.m3u8${query}"${channels}`;
+  const variant = [
     `#EXT-X-STREAM-INF:BANDWIDTH=${bandwidth},CODECS="${metadata.videoCodec},${metadata.audioCodec}",RESOLUTION=${metadata.width}x${metadata.height},FRAME-RATE=${decimal(metadata.fps, 3)},AUDIO="audio"`,
     `${baseUri}/video.m3u8${query}`,
-    "",
   ].join("\n");
   return {
     kind: "ok",
     presentation: {
-      masterPlaylist,
+      masterPlaylist: multiVariantPlaylist(audioMedia, [variant]),
+      audioMedia,
+      variant,
+      bandwidth,
       videoPlaylist: mediaPlaylist(videoUri, input.video, videoSegments, targetDuration),
       audioPlaylist: mediaPlaylist(audioUri, input.audio, audioSegments, targetDuration),
       targetDuration,
@@ -290,4 +302,12 @@ export function createVideoVodPresentation(input: VideoVodPlaylistInput): VideoV
       audioSegments,
     },
   };
+}
+
+/**
+ * A master playlist of video renditions sharing one audio rendition. Players
+ * that adapt to bandwidth (ExoPlayer, AVPlayer) switch between the variants.
+ */
+export function multiVariantPlaylist(audioMedia: string, variants: string[]): string {
+  return ["#EXTM3U", "#EXT-X-VERSION:7", audioMedia, ...variants, ""].join("\n");
 }

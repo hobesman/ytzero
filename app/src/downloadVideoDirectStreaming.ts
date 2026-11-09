@@ -10,6 +10,7 @@ import { MediaRequestQueue } from "./mediaRequestQueue";
 import {
   createVideoVodPresentation,
   DIRECT_VIDEO_HLS_MAX_RANGE_BYTES,
+  multiVariantPlaylist,
   type VideoVodPresentation,
 } from "./videoVodPlaylist";
 import type { DlSettings } from "./downloader";
@@ -52,6 +53,7 @@ interface YtdlpFormat {
 
 interface YtdlpSelection {
   duration?: unknown;
+  formats?: unknown;
   requested_formats?: unknown;
   requested_downloads?: unknown;
   http_headers?: unknown;
@@ -77,6 +79,8 @@ interface DirectVideoSources {
   expiresAt: number;
   /** Resolved with the profile's YouTube cookies. */
   usedCookies?: boolean;
+  /** Every usable video-only stream yt-dlp listed, worst first, as its own ranking orders them. */
+  alternates?: DirectVideoMediaSource[];
 }
 
 type SourceResolutionResult =
@@ -93,6 +97,7 @@ interface IndexedSource {
 interface DirectVideoSession {
   userId: number;
   videoId: string;
+  quality: string;
   sources: DirectVideoSources;
   video: IndexedSource;
   audio: IndexedSource;
@@ -140,8 +145,30 @@ const MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE = 4;
 // yt-dlp's FAQ documents YouTube throttling individual requests over 10 MB.
 const MAX_UPSTREAM_RANGE_BYTES = 8 * 1024 * 1024;
 
-function keyFor(userId: number, videoId: string): string {
-  return `${userId}:${videoId}`;
+/** Heights a client may ask for. Each is a cap, like the profile's own quality setting. */
+export const DIRECT_STREAM_HEIGHTS = [2160, 1440, 1080, 720, 480, 360, 240, 144] as const;
+/** The lower renditions an "auto" stream offers beneath the profile's own quality. */
+const AUTO_STREAM_HEIGHTS = [1080, 720, 480, 360] as const;
+
+/**
+ * A requested stream quality: "" streams the profile's own quality, "auto"
+ * offers several renditions for the player to switch between, and a height
+ * ("720") caps the stream there. Anything else is the profile's own quality.
+ */
+export function parseDirectStreamQuality(value: unknown): string {
+  if (value === "auto") return "auto";
+  if (typeof value !== "string" || !/^\d{3,4}$/.test(value)) return "";
+  const height = Number(value);
+  return (DIRECT_STREAM_HEIGHTS as readonly number[]).includes(height) ? String(height) : "";
+}
+
+function keyFor(userId: number, videoId: string, quality = ""): string {
+  return quality ? `${userId}:${videoId}:${quality}` : `${userId}:${videoId}`;
+}
+
+function keyMatches(key: string, videoId: string, userId?: number): boolean {
+  const [user, video] = key.split(":");
+  return video === videoId && (userId == null || user === String(userId));
 }
 
 function numberOrNull(value: unknown): number | null {
@@ -217,7 +244,10 @@ function parseSelection(stdout: string, now: number): DirectVideoSources | null 
   const audio = selectedSource(audioFormat, "audio", now, selection.http_headers);
   const durationSeconds = numberOrNull(selection.duration);
   if (!video || !audio || durationSeconds == null || durationSeconds <= 0) return null;
-  return { video, audio, durationSeconds, expiresAt: Math.min(video.expiresAt, audio.expiresAt) };
+  const alternates = (Array.isArray(selection.formats) ? selection.formats as YtdlpFormat[] : [])
+    .filter((format) => typeof format.vcodec === "string" && format.vcodec.startsWith("avc1"))
+    .flatMap((format) => selectedSource(format, "video", now, selection.http_headers) ?? []);
+  return { video, audio, durationSeconds, expiresAt: Math.min(video.expiresAt, audio.expiresAt), alternates };
 }
 
 function redactDiagnostic(value: string): string {
@@ -284,9 +314,13 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   const unsupported = new Map<string, number>();
   const rangeRequests = new MediaRequestQueue(MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE, 32);
 
-  async function formatSelector(userId: number): Promise<string> {
+  async function formatSelector(userId: number, quality: string): Promise<string> {
     const setting = await dlSettings(userId);
-    const parsedHeight = setting.quality === "best" ? null : Number(setting.quality);
+    const profileHeight = setting.quality === "best" ? null : Number(setting.quality);
+    const requestedHeight = /^\d+$/.test(quality) ? Number(quality) : null;
+    const parsedHeight = profileHeight != null && Number.isFinite(profileHeight) && profileHeight > 0
+      ? Math.min(profileHeight, requestedHeight ?? profileHeight)
+      : requestedHeight;
     const cap = Number.isFinite(parsedHeight) && Number(parsedHeight) > 0
       ? `[height<=${Math.floor(Number(parsedHeight))}]`
       : "";
@@ -297,10 +331,11 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     userId: number,
     videoId: string,
     useCookies: boolean,
+    quality: string,
     signal: AbortSignal,
   ): Promise<SourceResolutionResult> {
     if (signal.aborted) return { kind: "failed" };
-    const selector = await formatSelector(userId);
+    const selector = await formatSelector(userId, quality);
     const args = [
       `https://www.youtube.com/watch?v=${videoId}`,
       "--ignore-config", "--no-playlist",
@@ -347,7 +382,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
   }
 
-  async function resolveFresh(userId: number, videoId: string, signal: AbortSignal, cookiesOnly = false): Promise<SourceResolutionResult> {
+  async function resolveFresh(userId: number, videoId: string, signal: AbortSignal, cookiesOnly: boolean, quality: string): Promise<SourceResolutionResult> {
     if (!(await ytdlpStatus()) || signal.aborted) return { kind: "failed" };
     const operation = requestSignal(signal, resolveTimeoutMs, "direct video source timeout");
     try {
@@ -356,12 +391,12 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       let cacheable = true;
       const attempts = cookiesOnly ? [true] : downloadCookieAttempts(downloadCookiesConfigured(userId), userId);
       for (const useCookies of attempts) {
-        let result = await resolveAttempt(userId, videoId, useCookies, operation.signal);
+        let result = await resolveAttempt(userId, videoId, useCookies, quality, operation.signal);
         // An extraction/challenge hiccup can temporarily hide otherwise valid
         // formats. Retry once within the same deadline, then leave retries free
         // to resolve again rather than caching that refusal for ten minutes.
         if (result.kind === "unsupported" && result.cacheable === false && !operation.signal.aborted) {
-          result = await resolveAttempt(userId, videoId, useCookies, operation.signal);
+          result = await resolveAttempt(userId, videoId, useCookies, quality, operation.signal);
         }
         if (result.kind === "unsupported" && result.cacheable === false) cacheable = false;
         anonymousRefused ||= result.kind === "failed" && Boolean(result.anonymousRefused);
@@ -384,8 +419,9 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     signal?: AbortSignal,
     force = false,
     cookiesOnly = false,
+    quality = "",
   ): Promise<SourceResolutionResult> {
-    const key = keyFor(userId, videoId);
+    const key = keyFor(userId, videoId, quality);
     if (force) sourceCache.delete(key);
     const cached = sourceCache.get(key);
     if (cached && cached.expiresAt > now()) return { kind: "sources", sources: cached.sources };
@@ -399,7 +435,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       const controller = new AbortController();
       operation = { controller, promise: Promise.resolve({ kind: "failed" }), settled: false, waiters: 0 };
       const current = operation;
-      current.promise = resolveFresh(userId, videoId, controller.signal, cookiesOnly)
+      current.promise = resolveFresh(userId, videoId, controller.signal, cookiesOnly, quality)
         .then((result) => {
           if (result.kind === "sources" && !controller.signal.aborted) {
             sourceCache.set(key, { expiresAt: result.sources.expiresAt, sources: result.sources });
@@ -521,7 +557,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     return { kind: "failed", reason: signal.aborted ? "aborted" : "index_too_large" };
   }
 
-  function presentationFor(videoId: string, sources: DirectVideoSources, video: IndexedSource, audio: IndexedSource) {
+  function presentationFor(videoId: string, quality: string, sources: DirectVideoSources, video: IndexedSource, audio: IndexedSource) {
     const generation = createHash("sha256").update([
       video.fingerprint,
       audio.fingerprint,
@@ -532,6 +568,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       videoId,
       resourcePath,
       resourceVersion: generation,
+      quality,
       video: video.index,
       audio: audio.index,
       metadata: {
@@ -547,9 +584,9 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     });
   }
 
-  async function buildSession(userId: number, videoId: string, signal: AbortSignal): Promise<SessionBuildResult> {
+  async function buildSession(userId: number, videoId: string, quality: string, signal: AbortSignal): Promise<SessionBuildResult> {
     if (!await videoAvailable(videoId) || signal.aborted) return { kind: "failed" };
-    const resolution = await resolveSources(userId, videoId, signal);
+    const resolution = await resolveSources(userId, videoId, signal, false, false, quality);
     if (resolution.kind === "unsupported") return {
       kind: "unsupported",
       expiresAt: now() + (resolution.cacheable === false ? 0 : TRANSIENT_UNSUPPORTED_CACHE_MS),
@@ -566,7 +603,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     const refused = (result: typeof video) => result.kind === "failed" && result.reason === "http_403";
     if (!signal.aborted && !sources.usedCookies && (refused(video) || refused(audio)) && downloadCookiesConfigured(userId)) {
       log.info("downloads.direct_stream_cookie_retry", { userId, videoId });
-      const retried = await resolveSources(userId, videoId, signal, true, true);
+      const retried = await resolveSources(userId, videoId, signal, true, true, quality);
       if (retried.kind === "sources" && !signal.aborted) {
         sources = retried.sources;
         [video, audio] = await Promise.all([readIndex(sources.video, signal), readIndex(sources.audio, signal)]);
@@ -581,7 +618,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         audio: audio.kind === "failed" ? audio.reason : audio.kind,
       });
       // A refused signed URL must not poison every manifest retry for hours.
-      const key = keyFor(userId, videoId);
+      const key = keyFor(userId, videoId, quality);
       if (sourceCache.get(key)?.sources === sources) sourceCache.delete(key);
       return { kind: "failed" };
     }
@@ -589,7 +626,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       kind: "unsupported",
       expiresAt: Math.min(sources.expiresAt, now() + TRANSIENT_UNSUPPORTED_CACHE_MS),
     };
-    const presentationResult = presentationFor(videoId, sources, video.indexed, audio.indexed);
+    const presentationResult = presentationFor(videoId, quality, sources, video.indexed, audio.indexed);
     if (presentationResult.kind === "unsupported") {
       log.info("downloads.direct_stream_unavailable", {
         userId, videoId, reason: presentationResult.reason,
@@ -608,7 +645,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
     if (signal.aborted) return { kind: "failed" };
     const session: DirectVideoSession = {
-      userId, videoId, sources,
+      userId, videoId, quality, sources,
       video: video.indexed,
       audio: audio.indexed,
       presentation,
@@ -638,10 +675,10 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
   }
 
-  async function getSession(userId: number, videoId: string, signal?: AbortSignal): Promise<SessionBuildResult> {
+  async function getSession(userId: number, videoId: string, quality: string, signal?: AbortSignal): Promise<SessionBuildResult> {
     if (signal?.aborted) return { kind: "failed" };
     sweep();
-    const key = keyFor(userId, videoId);
+    const key = keyFor(userId, videoId, quality);
     const existing = sessions.get(key);
     if (existing) {
       existing.lastAccess = now();
@@ -654,7 +691,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       const controller = new AbortController();
       operation = { controller, promise: Promise.resolve({ kind: "failed" }), settled: false, waiters: 0 };
       const current = operation;
-      current.promise = buildSession(userId, videoId, controller.signal)
+      current.promise = buildSession(userId, videoId, quality, controller.signal)
         .then((result) => {
           if (result.kind === "ready" && !controller.signal.aborted) sessions.set(key, result.session);
           if (result.kind === "unsupported" && !controller.signal.aborted) unsupported.set(key, result.expiresAt);
@@ -685,7 +722,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       const staleAudioUrl = session.sources.audio.url;
       current.promise = (async () => {
         for (let attempt = 1; attempt <= 2; attempt += 1) {
-          const resolution = await resolveSources(session.userId, session.videoId, controller.signal, true);
+          const resolution = await resolveSources(session.userId, session.videoId, controller.signal, true, false, session.quality);
           if (resolution.kind !== "sources" || controller.signal.aborted) return null;
           const sources = resolution.sources;
           if (sources.video.formatId !== session.sources.video.formatId
@@ -735,14 +772,59 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     });
   }
 
+  /**
+   * The profile's own stream plus lower renditions from the same yt-dlp
+   * listing, each its own session (as if that height had been asked for), in
+   * one master playlist. The player picks between them as bandwidth allows.
+   */
+  async function autoPlaylist(userId: number, videoId: string, signal?: AbortSignal): Promise<DirectVideoPlaylistResult> {
+    const top = await getSession(userId, videoId, "", signal);
+    if (top.kind !== "ready") return { kind: top.kind };
+    const { sources } = top.session;
+    const chosen = new Set([sources.video.formatId]);
+    const heights: string[] = [];
+    for (const height of AUTO_STREAM_HEIGHTS) {
+      if (height >= (sources.video.height ?? 0)) continue;
+      // What `bestvideo[height<=N]` picks: yt-dlp lists formats worst first.
+      let pick: DirectVideoMediaSource | undefined;
+      for (const alternate of sources.alternates ?? []) if ((alternate.height ?? 0) <= height) pick = alternate;
+      if (!pick || chosen.has(pick.formatId)) continue;
+      chosen.add(pick.formatId);
+      const quality = String(height);
+      heights.push(quality);
+      // Seed the source so this rendition needs no yt-dlp run of its own.
+      const key = keyFor(userId, videoId, quality);
+      if (!sessions.has(key) && !sourceCache.has(key)) sourceCache.set(key, {
+        expiresAt: Math.min(sources.expiresAt, pick.expiresAt),
+        sources: { ...sources, video: pick, alternates: undefined, expiresAt: Math.min(sources.expiresAt, pick.expiresAt) },
+      });
+    }
+    const lower = await Promise.all(heights.map((quality) => getSession(userId, videoId, quality, signal)));
+    if (signal?.aborted) return { kind: "failed" };
+    // A rendition that cannot be indexed is left out; the others still play.
+    const renditions = [top.session, ...lower.flatMap((result) => result.kind === "ready" ? [result.session] : [])];
+    const now_ = now();
+    for (const session of renditions) session.lastAccess = now_;
+    return { kind: "playlist", playlist: multiVariantPlaylist(
+      top.session.presentation.audioMedia,
+      renditions.sort((left, right) => right.presentation.bandwidth - left.presentation.bandwidth)
+        .map((session) => session.presentation.variant),
+    ) };
+  }
+
   async function getDirectHlsPlaylist(
     userId: number,
     videoId: string,
     file: "index.m3u8" | "video.m3u8" | "audio.m3u8",
     signal?: AbortSignal,
     generation?: string | null,
+    quality = "",
   ): Promise<DirectVideoPlaylistResult> {
-    const result = await getSession(userId, videoId, signal);
+    if (quality === "auto") {
+      if (file === "index.m3u8") return autoPlaylist(userId, videoId, signal);
+      quality = "";
+    }
+    const result = await getSession(userId, videoId, quality, signal);
     if (result.kind !== "ready") return { kind: result.kind };
     result.session.lastAccess = now();
     if (file === "index.m3u8") return { kind: "playlist", playlist: result.session.presentation.masterPlaylist };
@@ -787,7 +869,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         const refreshed = await refreshSession(active, signal);
         if (!refreshed) {
           if (signal?.aborted) return { kind: "failed" };
-          sessions.delete(keyFor(active.userId, active.videoId));
+          sessions.delete(keyFor(active.userId, active.videoId, active.quality));
           return { kind: "stale" };
         }
         active = refreshed;
@@ -801,7 +883,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
           const refreshed = await refreshSession(active, operation.signal);
           if (!refreshed) {
             if (operation.signal.aborted) return { kind: "failed" };
-            sessions.delete(keyFor(active.userId, active.videoId));
+            sessions.delete(keyFor(active.userId, active.videoId, active.quality));
             return { kind: "stale" };
           }
           source = refreshed[kind].source;
@@ -869,8 +951,9 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     range: string | null,
     signal?: AbortSignal,
     generation?: string | null,
+    quality = "",
   ): Promise<DirectVideoResourceResult> {
-    const result = await getSession(userId, videoId, signal);
+    const result = await getSession(userId, videoId, quality === "auto" ? "" : quality, signal);
     if (result.kind === "unsupported") return { kind: "not_found" };
     if (result.kind === "failed") return { kind: "failed" };
     if (!generation || generation !== result.session.generation) return { kind: "stale" };
@@ -902,12 +985,9 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         build.controller.abort();
       }
     };
-    if (userId != null) {
-      invalidateKey(keyFor(userId, videoId));
-      return;
-    }
-    for (const key of new Set([...sourceCache.keys(), ...sessions.keys(), ...sessionBuilds.keys()])) {
-      if (key.endsWith(`:${videoId}`)) invalidateKey(key);
+    // Every quality's session for the video, for one profile or all of them.
+    for (const key of new Set([...sourceCache.keys(), ...sourceResolutions.keys(), ...sessions.keys(), ...sessionBuilds.keys(), ...unsupported.keys()])) {
+      if (keyMatches(key, videoId, userId)) invalidateKey(key);
     }
   }
 
@@ -925,7 +1005,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   function invalidateDirectHlsSources(userId: number): void {
     const prefix = `${userId}:`;
     for (const key of new Set([...sourceCache.keys(), ...sourceResolutions.keys(), ...sessions.keys(), ...sessionBuilds.keys(), ...unsupported.keys()])) {
-      if (key.startsWith(prefix)) invalidateDirectHlsSession(key.slice(prefix.length), userId);
+      if (key.startsWith(prefix)) invalidateDirectHlsSession(key.slice(prefix.length).split(":")[0], userId);
     }
   }
 

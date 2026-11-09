@@ -46,8 +46,11 @@ export async function nativePlaybackAccess(userId: number, videoId: string): Pro
   return { video, child };
 }
 
-/** `preferProgressive`: a client whose HLS stream failed asks for the single progressive stream instead. */
-export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal, preferProgressive = false): Promise<
+/**
+ * `preferProgressive`: a client whose HLS stream failed asks for the single progressive stream instead.
+ * `quality`: a parsed stream quality ("" for the profile's own, "auto", or a height) for a direct HLS stream.
+ */
+export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal, preferProgressive = false, quality = ""): Promise<
   { kind: NativeMediaKind } | { preparing: true } | { error: string; status: 403 | 404 | 409 | 503 }
 > {
   const access = await nativePlaybackAccess(userId, videoId);
@@ -80,7 +83,7 @@ export async function nativePlaybackSource(userId: number, videoId: string, sign
     log.info("downloads.native_playback_progressive_requested", { userId, videoId });
     return { kind: "direct" };
   }
-  const playlist = await directVideoStreaming.getDirectHlsPlaylist(userId, videoId, "index.m3u8", signal, null);
+  const playlist = await directVideoStreaming.getDirectHlsPlaylist(userId, videoId, "index.m3u8", signal, null, quality);
   const kind = nativeKindForDirectPlaylist(playlist.kind);
   if (kind === "direct") log.info("downloads.native_playback_progressive_fallback", { userId, videoId, reason: playlist.kind });
   return { kind };

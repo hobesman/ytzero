@@ -3,6 +3,7 @@ import { database } from "../database";
 import { isChildUser } from "../childTime";
 import { ytdlpStatus } from "../downloadConfig";
 import { directVideoStreaming } from "../directVideoStreaming";
+import { parseDirectStreamQuality } from "../downloadVideoDirectStreaming";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type VideoState = { live_status: string; members_only: number; is_private: number; is_unavailable: number };
@@ -31,16 +32,17 @@ export function registerDirectVideoRoutes(
     if (!await ytdlpStatus()) return context.json({ error: "yt-dlp unavailable" }, 503);
     const signal = context.req.raw.signal;
     const generation = context.req.query("v") ?? null;
+    const quality = parseDirectStreamQuality(context.req.query("q"));
     if (file === "video.mp4" || file === "audio.mp4") {
       const result = await directVideoStreaming.getDirectHlsResource(
-        userId, videoId, file, context.req.header("range") ?? null, signal, generation,
+        userId, videoId, file, context.req.header("range") ?? null, signal, generation, quality,
       );
       if (result.kind === "response") return result.response;
       if (result.kind === "stale") return context.json({ error: "stream changed; reload the playlist" }, 410);
       return context.json({ error: "direct stream unavailable" }, result.kind === "not_found" ? 404 : 502);
     }
     const result = await directVideoStreaming.getDirectHlsPlaylist(
-      userId, videoId, file as "index.m3u8" | "video.m3u8" | "audio.m3u8", signal, generation,
+      userId, videoId, file as "index.m3u8" | "video.m3u8" | "audio.m3u8", signal, generation, quality,
     );
     if (result.kind === "playlist") return new Response(result.playlist, {
       headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store" },

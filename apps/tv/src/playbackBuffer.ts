@@ -12,6 +12,8 @@ export type BufferedPlayback = {
   ready: Promise<void>;
   initialPosition: number;
   error: unknown;
+  /** Reloads the source at the current position, e.g. after the stream quality changed. */
+  reload: () => void;
   dispose: () => void;
 };
 
@@ -32,6 +34,8 @@ export class PlaybackBuffer {
     private control: PlaybackControl = { play: async (player) => { player.play(); }, pause: async (player) => { player.pause(); } },
     /** The profile's default speed, used when the video's channel has none. */
     private defaultSpeed: () => unknown = () => 1,
+    /** The stream quality to ask for ("" for the server's choice). */
+    private quality: () => string = () => "",
   ) {}
 
   prepare(video: Video, position = resumePosition(video.watch_position, video.watch_duration, video.watched)): BufferedPlayback {
@@ -49,6 +53,8 @@ export class PlaybackBuffer {
     let ticket: PlaybackTicket | null = null;
     let sourceUri = "";
     let fellBack = false;
+    // After a fallback or reload the viewer is already watching: keep playing.
+    let resume = false;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let loading: Promise<void> = Promise.resolve();
     let resolveReady!: () => void;
@@ -83,6 +89,7 @@ export class PlaybackBuffer {
           // instead of ending playback.
           if (!fellBack && !live && /\/direct-hls\//.test(sourceUri)) {
             fellBack = true;
+            resume = true;
             if (player.currentTime > 0) position = player.currentTime;
             loaded = false;
             playable = false;
@@ -110,8 +117,7 @@ export class PlaybackBuffer {
             }
             loaded = true;
             checkReady();
-            // After a fallback the viewer is already watching: keep playing.
-            if (fellBack && this.activeEntry === entry) await this.control.play(player);
+            if (resume && this.activeEntry === entry) await this.control.play(player);
           } catch (error) { fail(error); }
         })();
       }),
@@ -121,6 +127,16 @@ export class PlaybackBuffer {
     };
     const entry: BufferedPlayback = {
       video, player, ready, initialPosition: position, error: null,
+      reload: () => {
+        if (disposed || entry.error || live || !sourceUri) return;
+        if (player.currentTime > 0) position = player.currentTime;
+        resume = this.activeEntry === entry && player.playing;
+        fellBack = false;
+        loaded = false;
+        playable = false;
+        sourceUri = "";
+        loading = loadSource();
+      },
       dispose: () => {
         if (disposed) return;
         disposed = true;
@@ -150,7 +166,7 @@ export class PlaybackBuffer {
     // then once, after a full-quality stream fails, the progressive stream.
     const loadSource = async (prefer?: "progressive") => {
       try {
-        const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer);
+        const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer, prefer || live ? undefined : this.quality());
         if (disposed) { releaseTicket(authorization); return; }
         if (ticket) releaseTicket(ticket);
         clearInterval(renewTimer);

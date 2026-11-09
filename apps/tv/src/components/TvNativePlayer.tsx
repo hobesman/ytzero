@@ -4,6 +4,8 @@ import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Te
 import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
+import { heightLabel, qualityButtonLabel, saveStreamQuality, STREAM_QUALITIES, streamQuality, type StreamQuality } from "../streamQuality";
+import { deviceStore } from "../deviceStore";
 import { sponsorCategories } from "../sponsorBlock";
 import { useSponsorBlock } from "../useSponsorBlock";
 import { useKeepScreenAwake } from "../useKeepScreenAwake";
@@ -105,6 +107,10 @@ export function TvNativePlayer(props: Props) {
   const [switchingVideo, setSwitchingVideo] = useState(false);
   const [rate, setRate] = useState(1);
   const [speedSheet, setSpeedSheet] = useState(false);
+  const [qualitySheet, setQualitySheet] = useState(false);
+  const [quality, setQuality] = useState<StreamQuality>(streamQuality);
+  // The height of the video track playing now, as ExoPlayer adapts.
+  const [trackHeight, setTrackHeight] = useState<number | null>(null);
   const [speedButton, setSpeedButton] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
@@ -147,7 +153,9 @@ export function TvNativePlayer(props: Props) {
     player.bufferOptions = { preferredForwardBufferDuration: 5, maxBufferBytes: 8 * 1024 * 1024 };
     return player;
   }, seekPlayer, (entry, cause) => handleFailure.current(entry, cause), unloadPlayer, { play: playPlayer, pause: pausePlayer },
-  () => latest.current.settings?.player_speed), [api]);
+  () => latest.current.settings?.player_speed,
+  // Only Android offers the quality menu; other players keep the server's choice.
+  () => ownsSpeedControl ? streamQuality() : ""), [api]);
 
   const endTransition = () => {
     transitionLease.current?.();
@@ -366,10 +374,12 @@ export function TvNativePlayer(props: Props) {
     if (!active) return;
     const player = active.player;
     setRate(player.playbackRate);
+    setTrackHeight(player.videoTrack?.size.height ?? null);
     // One notification, for the player being watched; Shorts neighbours stay silent.
     if (playsInBackground) player.showNowPlayingNotification = true;
     const subscriptions = [
       player.addListener("playbackRateChange", ({ playbackRate }) => setRate(playbackRate)),
+      player.addListener("videoTrackChange", ({ videoTrack }) => setTrackHeight(videoTrack?.size.height ?? null)),
       player.addListener("playingChange", ({ isPlaying }) => {
         setPlaying(isPlaying);
         if (!ownsSpeedControl) return;
@@ -505,6 +515,7 @@ export function TvNativePlayer(props: Props) {
   const currentVideo = active?.video ?? video;
   const inline = presentation === "inline";
   const showButtons = presented && !dismissing && speedButton;
+  const qualityLabel = qualityButtonLabel(quality, trackHeight, t("qualityAuto"));
   const surface = <>
     <View style={styles.video}>
     {/* A tap shows or hides ExoPlayer's controls; the app's buttons follow it. The
@@ -530,6 +541,11 @@ export function TvNativePlayer(props: Props) {
       <Text style={styles.skippedNoticeText}>{skippedNotice}</Text>
     </View> : null}
     {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && !props.fullscreenActive && styles.inlineButtons]}>
+      {currentVideo.live_status !== "live" ? <Pressable accessibilityRole="button" accessibilityLabel={`${t("streamQuality")}: ${qualityLabel}`} hitSlop={12}
+        style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
+        onPress={() => { clearTimeout(speedButtonTimer.current); setQualitySheet(true); }}>
+        <Text style={styles.speedButtonText}>{qualityLabel}</Text>
+      </Pressable> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={`${t("playbackSpeed")}: ${speedLabel(rate)}`} hitSlop={12}
         style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
         onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
@@ -548,7 +564,20 @@ export function TvNativePlayer(props: Props) {
   const speedChoice = speedSheet && active ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
     options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
     onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); rememberSpeed(active, value); }}
-    onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : null;
+    onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : qualitySheet && active ? <TvChoiceSheet title={t("streamQuality")} t={t} value={quality}
+    options={STREAM_QUALITIES.map((value) => ({ value, label: value !== "auto" ? `${value}p`
+      : quality === "auto" && heightLabel(trackHeight) ? `${t("qualityAuto")} (${heightLabel(trackHeight)})` : t("qualityAuto") }))}
+    onSelect={(value) => {
+      setQualitySheet(false);
+      revealSpeedButton();
+      const next = value as StreamQuality;
+      if (next === quality) return;
+      // Remembered on this device; the stream reloads where it is.
+      setQuality(next);
+      void saveStreamQuality(deviceStore, next).catch(() => {});
+      active.reload();
+    }}
+    onClose={() => { setQualitySheet(false); revealSpeedButton(); }} /> : null;
 
   // Phones: the player drawn in the details page, above its title and actions.
   if (inline && !docked) return <View style={styles.inline}>
