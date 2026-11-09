@@ -49,6 +49,7 @@ import { TvButton } from "./src/components/TvButton";
 import { TvFocusScope } from "./src/components/TvFocusScope";
 import { TvGlassVisibility } from "./src/components/TvGlassSurface";
 import type { OpenVideo, PlaybackQueueContext } from "./src/playbackQueue";
+import { useLocalProgressSync } from "./src/useLocalProgressSync";
 
 type Screen = "profile-selection" | "boot" | "instance" | "pair" | "channel" | "playlist" | "detail" | TvDestination;
 type DetailReturnScreen = "channel" | "playlist" | TvBrowseDestination;
@@ -182,6 +183,7 @@ function TvApp() {
   const t = useMemo(() => withDeviceWording(translator(language), language, Platform.isTV), [language]);
   const api = useMemo(() => instanceUrl ? new YtZeroApi(instanceUrl, accessToken) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
+  useLocalProgressSync(accessToken ? api : null, profileState?.active.id);
   // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
   const cookieInstance = useRef<string | null>(null);
   useEffect(() => {

@@ -656,6 +656,16 @@ archive with no such capability restores with public sharing denied.
   server backup adapter or archive shape changes. The server keeps no state for
   it beyond its in-memory streaming sessions.
 
+- The TV and Android apps' unsynced watch positions (`ytzero.tv.unsynced-positions`,
+  SecureStore) are transient state: a write-ahead copy of positions the instance
+  has not yet confirmed, keyed by instance origin and profile id, capped at 25
+  videos and 30 days. Each entry is removed once the instance saves that
+  position or the video is marked watched, and the rest are sent with the
+  ordinary progress endpoint on the next sign-in or return to the app. The
+  instance's watch progress stays the portable personal state; these entries
+  are never part of a backup, and no server backup adapter or archive shape
+  changes.
+
 - Saved phone profile sign-ins (`ytzero.tv.saved-profiles.v1`, SecureStore,
   phones and tablets only) are **secrets**: one profile-scoped bearer per profile
   this phone paired to, kept only when the instance gives each profile its own

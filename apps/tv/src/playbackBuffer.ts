@@ -5,6 +5,12 @@ import { playableSpeed } from "./playbackSpeeds";
 import type { PlaybackTicket, Video } from "./types";
 
 type BufferApi = Pick<YtZeroApi, "playbackTicket" | "playbackSource" | "renewPlaybackTicket" | "releasePlaybackTicket">;
+// A ticket this close to its expiry is treated as expired: a stream error then
+// most likely means the server stopped accepting it.
+const ticketMargin = 30_000;
+const errorStatus = (error: unknown) => (error as { status?: unknown } | null)?.status;
+// The server refused the video itself (restricted, removed, unavailable): renewing again cannot help.
+const ticketRefused = (error: unknown) => [403, 404, 409].includes(errorStatus(error) as number);
 type PlaybackControl = { play: (player: VideoPlayer) => Promise<void>; pause: (player: VideoPlayer) => Promise<void> };
 export type BufferedPlayback = {
   video: Video;
@@ -36,6 +42,7 @@ export class PlaybackBuffer {
     private defaultSpeed: () => unknown = () => 1,
     /** The stream quality to ask for ("" for the server's choice, "fast" for the progressive stream). */
     private quality: () => string = () => "",
+    private now: () => number = Date.now,
   ) {}
 
   prepare(video: Video, position = resumePosition(video.watch_position, video.watch_duration, video.watched)): BufferedPlayback {
@@ -55,6 +62,15 @@ export class PlaybackBuffer {
     let fellBack = false;
     // After a fallback or reload the viewer is already watching: keep playing.
     let resume = false;
+    // Android stops the app's timers while it is in the background, so a long
+    // pause or a screen-off session can outlive the ticket without a renewal.
+    let ticketValidUntil = 0;
+    let renewalFailed = false;
+    // One fresh-ticket reload at a time; a failure during it is a real failure.
+    let recovering = false;
+    // A failed player can report 0; a reload resumes from the last time it played.
+    let lastTime = 0;
+    const ticketStale = () => renewalFailed || this.now() >= ticketValidUntil - ticketMargin;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let loading: Promise<void> = Promise.resolve();
     let resolveReady!: () => void;
@@ -78,12 +94,19 @@ export class PlaybackBuffer {
       if (!disposed && !entry.error && loaded && playable) { clearTimeout(timeout); resolveReady(); }
     };
     const listeners = [
+      player.addListener("timeUpdate", ({ currentTime }) => { if (loaded && currentTime > 0) lastTime = currentTime; }),
       player.addListener("playingChange", ({ isPlaying }) => {
         // Native controls or a late native command must never start a neighbour.
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
       }),
       player.addListener("statusChange", ({ status, error }) => {
         if (status === "error" && sourceUri) {
+          // The ticket lapsed while paused or in the background: fetch a new
+          // one and carry on from the same position, rather than dying silently.
+          if (loaded && !recovering && ticketStale()) {
+            restart(this.activeEntry === entry, true);
+            return;
+          }
           // A full-quality stream YouTube stops serving mid-way fails the player.
           // Switch once to the single progressive stream at the same position
           // instead of ending playback.
@@ -116,6 +139,7 @@ export class PlaybackBuffer {
               if (track) player.subtitleTrack = track;
             }
             loaded = true;
+            recovering = false;
             checkReady();
             if (resume && this.activeEntry === entry) await this.control.play(player);
           } catch (error) { fail(error); }
@@ -129,13 +153,7 @@ export class PlaybackBuffer {
       video, player, ready, initialPosition: position, error: null,
       reload: () => {
         if (disposed || entry.error || live || !sourceUri) return;
-        if (player.currentTime > 0) position = player.currentTime;
-        resume = this.activeEntry === entry && player.playing;
-        fellBack = false;
-        loaded = false;
-        playable = false;
-        sourceUri = "";
-        loading = firstSource();
+        restart(this.activeEntry === entry && player.playing);
       },
       dispose: () => {
         if (disposed) return;
@@ -160,6 +178,18 @@ export class PlaybackBuffer {
         });
       },
     };
+    // Loads a fresh ticket's source at the current position.
+    const restart = (keepPlaying: boolean, recovery = false) => {
+      if (disposed || entry.error) return;
+      if (!live) position = player.currentTime > 0 ? player.currentTime : lastTime || position;
+      resume = keepPlaying;
+      recovering = recovery;
+      fellBack = false;
+      loaded = false;
+      playable = false;
+      sourceUri = "";
+      loading = firstSource();
+    };
     this.entries.set(video.video_id, entry);
     this.initialRates.set(entry, live ? 1 : playableSpeed(video.channel_playback_speed ?? null));
     // Loads a ticket's source into this player: first the server's choice,
@@ -171,12 +201,25 @@ export class PlaybackBuffer {
         if (ticket) releaseTicket(ticket);
         clearInterval(renewTimer);
         ticket = authorization;
+        ticketValidUntil = this.now() + authorization.expires_in * 1000;
+        renewalFailed = false;
         const source = this.api.playbackSource(authorization);
         sourceUri = source.uri;
         clearTimeout(timeout);
         timeout = setTimeout(() => fail(new Error("Native source timed out")), 60_000);
         renewTimer = setInterval(() => {
-          void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).catch(fail);
+          void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).then((renewed) => {
+            if (ticket !== authorization) return;
+            ticketValidUntil = this.now() + renewed.expires_in * 1000;
+            renewalFailed = false;
+          }, (error) => {
+            if (disposed || entry.error || ticket !== authorization) return;
+            if (ticketRefused(error)) { fail(error); return; }
+            // An expired ticket is replaced at once, keeping the position and
+            // whether it was playing. A network failure retries next time.
+            renewalFailed = true;
+            if (errorStatus(error) === 401 && !recovering) restart(this.activeEntry === entry && player.playing, true);
+          });
         }, Math.max(10_000, authorization.expires_in * 1000 / 3));
         await player.replaceAsync({ ...source, useCaching: false, metadata: { title: video.title, artist: video.channel_title } });
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }

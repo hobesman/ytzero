@@ -24,6 +24,7 @@ import { localeTags, type Translate } from "../i18n";
 import { tvVerticalListPerformance } from "../listPerformance";
 import { colors, typography, screenPadding } from "../theme";
 import type { Language, TvProfileSettings, Video, VideoComment } from "../types";
+import { localProgress } from "../storage";
 
 type Props = {
   api: YtZeroApi;
@@ -60,6 +61,12 @@ function commentsMode(value: TvProfileSettings["watch_show_comments"]): Comments
   return "disabled";
 }
 
+// A position this device has not yet saved to the server is newer than the server's.
+function resumeAt(video: Video): number {
+  const current = localProgress.apply(video);
+  return resumePosition(current.watch_position, current.watch_duration, current.watched);
+}
+
 function validDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const date = new Date(value);
@@ -77,7 +84,9 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
   const [settings, setSettings] = useState<TvProfileSettings | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [playingFrom, setPlayingFrom] = useState<number | null>(autoplay ? initialPosition ?? resumePosition(preview.watch_position, preview.watch_duration, preview.watched) : null);
+  const [playingFrom, setPlayingFrom] = useState<number | null>(autoplay ? initialPosition ?? resumeAt(preview) : null);
+  // A bookmark's time starts the first playback; after that the video resumes where it was left.
+  const [initialPositionUsed, setInitialPositionUsed] = useState(false);
   // Phones stay on the details page, where the video plays at the top.
   const returnToBrowse = useRef(autoplay && !phone);
   const queue = useSessionQueue();
@@ -182,6 +191,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
     if (!alive.current) return;
     if (result.showDetails) returnToBrowse.current = false;
     setPlayingFrom(null);
+    setInitialPositionUsed(true);
     setSaveFailed(result.saveFailed);
     if ((!incognito || isChild) && result.duration > 0) {
       const updated = { ...playedVideo, watch_position: result.position, watch_duration: result.duration, watched: result.completed && !result.saveFailed ? 1 : playedVideo.watched };
@@ -200,7 +210,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
     onVideoChange(updated);
   }), [onVideoChange, onVideoLongPress, video]);
 
-  const startAt = (video.video_id === initialVideo.video_id ? initialPosition : undefined) ?? resumePosition(video.watch_position, video.watch_duration, video.watched);
+  const startAt = (video.video_id === initialVideo.video_id && !initialPositionUsed ? initialPosition : undefined) ?? resumeAt(video);
   const heroHeight = Math.max(500, Math.round(height * 0.69));
   const locale = localeTags[language];
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
