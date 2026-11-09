@@ -48,6 +48,7 @@ export class PlaybackBuffer {
     let playable = false;
     let ticket: PlaybackTicket | null = null;
     let sourceUri = "";
+    let fellBack = false;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let loading: Promise<void> = Promise.resolve();
     let resolveReady!: () => void;
@@ -76,7 +77,21 @@ export class PlaybackBuffer {
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
       }),
       player.addListener("statusChange", ({ status, error }) => {
-        if (status === "error" && sourceUri) fail(error ?? new Error("Native source failed"));
+        if (status === "error" && sourceUri) {
+          // A full-quality stream YouTube stops serving mid-way fails the player.
+          // Switch once to the single progressive stream at the same position
+          // instead of ending playback.
+          if (!fellBack && !live && /\/direct-hls\//.test(sourceUri)) {
+            fellBack = true;
+            if (player.currentTime > 0) position = player.currentTime;
+            loaded = false;
+            playable = false;
+            sourceUri = "";
+            loading = loadSource("progressive");
+            return;
+          }
+          fail(error ?? new Error("Native source failed"));
+        }
         playable = status === "readyToPlay";
         checkReady();
       }),
@@ -95,6 +110,8 @@ export class PlaybackBuffer {
             }
             loaded = true;
             checkReady();
+            // After a fallback the viewer is already watching: keep playing.
+            if (fellBack && this.activeEntry === entry) await this.control.play(player);
           } catch (error) { fail(error); }
         })();
       }),
@@ -129,10 +146,14 @@ export class PlaybackBuffer {
     };
     this.entries.set(video.video_id, entry);
     this.initialRates.set(entry, live ? 1 : playableSpeed(video.channel_playback_speed ?? null));
-    loading = (async () => {
+    // Loads a ticket's source into this player: first the server's choice,
+    // then once, after a full-quality stream fails, the progressive stream.
+    const loadSource = async (prefer?: "progressive") => {
       try {
-        const authorization = await this.api.playbackTicket(video.video_id, controller.signal);
+        const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer);
         if (disposed) { releaseTicket(authorization); return; }
+        if (ticket) releaseTicket(ticket);
+        clearInterval(renewTimer);
         ticket = authorization;
         const source = this.api.playbackSource(authorization);
         sourceUri = source.uri;
@@ -144,7 +165,8 @@ export class PlaybackBuffer {
         await player.replaceAsync({ ...source, useCaching: false, metadata: { title: video.title, artist: video.channel_title } });
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }
       } catch (error) { fail(error); }
-    })();
+    };
+    loading = loadSource();
     return entry;
   }
 

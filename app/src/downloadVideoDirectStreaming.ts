@@ -807,7 +807,14 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
           source = refreshed[kind].source;
           response = await fetchRange(source, range.start, range.end, operation.signal);
         }
-        if (!response) return { kind: "failed" };
+        // Each failure says why: until now a failed media range was a silent 502.
+        const rangeFailed = (reason: string, details: Record<string, unknown> = {}) => {
+          if (!operation.signal.aborted) log.warn("downloads.direct_stream_range_failed", {
+            userId: active.userId, videoId: active.videoId, media: kind, reason, start: range.start, end: range.end, ...details,
+          });
+          return { kind: "failed" as const };
+        };
+        if (!response) return rangeFailed("no_upstream_response");
         if (response.status === 416) {
           const total = response.headers.get("content-range")?.match(/^bytes \*\/(\d+)$/i)?.[1];
           await response.body?.cancel().catch(() => {});
@@ -832,7 +839,10 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
           return { kind: "failed" };
         }
         const body = await response.arrayBuffer().catch(() => null);
-        if (!body || body.byteLength !== contentRange.length || operation.signal.aborted) return { kind: "failed" };
+        if (operation.signal.aborted) return { kind: "failed" };
+        if (!body || body.byteLength !== contentRange.length) {
+          return rangeFailed(body ? "short_body" : "body_read_failed", { status: response.status, expected: contentRange.length, received: body?.byteLength ?? 0 });
+        }
         active.lastAccess = now();
         return { kind: "response", response: new Response(body, {
           status: 206,

@@ -46,7 +46,8 @@ export async function nativePlaybackAccess(userId: number, videoId: string): Pro
   return { video, child };
 }
 
-export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal): Promise<
+/** `preferProgressive`: a client whose HLS stream failed asks for the single progressive stream instead. */
+export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal, preferProgressive = false): Promise<
   { kind: NativeMediaKind } | { preparing: true } | { error: string; status: 403 | 404 | 409 | 503 }
 > {
   const access = await nativePlaybackAccess(userId, videoId);
@@ -75,6 +76,10 @@ export async function nativePlaybackSource(userId: number, videoId: string, sign
   // progressive MP4. This path never starts an offline download, including
   // when experimental play-while-downloading is enabled in the web client.
   // Building the playlist here caches the session for the client's request.
+  if (preferProgressive) {
+    log.info("downloads.native_playback_progressive_requested", { userId, videoId });
+    return { kind: "direct" };
+  }
   const playlist = await directVideoStreaming.getDirectHlsPlaylist(userId, videoId, "index.m3u8", signal, null);
   const kind = nativeKindForDirectPlaylist(playlist.kind);
   if (kind === "direct") log.info("downloads.native_playback_progressive_fallback", { userId, videoId, reason: playlist.kind });
