@@ -95,6 +95,21 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       expect(removed.contents).not.toContain("\tSID\t");
     });
 
+    test("ignores an unchanged cookie whose Max-Age only moved its expiry", () => {
+      const jar = [
+        "# Netscape HTTP Cookie File",
+        ".youtube.com\tTRUE\t/\tTRUE\t2015552000\tVISITOR_INFO1_LIVE\tsame",
+        "",
+      ].join("\n");
+      const header = "VISITOR_INFO1_LIVE=same; Domain=.youtube.com; Path=/; Max-Age=15552000; Secure";
+      // A second later, and an hour later: the same cookie, a slightly later expiry.
+      expect(mergeYouTubeSetCookies(jar, [header], "https://www.youtube.com/", 2_000_000_001).updates).toBe(0);
+      expect(mergeYouTubeSetCookies(jar, [header], "https://www.youtube.com/", 2_000_003_600).updates).toBe(0);
+      // A new value, or an expiry moved by days, is still written.
+      expect(mergeYouTubeSetCookies(jar, [header.replace("=same", "=rotated")], "https://www.youtube.com/", 2_000_000_001).updates).toBe(1);
+      expect(mergeYouTubeSetCookies(jar, [header], "https://www.youtube.com/", 2_000_200_000).updates).toBe(1);
+    });
+
     test("rejects non-YouTube and insecure request origins", () => {
       const jar = "# Netscape HTTP Cookie File\n";
       expect(mergeYouTubeSetCookies(jar, ["SID=x; Domain=.youtube.com"], "https://example.com/").updates).toBe(0);
