@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createVideoPlayer, VideoView } from "expo-video";
 import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -10,7 +10,8 @@ import { sponsorCategories } from "../sponsorBlock";
 import { useSponsorBlock } from "../useSponsorBlock";
 import { useKeepScreenAwake } from "../useKeepScreenAwake";
 import { TvChoiceSheet } from "./TvChoiceSheet";
-import { useMiniPlayerSlot } from "./MiniPlayerHost";
+import { useMiniPlayerSlot, usePlayerWindowSlot } from "./MiniPlayerHost";
+import { setPhoneImmersive } from "../phoneOrientation";
 import { TvMiniPlayer } from "./TvMiniPlayer";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
@@ -40,7 +41,10 @@ type Props = {
   onClose: (result: PlaybackResult, next?: Video, playedVideo?: Video) => void;
   /** Phones: Back minimizes the player to a corner, and the viewer keeps browsing. */
   docked?: boolean; onDock?: () => void; onExpand?: () => void;
-  /** Phones: "inline" draws the player in the details page; fullscreen uses the Modal. */
+  /**
+   * Phones: "inline" draws the player in the details page. "modal" is fullscreen: a Modal
+   * on TVs, and on Android phones a window-sized view above the app (see `playsInWindow`).
+   */
   presentation?: "modal" | "inline"; onToggleFullscreen?: () => void; fullscreenActive?: boolean;
   /** The profile's server settings: default speed, remembered speed, SponsorBlock. */
   settings?: TvProfileSettings | null; onSettingsChange?: (patch: Partial<TvProfileSettings>) => void;
@@ -51,6 +55,10 @@ const presentsNativeFullscreen = Platform.OS === "ios";
 const ownsSpeedControl = Platform.OS === "android";
 const playsInBackground = Platform.OS === "android";
 const canDock = Platform.OS === "android" && !Platform.isTV;
+// A Modal is a window of its own, whose status and navigation bars the app cannot
+// hide. Android phones in the scaled TV layout cover the app's own window instead,
+// with the bars hidden until a swipe from the edge.
+const playsInWindow = Platform.OS === "android" && !Platform.isTV;
 const speedButtonTimeout = 4000;
 const skippedNoticeTimeout = 3000;
 // A touch that moves this far, or lasts this long, is a drag (the seek bar), not a tap.
@@ -75,6 +83,9 @@ export function TvNativePlayer(props: Props) {
   const { api, video, startPosition, incognito, isChild, t, nextVideo, previousVideo, queueVideos, queueLoading, docked = false, presentation = "modal" } = props;
   const dockable = canDock && Boolean(props.onDock);
   const miniPlayerSlot = useMiniPlayerSlot();
+  const playerWindowSlot = usePlayerWindowSlot();
+  const windowed = playsInWindow && presentation === "modal";
+  const windowVisible = windowed && !docked;
   const latest = useRef(props);
   latest.current = props;
   const view = useRef<VideoView>(null);
@@ -361,14 +372,29 @@ export function TvNativePlayer(props: Props) {
       .finally(() => { if (activating.current === active) activating.current = null; });
   };
   useEffect(() => { present(); }, [active, ready]);
-  // The inline player has no Modal to show; it is on screen as soon as it mounts.
+  // The inline and window players have no Modal to show; they are on screen as soon as they mount.
   useEffect(() => {
-    if (presentation !== "inline" || modalShown.current) return;
+    if ((presentation !== "inline" && !windowed) || modalShown.current) return;
     modalShown.current = true;
     setModalVisible(true);
     present();
-  }, [presentation]);
-  useTvModalBack(!presented, () => { if (fullscreen.current) void exitPresentation(); else void close(); }, true);
+  }, [presentation, windowed]);
+  const requestClose = () => {
+    // Phones: Back leaves fullscreen for the details page.
+    if (props.onToggleFullscreen) props.onToggleFullscreen();
+    else if (dockable && presented && !error) props.onDock?.();
+    else if (fullscreen.current) void exitPresentation(); else void close();
+  };
+  // The Modal takes Back itself on Android; the window player listens for it.
+  useTvModalBack(!presented || windowVisible, () => {
+    if (windowVisible) requestClose();
+    else if (fullscreen.current) void exitPresentation(); else void close();
+  }, true);
+  useEffect(() => {
+    if (!windowVisible) return;
+    setPhoneImmersive(true);
+    return () => setPhoneImmersive(false);
+  }, [windowVisible]);
 
   useEffect(() => {
     if (!active) return;
@@ -598,17 +624,9 @@ export function TvNativePlayer(props: Props) {
     </View> : null}
   </View>;
 
-  return (
-    <Modal visible={!docked && !inline} animationType="none" supportedOrientations={["portrait", "landscape"]}
-      onShow={() => { modalShown.current = true; setModalVisible(true); if (!presented) present(); }} onRequestClose={() => {
-      // Phones: Back leaves fullscreen for the details page.
-      if (props.onToggleFullscreen) props.onToggleFullscreen();
-      else if (dockable && presented && !error) props.onDock?.();
-      else if (fullscreen.current) void exitPresentation(); else void close();
-    }}>
-      <SafeAreaProvider>
+  const fullWindow = <SafeAreaProvider>
       <TvFocusScope style={styles.screen}>
-        {/* Android draws this Modal edge to edge; keep the controls clear of the system bars. */}
+        {/* Android draws this edge to edge; keep the controls clear of any system bars showing. */}
         <SafeAreaView edges={playerSafeEdges} style={styles.video}>{surface}</SafeAreaView>
         {speedChoice}
         {!presented && !dismissing ? <View style={styles.panel}>
@@ -623,9 +641,24 @@ export function TvNativePlayer(props: Props) {
           </View>
         </View> : null}
       </TvFocusScope>
-      </SafeAreaProvider>
+      </SafeAreaProvider>;
+  if (windowed) return <PlayerWindow slot={playerWindowSlot} visible={windowVisible}>{fullWindow}</PlayerWindow>;
+  return (
+    <Modal visible={!docked && !inline} animationType="none" supportedOrientations={["portrait", "landscape"]}
+      onShow={() => { modalShown.current = true; setModalVisible(true); if (!presented) present(); }} onRequestClose={requestClose}>
+      {fullWindow}
     </Modal>
   );
+}
+
+/** Puts the window player in the slot above the app while it is visible, refreshed on every render. */
+function PlayerWindow({ slot, visible, children }: { slot: (node: ReactNode) => void; visible: boolean; children: ReactNode }) {
+  useEffect(() => { if (visible) slot(children); });
+  useEffect(() => {
+    if (!visible) return;
+    return () => slot(null);
+  }, [slot, visible]);
+  return null;
 }
 
 const styles = StyleSheet.create({

@@ -314,6 +314,9 @@ function TvApp() {
       if (screen === "detail") {
         // Phones: Back leaves fullscreen, then keeps a playing video going in the mini player.
         if (phoneMode && videoFullscreen) { setPortraitHeld(true); setVideoFullscreen(false); return true; }
+        // The TV layout's player on a phone covers the window and listens for Back
+        // itself; this listener, added again after it, passes Back on to it.
+        if (!phoneMode && phoneDesignAvailable && phonePlaying) return false;
         if (phoneMode && phonePlaying) {
           setPlayerDocked(true);
           setScreen(detailReturnScreen);
