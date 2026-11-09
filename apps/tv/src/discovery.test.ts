@@ -43,7 +43,10 @@ describe("TV Bonjour discovery", () => {
       expect(Object.keys(messages).sort()).toEqual(Object.keys(discoveryMessages.en).sort());
       for (const message of Object.values(messages)) expect(message.trim().length).toBeGreaterThan(0);
       const permission = await Bun.file(new URL(`../locales/${language}.json`, import.meta.url)).json();
-      expect(permission.NSLocalNetworkUsageDescription.length).toBeGreaterThan(20);
+      // iOS-only: Android has no such permission, and a string there that the
+      // default locale lacks fails release lint.
+      expect(Object.keys(permission)).toEqual(["ios"]);
+      expect(permission.ios.NSLocalNetworkUsageDescription.length).toBeGreaterThan(20);
     }
   });
 });

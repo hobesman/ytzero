@@ -56,7 +56,10 @@ retries unavailable or unresolved instances without taking focus from the user.
 
 `NSBonjourServices` and localized `NSLocalNetworkUsageDescription` are generated
 from Expo configuration. All nine supported languages include interface and
-native permission copy. Rebuild the development client after pulling this
+native permission copy. The translations sit under `ios` in
+`apps/tv/locales/*.json`, so Expo writes them only to the iOS/tvOS project:
+Android has no such permission, and Android strings missing from the default
+locale fail release lint. Rebuild the development client after pulling this
 feature; a Metro refresh alone cannot add a Swift module:
 
 ```sh
