@@ -1,5 +1,6 @@
 import { chmodSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { downloadCookiesConfigured, downloadCookiesFile } from "./downloadConfig";
+import { profileCookiesSuppressed } from "./youtubeAnonymous";
 import { log } from "./logger";
 import { readYouTubeResponse } from "./youtubeRateLimit";
 import { resolveYouTubeLanguage, youtubeRequestHeaders } from "./youtubeRequestLanguage";
@@ -139,6 +140,21 @@ function serializeNetscapeCookie(cookie: NetscapeCookie): string {
   return `${prefix}${cookie.domain}\t${cookie.includeSubdomains ? "TRUE" : "FALSE"}\t${cookie.path}\t${cookie.secure ? "TRUE" : "FALSE"}\t${cookie.expires}\t${cookie.name}\t${cookie.value}`;
 }
 
+const EXPIRY_DRIFT_SECONDS = 24 * 60 * 60;
+
+/**
+ * YouTube re-sends unchanged cookies with a Max-Age on most responses, which
+ * moves their expiry by a second or two each time. Rewriting the jar for that
+ * alone rewrote it on every request; a change of value, flags or an expiry
+ * moved by a day or more is still written.
+ */
+function onlyExpiryDrift(stored: NetscapeCookie | null, cookie: NetscapeCookie): boolean {
+  return stored != null && stored.value === cookie.value && stored.httpOnly === cookie.httpOnly
+    && stored.secure === cookie.secure && stored.includeSubdomains === cookie.includeSubdomains
+    && stored.expires > 0 && cookie.expires > 0
+    && Math.abs(stored.expires - cookie.expires) < EXPIRY_DRIFT_SECONDS;
+}
+
 /** Merge YouTube Set-Cookie values into a Netscape-format jar without touching
  * cookies belonging to other domains. The update count includes removals. */
 export function mergeYouTubeSetCookies(
@@ -183,7 +199,7 @@ export function mergeYouTubeSetCookies(
       indices.set(key, lines.length);
       lines.push(serialized);
       updates++;
-    } else if (lines[index] !== serialized) {
+    } else if (lines[index] !== serialized && !onlyExpiryDrift(parseNetscapeCookie(lines[index]), cookie)) {
       lines[index] = serialized;
       updates++;
     }
@@ -213,6 +229,8 @@ function responseSetCookies(response: Response): string[] {
 }
 
 function effectiveCookieProfile(userId?: number): number | null {
+  // An anonymous request's answer says nothing about any profile's jar.
+  if (profileCookiesSuppressed()) return null;
   const effectiveUserId = resolveYouTubeLanguage(userId).userId;
   return effectiveUserId && downloadCookiesConfigured(effectiveUserId) ? effectiveUserId : null;
 }

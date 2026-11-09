@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { downloadCookiesConfigured, downloadCookiesFile } from "./downloadConfig";
+import { profileCookiesSuppressed } from "./youtubeAnonymous";
 import { db, getUserSetting } from "./db";
 import { isLanguage, normalizeLanguage, UI_LANGUAGES, type Language } from "../../shared/uiLanguages";
 
@@ -103,7 +104,7 @@ export function youtubeCookieHeaderFromNetscape(contents: string, language: stri
 }
 
 function profileCookieHeader(userId: number | undefined, language: string, includeProfileCookies = true): string {
-  if (!includeProfileCookies || !userId || !downloadCookiesConfigured(userId)) {
+  if (!includeProfileCookies || !userId || profileCookiesSuppressed() || !downloadCookiesConfigured(userId)) {
     return youtubeCookieHeaderFromNetscape("", language);
   }
   try {
