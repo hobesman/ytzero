@@ -75,6 +75,8 @@ interface DirectVideoSources {
   audio: DirectVideoMediaSource;
   durationSeconds: number;
   expiresAt: number;
+  /** Resolved with the profile's YouTube cookies. */
+  usedCookies?: boolean;
 }
 
 type SourceResolutionResult =
@@ -337,7 +339,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         return { kind: "failed" };
       }
       const sources = parseSelection(stdout, now());
-      return sources ? { kind: "sources", sources } : { kind: "unsupported" };
+      return sources ? { kind: "sources", sources: { ...sources, usedCookies: useCookies } } : { kind: "unsupported" };
     } catch {
       return { kind: "failed" };
     } finally {
@@ -345,14 +347,15 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
   }
 
-  async function resolveFresh(userId: number, videoId: string, signal: AbortSignal): Promise<SourceResolutionResult> {
+  async function resolveFresh(userId: number, videoId: string, signal: AbortSignal, cookiesOnly = false): Promise<SourceResolutionResult> {
     if (!(await ytdlpStatus()) || signal.aborted) return { kind: "failed" };
     const operation = requestSignal(signal, resolveTimeoutMs, "direct video source timeout");
     try {
       let failed = false;
       let anonymousRefused = false;
       let cacheable = true;
-      for (const useCookies of downloadCookieAttempts(downloadCookiesConfigured(userId), userId)) {
+      const attempts = cookiesOnly ? [true] : downloadCookieAttempts(downloadCookiesConfigured(userId), userId);
+      for (const useCookies of attempts) {
         let result = await resolveAttempt(userId, videoId, useCookies, operation.signal);
         // An extraction/challenge hiccup can temporarily hide otherwise valid
         // formats. Retry once within the same deadline, then leave retries free
@@ -380,6 +383,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     videoId: string,
     signal?: AbortSignal,
     force = false,
+    cookiesOnly = false,
   ): Promise<SourceResolutionResult> {
     const key = keyFor(userId, videoId);
     if (force) sourceCache.delete(key);
@@ -395,7 +399,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       const controller = new AbortController();
       operation = { controller, promise: Promise.resolve({ kind: "failed" }), settled: false, waiters: 0 };
       const current = operation;
-      current.promise = resolveFresh(userId, videoId, controller.signal)
+      current.promise = resolveFresh(userId, videoId, controller.signal, cookiesOnly)
         .then((result) => {
           if (result.kind === "sources" && !controller.signal.aborted) {
             sourceCache.set(key, { expiresAt: result.sources.expiresAt, sources: result.sources });
@@ -551,11 +555,24 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
       expiresAt: now() + (resolution.cacheable === false ? 0 : TRANSIENT_UNSUPPORTED_CACHE_MS),
     };
     if (resolution.kind === "failed" || signal.aborted) return { kind: "failed" };
-    const sources = resolution.sources;
-    const [video, audio] = await Promise.all([
+    let sources = resolution.sources;
+    let [video, audio] = await Promise.all([
       readIndex(sources.video, signal),
       readIndex(sources.audio, signal),
     ]);
+    // YouTube can list the adaptive streams for an anonymous request and then
+    // refuse to serve them. With the profile's cookies the same streams usually
+    // play, so resolve again with them; success makes cookies first for a while.
+    const refused = (result: typeof video) => result.kind === "failed" && result.reason === "http_403";
+    if (!signal.aborted && !sources.usedCookies && (refused(video) || refused(audio)) && downloadCookiesConfigured(userId)) {
+      log.info("downloads.direct_stream_cookie_retry", { userId, videoId });
+      const retried = await resolveSources(userId, videoId, signal, true, true);
+      if (retried.kind === "sources" && !signal.aborted) {
+        sources = retried.sources;
+        [video, audio] = await Promise.all([readIndex(sources.video, signal), readIndex(sources.audio, signal)]);
+        if (video.kind !== "failed" && audio.kind !== "failed") recordDownloadAttempt(userId, true, true, true);
+      }
+    }
     if (signal.aborted || video.kind === "failed" || audio.kind === "failed") {
       if (!signal.aborted) log.warn("downloads.direct_stream_index_failed", {
         userId, videoId,

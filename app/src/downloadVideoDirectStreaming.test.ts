@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { createDownloadVideoDirectStreaming } from "./downloadVideoDirectStreaming";
 import { createDownloadVideoStreaming } from "./downloadVideoStreaming";
+import { resetDownloadAttemptPreferences } from "./downloadStrategy";
 
 function concat(...parts: Uint8Array<ArrayBufferLike>[]): Uint8Array<ArrayBuffer> {
   const result = new Uint8Array(parts.reduce((length, part) => length + part.byteLength, 0));
@@ -168,6 +169,38 @@ describe("direct no-transcode video HLS", () => {
     const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
     expect((await streaming.getDirectHlsPlaylist(1, "short", "index.m3u8")).kind).toBe("playlist");
     expect(attempts).toBe(2);
+    streaming.resetDirectHlsSessions();
+  });
+
+  test("retries with the profile's cookies when YouTube refuses anonymously resolved streams", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const spawned: boolean[] = [];
+    const spawn = ((command: string[]) => {
+      const withCookies = command.includes("--cookies");
+      spawned.push(withCookies);
+      return fakeProcess(selection(withCookies ? 2 : 1));
+    }) as unknown as typeof Bun.spawn;
+    // Anonymous URLs (v1) are refused; cookie-resolved URLs (v2) play.
+    const fetchImpl = (async (input, init) => String(input).includes("-v1?")
+      ? new Response(null, { status: 403 })
+      : rangedResponse(media.bytes, new Headers(init?.headers).get("range"))) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({ ...directDependencies(spawn, fetchImpl), downloadCookiesConfigured: () => true });
+    expect((await streaming.getDirectHlsPlaylist(1, "refused", "index.m3u8")).kind).toBe("playlist");
+    expect(spawned).toEqual([false, true]);
+    // Cookies rescued the refusal, so the next video for this profile starts with them.
+    expect((await streaming.getDirectHlsPlaylist(1, "next", "index.m3u8")).kind).toBe("playlist");
+    expect(spawned).toEqual([false, true, true]);
+    streaming.resetDirectHlsSessions();
+    resetDownloadAttemptPreferences();
+  });
+
+  test("a refused stream without a cookies file fails without a cookie retry", async () => {
+    const spawned: boolean[] = [];
+    const spawn = ((command: string[]) => { spawned.push(command.includes("--cookies")); return fakeProcess(selection(1)); }) as unknown as typeof Bun.spawn;
+    const fetchImpl = (async () => new Response(null, { status: 403 })) as unknown as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming(directDependencies(spawn, fetchImpl));
+    expect((await streaming.getDirectHlsPlaylist(1, "refused", "index.m3u8")).kind).toBe("failed");
+    expect(spawned).toEqual([false]);
     streaming.resetDirectHlsSessions();
   });
 
