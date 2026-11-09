@@ -322,3 +322,35 @@ describe("Shorts playback buffer", () => {
     expect(h.players.every((player) => player.released === 1)).toBe(true);
   });
 });
+
+describe("full-quality stream fallback", () => {
+  test("a failed direct HLS stream switches once to the progressive stream at the same position", async () => {
+    const h = harness();
+    const prefers: Array<string | undefined> = [];
+    h.api.playbackTicket = async (id: string, _signal?: AbortSignal, prefer?: "progressive") => {
+      prefers.push(prefer);
+      return prefer
+        ? { ticket: `${id}-progressive`, url: `/api/videos/${id}/direct-stream`, content_type: "progressive", expires_in: 60 }
+        : { ticket: id, url: `/api/videos/${id}/direct-hls/index.m3u8`, content_type: "hls", expires_in: 60 };
+    };
+    try {
+      const entry = h.pool.prepare({ ...video("hq"), is_short: 0 }, 0);
+      await entry.ready;
+      expect(await h.pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 42;
+      player.emit("statusChange", { status: "error", error: new Error("Source error Response code: 502") });
+      await flush(); await flush();
+      expect(prefers).toEqual([undefined, "progressive"]);
+      expect(String((player.source as { uri: string }).uri)).toContain("/direct-stream");
+      expect(player.currentTime).toBe(42);
+      expect(player.playing).toBe(true);
+      expect(h.failures).toEqual([]);
+      expect(h.released).toContain("hq");
+      // A second failure, on the progressive stream, is a real failure.
+      player.emit("statusChange", { status: "error", error: new Error("still broken") });
+      await flush();
+      expect(h.failures).toEqual(["hq"]);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+});
