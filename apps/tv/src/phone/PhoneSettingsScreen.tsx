@@ -4,6 +4,7 @@ import type { YtZeroApi } from "../api";
 import { deviceStore } from "../deviceStore";
 import type { Translate } from "../i18n";
 import { saveStreamQuality, streamQuality } from "../streamQuality";
+import { PhoneBufferSetting } from "./PhoneBufferSetting";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneAppUpdateSettings } from "./PhoneAppUpdateSettings";
 import { PhoneDownloadSettings } from "./PhoneDownloadSettings";
@@ -38,6 +39,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneSectionTitle title={t("devicePlayback")} />
     <PhoneProfilePlaybackSettings api={api} t={t} />
     <PhoneListRow title={t("qualityFast")} detail={t("qualityFastHint")} trailing={toggle(fastStart, changeFastStart)} />
+    <PhoneBufferSetting t={t} onError={() => setFailed(true)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
     <PhoneDownloadSettings t={t} />
     <PhoneSectionTitle title={t("connection")} />

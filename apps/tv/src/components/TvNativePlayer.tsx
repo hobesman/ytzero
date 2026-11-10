@@ -6,6 +6,7 @@ import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-are
 import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
 import { heightLabel, qualityButtonLabel, qualityChoiceLabel, saveStreamQuality, STREAM_QUALITIES, streamQuality, type StreamQuality } from "../streamQuality";
 import { deviceStore } from "../deviceStore";
+import { forwardBuffer, forwardBufferOptions, NEIGHBOUR_BUFFER_OPTIONS, onForwardBufferChange } from "../forwardBuffer";
 import { sponsorCategories } from "../sponsorBlock";
 import { useSponsorBlock } from "../useSponsorBlock";
 import { useKeepScreenAwake } from "../useKeepScreenAwake";
@@ -161,12 +162,15 @@ export function TvNativePlayer(props: Props) {
     player.staysActiveInBackground = playsInBackground;
     player.preservesPitch = true;
     player.audioMixingMode = "doNotMix";
-    player.bufferOptions = { preferredForwardBufferDuration: 5, maxBufferBytes: 8 * 1024 * 1024 };
+    // Prepared neighbours keep a short buffer; the playing video gets the device's choice.
+    player.bufferOptions = NEIGHBOUR_BUFFER_OPTIONS;
     return player;
   }, seekPlayer, (entry, cause) => handleFailure.current(entry, cause), unloadPlayer, { play: playPlayer, pause: pausePlayer },
   () => latest.current.settings?.player_speed,
   // Only Android offers the quality menu; other players keep the server's choice.
-  () => ownsSpeedControl ? streamQuality() : ""), [api]);
+  () => ownsSpeedControl ? streamQuality() : "",
+  (active) => forwardBufferOptions(forwardBuffer(), active)), [api]);
+  useEffect(() => onForwardBufferChange(() => buffer.refreshBuffers()), [buffer]);
 
   const endTransition = () => {
     transitionLease.current?.();

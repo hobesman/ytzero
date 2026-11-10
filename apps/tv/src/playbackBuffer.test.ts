@@ -454,3 +454,64 @@ describe("stream quality", () => {
     } finally { pool.dispose(); await flush(); }
   });
 });
+
+describe("forward buffer", () => {
+  test("only the playing video gets the long buffer, and it moves with the selection", async () => {
+    const h = harness();
+    let seconds = 120;
+    const pool = new PlaybackBuffer(h.api, () => {
+      const player = new FakePlayer(); h.players.push(player); return player as unknown as VideoPlayer;
+    }, async (player, value) => { player.currentTime = value; }, (entry) => h.failures.push(entry.video.video_id), undefined, h.control, undefined, undefined,
+    (active) => ({ preferredForwardBufferDuration: active ? seconds : 5 }));
+    const buffered = () => h.players.map((player) => (player as unknown as { bufferOptions?: { preferredForwardBufferDuration?: number } }).bufferOptions?.preferredForwardBufferDuration);
+    try {
+      const entries = ["a", "b", "c"].map((id) => pool.prepare(video(id)));
+      await Promise.all(entries.map((entry) => entry.ready));
+      await pool.play(entries[1]!);
+      expect(buffered()).toEqual([5, 120, 5]);
+      await pool.play(entries[2]!);
+      expect(buffered()).toEqual([5, 5, 120]);
+      seconds = 30;
+      pool.refreshBuffers();
+      expect(buffered()).toEqual([5, 5, 30]);
+    } finally { pool.dispose(); await flush(); }
+  });
+});
+
+describe("playback ticket renewal", () => {
+  // Captures the buffer's timers so the test fires them on demand.
+  const realTimers = { setInterval: globalThis.setInterval, setTimeout: globalThis.setTimeout };
+  const intervals: Array<() => void> = [];
+  const timeouts: Array<{ fn: () => void; ms: number }> = [];
+  const capture = () => {
+    globalThis.setInterval = ((fn: () => void) => { intervals.push(fn); return 0; }) as unknown as typeof setInterval;
+    globalThis.setTimeout = ((fn: () => void, ms: number) => { timeouts.push({ fn, ms }); return 0; }) as unknown as typeof setTimeout;
+  };
+  const restore = () => Object.assign(globalThis, realTimers);
+
+  test("a dropped connection keeps playing and retries; a refused renewal ends playback", async () => {
+    const h = harness();
+    const renewals: string[] = [];
+    let answer: () => Promise<{ expires_in: number }> = () => Promise.reject(new TypeError("Network request failed"));
+    h.api.renewPlaybackTicket = async (_id?: string, value?: string) => { renewals.push(String(value)); return answer(); };
+    capture();
+    try {
+      const entry = h.pool.prepare(video("wifi"));
+      await entry.ready;
+      expect(intervals.length).toBe(1);
+      intervals[0]!();
+      await flush();
+      expect(h.failures).toEqual([]);
+      const retry = timeouts.at(-1)!;
+      expect(retry.ms).toBe(10_000);
+      retry.fn();
+      await flush();
+      expect(renewals).toEqual(["wifi", "wifi"]);
+      expect(h.failures).toEqual([]);
+      answer = () => Promise.reject(Object.assign(new Error("expired media ticket"), { status: 401 }));
+      timeouts.at(-1)!.fn();
+      await flush();
+      expect(h.failures).toEqual(["wifi"]);
+    } finally { restore(); h.pool.dispose(); await flush(); }
+  });
+});

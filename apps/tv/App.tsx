@@ -19,6 +19,7 @@ import { loadSystemProfilesEnabled, saveSystemProfilesEnabled, parseProfilePrefe
 import { TvSetupLayout } from "./src/components/TvSetupLayout";
 import { loadOpenDetails, loadPhoneLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
 import { loadStreamQuality } from "./src/streamQuality";
+import { loadForwardBuffer } from "./src/forwardBuffer";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TvSidebar } from "./src/components/TvSidebar";
 import { TvProfileMenu } from "./src/components/TvProfileMenu";
@@ -474,7 +475,7 @@ function TvApp() {
     void (async () => {
       try {
         const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable),
-          loadStreamQuality(deviceStore).catch(() => "auto")]);
+          loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5)]);
         if (!active) return;
         setOpenDetails(detailsPreference);
         setPhoneDesign(phonePreference);
