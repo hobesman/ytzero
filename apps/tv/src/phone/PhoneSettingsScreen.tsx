@@ -4,8 +4,7 @@ import type { YtZeroApi } from "../api";
 import { deviceStore } from "../deviceStore";
 import type { Translate } from "../i18n";
 import { saveStreamQuality, streamQuality } from "../streamQuality";
-import { FORWARD_BUFFERS, forwardBuffer, forwardBufferLabelKey, saveForwardBuffer, type ForwardBuffer } from "../forwardBuffer";
-import { TvChoiceSheet } from "../components/TvChoiceSheet";
+import { PhoneBufferSetting } from "./PhoneBufferSetting";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneAppUpdateSettings } from "./PhoneAppUpdateSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
@@ -28,12 +27,6 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     await saveStreamQuality(deviceStore, value ? "fast" : "auto");
     setFastStart(value);
   };
-  const [buffer, setBuffer] = useState<ForwardBuffer>(forwardBuffer);
-  const [bufferSheet, setBufferSheet] = useState(false);
-  const changeBuffer = async (value: ForwardBuffer) => {
-    setBuffer(value);
-    await saveForwardBuffer(deviceStore, value);
-  };
   const run = async (action: () => Promise<void>) => {
     if (busy) return;
     setBusy(true); setFailed(false);
@@ -45,8 +38,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneSectionTitle title={t("devicePlayback")} />
     <PhoneProfilePlaybackSettings api={api} t={t} />
     <PhoneListRow title={t("qualityFast")} detail={t("qualityFastHint")} trailing={toggle(fastStart, changeFastStart)} />
-    <PhoneListRow title={t("forwardBuffer")} detail={t("forwardBufferHint")} onPress={() => setBufferSheet(true)}
-      trailing={<Text style={styles.value}>{t(forwardBufferLabelKey(buffer))}</Text>} />
+    <PhoneBufferSetting t={t} onError={() => setFailed(true)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />
@@ -55,14 +47,10 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneListRow title={t("signOut")} detail={t("signOutHint")} danger onPress={() => void run(settings.onSignOut)} />
     <PhoneAppUpdateSettings t={t} />
     {failed ? <Text style={styles.error}>{t("cannotConnect")}</Text> : null}
-    {bufferSheet ? <TvChoiceSheet title={t("forwardBuffer")} t={t} value={String(buffer)}
-      options={FORWARD_BUFFERS.map((value) => ({ value: String(value), label: t(forwardBufferLabelKey(value)) }))}
-      onSelect={(value) => { setBufferSheet(false); void run(() => changeBuffer(Number(value) as ForwardBuffer)); }} onClose={() => setBufferSheet(false)} /> : null}
   </ScrollView>;
 }
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
-  value: { ...phoneType.body, color: phoneColors.textMuted },
   error: { ...phoneType.body, color: phoneColors.danger, padding: 16 },
 });
