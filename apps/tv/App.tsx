@@ -34,6 +34,9 @@ import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
 import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
+import { PhoneShortsContext } from "./src/phone/PhoneShorts";
+import { PhoneShortsPlayer } from "./src/phone/PhoneShortsPlayer";
+import { isShort, type OpenShorts, type ShortsSession } from "./src/shortsSession";
 import { OfflineDownloadsButton, PhoneOfflineScreen } from "./src/phone/PhoneOfflineScreen";
 import { PhoneDownloadApi } from "./src/phoneDownloadApi";
 import { downloadOwner } from "./src/phoneDownloads";
@@ -224,7 +227,19 @@ function TvApp() {
     setSelectedQueue(null);
   }, [instanceUrl, accessToken, profileState?.active.id, incognito, clearQueue]);
 
+  // Phones: Shorts play in their own vertical player, which closes any regular video and the mini player.
+  const [shorts, setShorts] = useState<ShortsSession | null>(null);
+  const phoneModeRef = useRef(phoneMode);
+  phoneModeRef.current = phoneMode;
+  const openShorts = useCallback<OpenShorts>((items, index, loadMore) => {
+    setVideoActionRequest(null);
+    setSelected(null);
+    setPlayerDocked(false);
+    if (screenRef.current === "detail") setScreen("/");
+    setShorts({ items, index, loadMore });
+  }, []);
   const openVideo = useCallback<OpenVideo>((video, context, play, position) => {
+    if (phoneModeRef.current && isShort(video)) { openShorts([video], 0); return; }
     if (screenRef.current !== "detail") returnFocus.current = queueVisibleRef.current ? queueTrigger : lastActivatedVideoTarget() ?? contentFocusFallback;
     setSelected(video);
     // Selecting the current film in the queue is a new playback request too.
@@ -234,7 +249,7 @@ function TvApp() {
     setStartPosition(position);
     setPlayerDocked(false);
     setScreen("detail");
-  }, []);
+  }, [openShorts]);
   const openQueueFromTopBar = useCallback(() => {
     queueReturnFocus.current = queueTrigger.current;
     setQueueVisible(true);
@@ -646,6 +661,7 @@ function TvApp() {
     setVideoActionRequest(null);
     // Phones: the channel opens on the phone screens' stack; a playing video moves to the mini player.
     if (phoneMode) {
+      setShorts(null);
       if (screenRef.current === "detail") {
         if (phonePlaying) setPlayerDocked(true);
         else setSelected(null);
@@ -898,11 +914,11 @@ function TvApp() {
     <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
-      {phoneMode && hasShell && api && profileState ? <PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail"}
+      {phoneMode && hasShell && api && profileState ? <PhoneShortsContext.Provider value={openShorts}><PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail" || Boolean(shorts)}
         brandName={brandName} brandColor={brandColor} profiles={{ active: profileState.active, profiles: profileState.profiles, canSwitch: profileState.canSwitch, childLockEnabled: profileState.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile,
           saved: remembersProfiles ? { profiles: savedLogins, onSwitch: switchToSavedProfile, onAdd: () => void addProfile().catch(() => {}) } : undefined }}
         navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
-        settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /> : <>
+        settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /></PhoneShortsContext.Provider> : <>
       {screen !== "detail" && browsingScreen === "/" && api
         ? <TvHomeBackdrop api={api} controller={backdropController} height={height} opacity={backdropOpacity} />
         : null}
@@ -956,6 +972,8 @@ function TvApp() {
         pointerEvents={screen === "detail" ? "auto" : "none"} accessibilityElementsHidden={screen !== "detail"} importantForAccessibility={screen === "detail" ? "auto" : "no-hide-descendants"}>
         {autoplay ? detailContent : <TvScreenTransition>{detailContent}</TvScreenTransition>}
       </View> : null}
+      {api && phoneMode && shorts ? <PhoneShortsPlayer api={api} t={t} session={shorts} incognito={incognito} isChild={profileState?.active.is_child ?? false}
+        onClose={() => setShorts(null)} onOpenChannel={openChannel} onVideoLongPress={openVideoActions} onVideoChange={setVideoUpdate} /> : null}
       {api && phoneMode && videoActionRequest ? <PhoneVideoActionSheet key={videoActionRequest.video.video_id}
         actionConfig={videoActionConfig} api={api} t={t} language={language} video={videoActionRequest.video}
         onClose={() => setVideoActionRequest(null)} onOpenChannel={openChannel} onRemove={videoActionRequest.options?.onRemove}

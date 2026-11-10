@@ -7,6 +7,7 @@ import type { OpenVideo } from "../playbackQueue";
 import type { FollowedPlaylist, Language, Video } from "../types";
 import { PhoneChip } from "./PhoneChip";
 import { PhoneVideoCard } from "./PhoneVideoCard";
+import { useOpenShort } from "./PhoneShorts";
 import { phoneColors, phoneType } from "./phoneTheme";
 import { useImageSource } from "./useImageSource";
 
@@ -72,7 +73,8 @@ export function PhonePlaylistScreen({ api, playlistId, language, t, videoUpdate,
     if (videoUpdate) setPage((current) => current ? { ...current, videos: current.videos.map((item) => item.video_id === videoUpdate.video_id ? { ...item, ...videoUpdate } : item) } : current);
   }, [videoUpdate]);
   const context = useMemo(() => playlistQueue(playlistId, page?.sort ?? "oldest"), [page?.sort, playlistId]);
-  const open = useCallback((video: Video) => onOpen(video, context), [context, onOpen]);
+  const openShort = useOpenShort();
+  const open = useCallback((video: Video) => openShort(page?.videos ?? [], video) || onOpen(video, context), [context, onOpen, openShort, page?.videos]);
   const longPress = useCallback((video: Video) => onVideoLongPress(video, (updated) => setPage((current) => current
     ? { ...current, videos: current.videos.map((item) => item.video_id === updated.video_id ? updated : item) } : current)), [onVideoLongPress]);
 

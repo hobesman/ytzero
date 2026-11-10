@@ -7,6 +7,7 @@ import type { OpenVideo } from "../playbackQueue";
 import type { Channel, ChannelAbout, Language, Video } from "../types";
 import { useChannelSync } from "../useChannelSync";
 import { PhoneChip } from "./PhoneChip";
+import { PhoneShortCard, shortsGridColumns, shortsGridStyles, useOpenShort, useShortThumbnail } from "./PhoneShorts";
 import { PhoneVideoCard } from "./PhoneVideoCard";
 import { phoneColors, phoneType } from "./phoneTheme";
 import { useImageSource } from "./useImageSource";
@@ -35,6 +36,7 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
   const pageRef = useRef(0);
   pageRef.current = page;
   const source = useImageSource(api);
+  const shortSource = useShortThumbnail(api);
 
   const load = useCallback(async (background = false) => {
     const id = ++request.current;
@@ -69,17 +71,33 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
     setVideos(apply); setLive(apply);
   }, [videoUpdate]);
 
+  const fetchPage = async (id: number): Promise<Video[]> => {
+    const result = await api.channelVideos(channelId, pageRef.current + 1);
+    if (id !== request.current) return [];
+    pageRef.current = result.page;
+    setVideos((current) => [...current, ...result.videos.filter((video) => !current.some((item) => item.video_id === video.video_id))]);
+    setPage(result.page);
+    setHasMore(result.videos.length === result.limit);
+    return result.videos;
+  };
   const loadMore = async () => {
     if (loadingMore || !hasMore || loading) return;
     const id = request.current;
     setLoadingMore(true);
-    try {
-      const result = await api.channelVideos(channelId, page + 1);
-      if (id !== request.current) return;
-      setVideos((current) => [...current, ...result.videos.filter((video) => !current.some((item) => item.video_id === video.video_id))]);
-      setPage(result.page);
-      setHasMore(result.videos.length === result.limit);
-    } catch { /* The next scroll retries. */ } finally { if (id === request.current) setLoadingMore(false); }
+    try { await fetchPage(id); } catch { /* The next scroll retries. */ } finally { if (id === request.current) setLoadingMore(false); }
+  };
+  // The Shorts player asks for more as the viewer nears the end of the channel's Shorts.
+  const hasMoreRef = useRef(hasMore);
+  hasMoreRef.current = hasMore;
+  const moreShorts = async (): Promise<Video[]> => {
+    const id = request.current;
+    const found: Video[] = [];
+    for (let tries = 0; tries < 3 && !found.some((video) => video.is_short === 1) && hasMoreRef.current; tries++) {
+      const videos = await fetchPage(id);
+      hasMoreRef.current = videos.length > 0 && hasMoreRef.current;
+      found.push(...videos);
+    }
+    return found;
   };
 
   const toggleFollow = async () => {
@@ -96,7 +114,9 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
   const tabs = useMemo(() => channelContentTabs(videos, about?.counts, shortsEnabled), [about?.counts, shortsEnabled, videos]);
   useEffect(() => { if (!tabs.some((item) => item.value === tab)) setTab("videos"); }, [tab, tabs]);
   const shown = tab === "shorts" ? split.shorts : split.videos;
-  const open = useCallback((video: Video) => onOpen(video), [onOpen]);
+  const openShort = useOpenShort();
+  const open = (video: Video) => openShort(split.shorts, video, moreShorts) || onOpen(video);
+  const shortsGrid = tab === "shorts";
   const longPress = useCallback((video: Video) => onVideoLongPress(video, (updated) => {
     const apply = (list: Video[]) => list.map((item) => item.video_id === updated.video_id ? updated : item);
     setVideos(apply); setLive(apply);
@@ -132,8 +152,11 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
       {tabs.map((item) => <PhoneChip key={item.value} label={item.value === "shorts" ? t("navShorts") : t("videos")} primary={tab === item.value} onPress={() => setTab(item.value)} />)}
     </View> : null}
   </View>;
-  return <FlatList data={shown} keyExtractor={(video) => video.video_id} ListHeaderComponent={header}
-    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress} thumbnail={source(item.thumbnail)!} channelAvatar={avatar} />}
+  // A FlatList can't change its column count, so the Shorts grid is a list of its own.
+  return <FlatList key={shortsGrid ? "shorts" : "videos"} data={shown} keyExtractor={(video) => video.video_id} ListHeaderComponent={header}
+    {...shortsGrid ? { numColumns: shortsGridColumns, columnWrapperStyle: shortsGridStyles.row } : {}}
+    renderItem={({ item }) => shortsGrid ? <PhoneShortCard video={item} thumbnail={shortSource(item)} onPress={open} onLongPress={longPress} />
+      : <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress} thumbnail={source(item.thumbnail)!} channelAvatar={avatar} />}
     onEndReachedThreshold={1.5} onEndReached={() => void loadMore()}
     ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={phoneColors.textMuted} /> : null}
     ListEmptyComponent={<Text style={[styles.muted, styles.empty]}>{t(tab === "shorts" ? "channelShortsEmpty" : "channelVideosEmpty")}</Text>}
