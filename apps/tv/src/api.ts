@@ -8,7 +8,7 @@ import type { SponsorSegment } from "./sponsorBlock";
 import { matchingChannels, searchChannel, searchVideo, type YoutubeSearchChannel, type YoutubeSearchVideo } from "./search";
 
 type BrowseResult = { videos: Video[]; page: number; hasMore: boolean };
-type ImageSource = { uri: string; headers?: Record<string, string> };
+export type ImageSource = { uri: string; headers?: Record<string, string> };
 
 const TV_PAGE_SIZE = 24;
 const EMPTY_IMAGE_SOURCE: ImageSource = { uri: "" };
@@ -419,6 +419,15 @@ export class YtZeroApi {
         status: "inbox",
       }));
     return { videos, page, hasMore: false };
+  }
+
+  /** "Download to your device": the server fetches the video, then hands the file over once at /videos/:id/file. */
+  requestDeviceDownload(videoId: string, quality?: string): Promise<{ ok: true }> {
+    return this.timedRequest(`/videos/${encodeURIComponent(videoId)}/download`, { method: "POST", body: JSON.stringify({ device: true, ...(quality ? { quality } : {}) }) }, 15000);
+  }
+
+  videoDownload(videoId: string): Promise<{ download: { status: string } | null; progress: { percent: number } | null }> {
+    return this.timedRequest(`/videos/${encodeURIComponent(videoId)}/download`);
   }
 
   markWatched(videoId: string): Promise<{ ok: true }> {

@@ -5,7 +5,7 @@ const { existsSync } = await import("node:fs");
 const { join } = await import("node:path");
 
 db.prepare("INSERT INTO channels(channel_id,title,url) VALUES('UC-device','Device channel','')").run();
-for (const id of ["device-only", "device-kept", "device-upgraded", "device-stale", "device-fresh"]) {
+for (const id of ["device-only", "device-kept", "device-upgraded", "device-stale", "device-fresh", "device-sized", "device-unsized"]) {
   db.prepare("INSERT INTO videos(video_id,channel_id,title,thumbnail) VALUES(?,'UC-device',?,'')").run(id, id);
 }
 const request = (path: string, init?: RequestInit) => api.request(`http://localhost${path}`, {
@@ -33,6 +33,12 @@ const fileBody = await fileResponse.text();
 await Bun.sleep(50);
 const deviceOnlyAfter = { body: fileBody, length: fileResponse.headers.get("content-length"), owner: owner("device-only"), physical: physical("device-only"), fileExists: existsSync(deviceOnlyPath) };
 
+// A device request can size the file; an unknown quality leaves the profile's.
+await post("device-sized", { device: true, quality: "720" });
+await post("device-unsized", { device: true, quality: "4k" });
+const requestedQuality = (id: string) => db.prepare("SELECT requested_quality FROM downloads WHERE video_id=?").get(id);
+const sized = { known: requestedQuality("device-sized"), unknown: requestedQuality("device-unsized") };
+
 // An existing server copy is kept when the profile also asks for its device.
 await post("device-kept", {});
 await post("device-kept", { device: true });
@@ -55,5 +61,5 @@ await finish("device-fresh", "datetime('now','-1 hours')");
 const swept = await sweepUnclaimedDeviceDownloads();
 const sweep = { swept, stale: owner("device-stale"), fresh: owner("device-fresh") };
 
-console.log("RESULT " + JSON.stringify({ deviceOnlyQueued, deviceOnlyAfter, keptOwner, keptAfter, upgradedOwner, sweep }));
+console.log("RESULT " + JSON.stringify({ deviceOnlyQueued, deviceOnlyAfter, keptOwner, keptAfter, upgradedOwner, sweep, sized }));
 process.exit(0);
