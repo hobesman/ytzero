@@ -6,6 +6,7 @@ import type { Translate } from "../i18n";
 import { saveStreamQuality, streamQuality } from "../streamQuality";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneAppUpdateSettings } from "./PhoneAppUpdateSettings";
+import { PhoneDownloadSettings } from "./PhoneDownloadSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -38,6 +39,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneProfilePlaybackSettings api={api} t={t} />
     <PhoneListRow title={t("qualityFast")} detail={t("qualityFastHint")} trailing={toggle(fastStart, changeFastStart)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
+    <PhoneDownloadSettings t={t} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />
     <PhoneListRow title={t("changeInstance")} onPress={() => void run(settings.onChangeInstance)} />

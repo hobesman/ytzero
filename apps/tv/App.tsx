@@ -34,6 +34,10 @@ import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
 import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
+import { OfflineDownloadsButton, PhoneOfflineScreen } from "./src/phone/PhoneOfflineScreen";
+import { PhoneDownloadApi } from "./src/phoneDownloadApi";
+import { downloadOwner } from "./src/phoneDownloads";
+import { phoneDownloads } from "./src/usePhoneDownloads";
 import { TvBackdrop } from "./src/components/TvBackdrop";
 import { TvVideoActionMenu, type VideoActionOptions } from "./src/components/TvVideoActionMenu";
 import { isTvBrowseDestination, type TvBrowseDestination, type TvDestination } from "./src/navigation";
@@ -50,8 +54,9 @@ import { TvFocusScope } from "./src/components/TvFocusScope";
 import { TvGlassVisibility } from "./src/components/TvGlassSurface";
 import type { OpenVideo, PlaybackQueueContext } from "./src/playbackQueue";
 
-type Screen = "profile-selection" | "boot" | "instance" | "pair" | "channel" | "playlist" | "detail" | TvDestination;
-type DetailReturnScreen = "channel" | "playlist" | TvBrowseDestination;
+// "offline": a phone's downloads, while the server can't be reached.
+type Screen = "profile-selection" | "boot" | "instance" | "pair" | "channel" | "playlist" | "detail" | "offline" | TvDestination;
+type DetailReturnScreen = "channel" | "playlist" | "offline" | TvBrowseDestination;
 
 type VideoActionRequest = { video: Video; onChange: (updated: Video) => void; options?: VideoActionOptions };
 type BackdropController = ReturnType<typeof createBackdropController>;
@@ -180,7 +185,8 @@ function TvApp() {
   const [videoUpdate, setVideoUpdate] = useState<Video | null>(null);
   // Phones and tablets say "this device" where a television says "this television".
   const t = useMemo(() => withDeviceWording(translator(language), language, Platform.isTV), [language]);
-  const api = useMemo(() => instanceUrl ? new YtZeroApi(instanceUrl, accessToken) : null, [accessToken, instanceUrl]);
+  // Phones play their downloaded videos from the file; see phoneDownloadApi.ts.
+  const api = useMemo(() => instanceUrl ? new PhoneDownloadApi(instanceUrl, accessToken, phoneDownloads) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
   // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
   const cookieInstance = useRef<string | null>(null);
@@ -192,6 +198,13 @@ function TvApp() {
       if (instanceUrl) await setSessionCookie(instanceUrl, accessToken ?? null);
     })().catch(() => {});
   }, [accessToken, instanceUrl]);
+  // The signed-in profile's downloads; connecting also sends positions saved while offline.
+  const activeProfileId = profileState?.active.id;
+  useEffect(() => {
+    if (!phoneDownloads.available) return;
+    void phoneDownloads.connect(api && accessToken && activeProfileId !== undefined
+      ? { owner: downloadOwner(instanceUrl, activeProfileId), instanceUrl, accessToken, api } : null);
+  }, [accessToken, activeProfileId, api, instanceUrl]);
   const browsingScreen = screen === "detail" ? detailReturnScreen : screen;
   const shellDestination: TvDestination | null = browsingScreen === "playlist" ? "/followed-playlists" : browsingScreen === "channel" ? returnDestination : browsingScreen === "/settings" || isTvBrowseDestination(browsingScreen) ? browsingScreen : null;
   const hasShell = Boolean(api) && shellDestination !== null;
@@ -764,9 +777,13 @@ function TvApp() {
     content = bootError
       ? <TvSetupLayout title={t("appleProfilesLoadError")} description={[t("appleProfilesLoadErrorHint"), instanceUrl ? `${t("addressLabel")}: ${instanceUrl}` : ""].filter(Boolean).join("\n\n")} t={t}>
           <TvButton deferPress label={t("refresh")} preferredFocus onPress={() => setBootAttempt((value) => value + 1)} />
+          {phoneMode && api ? <OfflineDownloadsButton t={t} onPress={() => setScreen("offline")} /> : null}
           <TvButton deferPress label={t("changeInstance")} variant="ghost" onPress={() => setScreen("instance")} />
         </TvSetupLayout>
       : <View style={styles.boot}><TvLoadingMark accessibilityLabel={t("booting")} size={64} /></View>;
+  } else if (browsingScreen === "offline" && api) {
+    content = <PhoneOfflineScreen api={api} t={t} language={language} onRetry={() => { setSelected(null); setBootAttempt((value) => value + 1); }}
+      onOpen={(video) => { setDetailReturnScreen("offline"); openVideo(video); }} />;
   } else if (screen === "instance") {
     content = (
       <InstanceScreen
@@ -940,7 +957,7 @@ function TvApp() {
         {autoplay ? detailContent : <TvScreenTransition>{detailContent}</TvScreenTransition>}
       </View> : null}
       {api && phoneMode && videoActionRequest ? <PhoneVideoActionSheet key={videoActionRequest.video.video_id}
-        actionConfig={videoActionConfig} api={api} t={t} video={videoActionRequest.video}
+        actionConfig={videoActionConfig} api={api} t={t} language={language} video={videoActionRequest.video}
         onClose={() => setVideoActionRequest(null)} onOpenChannel={openChannel} onRemove={videoActionRequest.options?.onRemove}
         onVideoChange={changeActionVideo} /> : null}
       {api && !phoneMode ? (

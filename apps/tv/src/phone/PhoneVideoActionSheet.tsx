@@ -2,7 +2,9 @@ import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, Tex
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
-import type { Video } from "../types";
+import { canDownloadToPhone } from "../phoneDownloads";
+import type { Language, Video } from "../types";
+import { PhoneDownloadSheetRow } from "./PhoneDownloadStatus";
 import { scheduleBuckets, useVideoActions } from "../useVideoActions";
 import type { VideoCardActionConfig } from "../videoCardActions";
 import { PhoneChip } from "./PhoneChip";
@@ -10,7 +12,7 @@ import { PhoneListRow } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
 type Props = {
-  api: YtZeroApi; actionConfig: VideoCardActionConfig; video: Video; t: Translate;
+  api: YtZeroApi; actionConfig: VideoCardActionConfig; video: Video; t: Translate; language: Language;
   onClose: () => void; onOpenChannel: (channelId: string) => void;
   onRemove?: () => Promise<void>; onVideoChange: (video: Video) => void;
 };
@@ -19,7 +21,7 @@ const check = <Text style={{ color: phoneColors.accent, fontSize: 18, fontWeight
 const chevron = <Text style={{ color: phoneColors.textMuted, fontSize: 22 }}>›</Text>;
 
 /** A video's actions as a phone bottom sheet, with Schedule and Playlists as sub-lists. */
-export function PhoneVideoActionSheet({ api, actionConfig, video, t, onClose, onOpenChannel, onRemove, onVideoChange }: Props) {
+export function PhoneVideoActionSheet({ api, actionConfig, video, t, language, onClose, onOpenChannel, onRemove, onVideoChange }: Props) {
   const insets = useSafeAreaInsets();
   const actions = useVideoActions({ api, actionConfig, video, onClose, onRemove, onVideoChange, t });
   const { view, currentVideo, playlists, busy } = actions;
@@ -31,11 +33,14 @@ export function PhoneVideoActionSheet({ api, actionConfig, video, t, onClose, on
         : <ActivityIndicator color={phoneColors.text} accessibilityLabel={t("loadingVideo")} />}
     </View>;
   } else if (view === "actions") {
-    body = actions.mainItems.map((item) => item === "channel"
-      ? <PhoneListRow key={item} title={t("goToChannel")} onPress={() => { if (!busy) { onClose(); onOpenChannel(currentVideo.channel_id!); } }} />
-      : <PhoneListRow key={item} title={actions.actionLabel(item)} danger={item === "archive" || item === "remove"}
-          trailing={busy === item ? <ActivityIndicator color={phoneColors.textMuted} /> : item === "schedule" || item === "playlist" ? chevron : undefined}
-          onPress={item === "sessionQueue" && actions.queueFull ? undefined : () => actions.selectAction(item)} />);
+    body = <>
+      {actions.mainItems.map((item) => item === "channel"
+        ? <PhoneListRow key={item} title={t("goToChannel")} onPress={() => { if (!busy) { onClose(); onOpenChannel(currentVideo.channel_id!); } }} />
+        : <PhoneListRow key={item} title={actions.actionLabel(item)} danger={item === "archive" || item === "remove"}
+            trailing={busy === item ? <ActivityIndicator color={phoneColors.textMuted} /> : item === "schedule" || item === "playlist" ? chevron : undefined}
+            onPress={item === "sessionQueue" && actions.queueFull ? undefined : () => actions.selectAction(item)} />)}
+      <PhoneDownloadSheetRow video={currentVideo} t={t} language={language} canStart={canDownloadToPhone(currentVideo)} />
+    </>;
   } else if (view === "schedule") {
     body = scheduleBuckets.map(({ bucket, label }) => {
       const selected = currentVideo.status === "queued" && currentVideo.bucket === bucket;

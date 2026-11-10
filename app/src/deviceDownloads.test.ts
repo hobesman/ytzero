@@ -44,6 +44,10 @@ describe("download to device", () => {
     expect(result.upgradedOwner).toEqual({ source: "manual" });
   });
 
+  test("sizes a device download to the quality asked for", () => {
+    expect(result.sized).toEqual({ known: { requested_quality: "720" }, unknown: { requested_quality: null } });
+  });
+
   test("releases unfetched device-only copies after a day", () => {
     expect(result.sweep).toEqual({ swept: 1, stale: null, fresh: { source: "device" } });
   });
