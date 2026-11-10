@@ -8,6 +8,8 @@ import type { Language, Video, VideoComment } from "../types";
 import { PhoneComments } from "./PhoneComments";
 import { formatVideoCardMetadata } from "../videoMetadata";
 import { PhoneChip } from "./PhoneChip";
+import { PhoneDownloadChip } from "./PhoneDownloadStatus";
+import { canDownloadToPhone } from "../phoneDownloads";
 import { PhoneVideoCard } from "./PhoneVideoCard";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -73,6 +75,7 @@ export function PhoneWatchBody(props: Props) {
         {!playing ? <PhoneChip primary label={startAt > 0 ? `${t("resumePlayback")} · ${props.playbackTime(startAt)}` : t("playVideo")} onPress={() => props.onPlay(startAt)} /> : null}
         {!playing && startAt > 0 ? <PhoneChip label={t("playFromStart")} onPress={() => props.onPlay(0)} /> : null}
         {queued || canQueue ? <PhoneChip label={t(queued ? "removeFromQueue" : queueFull ? "queueFull" : "addToQueue")} disabled={!queued && queueFull} onPress={props.onToggleQueue} /> : null}
+        <PhoneDownloadChip video={video} t={t} language={language} canStart={canDownloadToPhone(video)} />
         <PhoneChip label={t("more")} onPress={props.onMore} />
       </ScrollView>
       {saveFailed ? <Text style={styles.error}>{t("playbackSaveError")}</Text> : null}
