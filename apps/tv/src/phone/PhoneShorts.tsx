@@ -41,9 +41,9 @@ export function useShortThumbnail(api: YtZeroApi) {
 }
 
 /** A Short's portrait thumbnail, or its regular one when the portrait one fails to load. */
-export function ShortThumbnail({ sources, style }: { sources: ShortSources; style: StyleProp<ImageStyle> }) {
+export function ShortThumbnail({ sources, style, fit = "cover" }: { sources: ShortSources; style: StyleProp<ImageStyle>; fit?: "cover" | "contain" }) {
   const [failed, setFailed] = useState(false);
-  return <Image source={failed && sources.fallback ? sources.fallback : sources.portrait} style={style} resizeMode="cover" onError={() => setFailed(true)} />;
+  return <Image source={failed && sources.fallback ? sources.fallback : sources.portrait} style={style} resizeMode={fit} onError={() => setFailed(true)} />;
 }
 
 /** A Short in a three-column grid: its portrait thumbnail with the title over it. */

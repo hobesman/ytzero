@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, AppState, BackHandler, FlatList, Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import { createVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
 import Svg, { Path } from "react-native-svg";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { YtZeroApi } from "../api";
 import { TvChoiceSheet } from "../components/TvChoiceSheet";
 import type { Translate } from "../i18n";
@@ -42,10 +41,10 @@ export function PhoneShortsPlayer(props: Props) {
   const { api, t, incognito, isChild } = props;
   const latest = useRef(props);
   latest.current = props;
-  const insets = useSafeAreaInsets();
   const [items, setItems] = useState(props.session.items);
   const [index, setIndex] = useState(props.session.index);
   const [pageHeight, setPageHeight] = useState(0);
+  const list = useRef<FlatList<Video>>(null);
   const [entries, setEntries] = useState<ReadonlyMap<string, BufferedPlayback>>(new Map());
   const [active, setActive] = useState<BufferedPlayback | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -135,6 +134,8 @@ export function PhoneShortsPlayer(props: Props) {
           current.position = { position: currentTime, duration };
           setProgress(Math.min(1, currentTime / duration));
         }
+        // Taken from each update too: the playing event can be missed while a neighbour turns into the Short on screen.
+        setPlaying(player.playing);
       }),
       // Shorts loop. The first time through counts as watched.
       player.addListener("playToEnd", () => {
@@ -177,6 +178,8 @@ export function PhoneShortsPlayer(props: Props) {
     return () => { back.remove(); setPhoneImmersive(false); };
   }, []);
   useKeepScreenAwake(playing);
+  // The height changes once immersive mode hides the system bars; keep the Short on screen aligned.
+  useEffect(() => { if (pageHeight > 0) list.current?.scrollToOffset({ offset: index * pageHeight, animated: false }); }, [pageHeight]);
 
   // More Shorts as the viewer nears the end of the list.
   useEffect(() => {
@@ -235,21 +238,23 @@ export function PhoneShortsPlayer(props: Props) {
   const failed = video ? failedIds.has(video.video_id) && Boolean(entries.get(video.video_id)?.error) : false;
   const avatar = video?.channel_thumbnail ? api.thumbnailSource(video.channel_thumbnail) as ImageSourcePropType : null;
   return <View style={styles.screen} onLayout={({ nativeEvent }) => setPageHeight(nativeEvent.layout.height)}>
-    {pageHeight > 0 ? <FlatList data={items} keyExtractor={(item) => item.video_id}
+    {pageHeight > 0 ? <FlatList ref={list} data={items} keyExtractor={(item) => item.video_id}
       renderItem={({ item }) => <ShortPage height={pageHeight} player={entries.get(item.video_id)?.player ?? null} thumbnail={thumbnail(item)} onPress={togglePause} />}
       extraData={entries} pagingEnabled showsVerticalScrollIndicator={false} decelerationRate="fast"
       getItemLayout={(_, position) => ({ length: pageHeight, offset: pageHeight * position, index: position })}
       initialScrollIndex={props.session.index} initialNumToRender={2} windowSize={3} maxToRenderPerBatch={2}
       onScrollBeginDrag={() => setDragging(true)}
+      // A drag released without a fling may end without momentum; the page it rests on still counts.
+      onScrollEndDrag={({ nativeEvent }) => { if (nativeEvent.contentOffset.y % pageHeight === 0) settle(nativeEvent.contentOffset.y); }}
       onMomentumScrollEnd={({ nativeEvent }) => settle(nativeEvent.contentOffset.y)} /> : null}
     {video ? <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, dragging && styles.hidden]}>
       <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={t("back")} onPress={props.onClose}
-        style={[styles.back, { top: insets.top + 8 }]}><Text style={styles.backGlyph}>‹</Text></Pressable>
+        style={[styles.back, { top: 8 }]}><Text style={styles.backGlyph}>‹</Text></Pressable>
       {failed ? <View pointerEvents="none" style={styles.center}><Text style={styles.error}>{t("playbackError")}</Text></View>
         : userPaused ? <View pointerEvents="none" style={styles.center}><View style={styles.playCircle}>
           <Svg width={40} height={40} viewBox="0 0 24 24"><Path fill="#fff" d="M8 5.5v13l10.5-6.5z" /></Svg></View></View>
         : !playing ? <View pointerEvents="none" style={styles.center}><ActivityIndicator color="#fff" size="large" /></View> : null}
-      <View pointerEvents="box-none" style={[styles.bottom, { paddingBottom: insets.bottom + 18 }]}>
+      <View pointerEvents="box-none" style={[styles.bottom, { paddingBottom: 18 }]}>
         <View pointerEvents="box-none" style={styles.copy}>
           <Pressable accessibilityRole="button" accessibilityLabel={video.channel_title} disabled={!video.channel_id}
             onPress={() => video.channel_id && props.onOpenChannel(video.channel_id)} style={styles.channel}>
@@ -268,7 +273,7 @@ export function PhoneShortsPlayer(props: Props) {
           </Pressable>
         </View>
       </View>
-      <View pointerEvents="none" style={[styles.track, { bottom: insets.bottom }]}><View style={[styles.progress, { width: `${progress * 100}%` }]} /></View>
+      <View pointerEvents="none" style={styles.track}><View style={[styles.progress, { width: `${progress * 100}%` }]} /></View>
     </View> : null}
     {speedSheet ? <TvChoiceSheet title={t("playbackSpeed")} t={t} value={String(Math.round(rate * 100) / 100)}
       options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
@@ -281,7 +286,7 @@ const ShortPage = memo(function ShortPage({ height, player, thumbnail, onPress }
   height: number; player: VideoPlayer | null; thumbnail: ShortSources; onPress: () => void;
 }) {
   return <Pressable onPress={onPress} style={{ height }}>
-    <ShortThumbnail sources={thumbnail} style={StyleSheet.absoluteFill} />
+    <ShortThumbnail sources={thumbnail} fit="contain" style={StyleSheet.absoluteFill} />
     {player ? <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain"
       surfaceType="textureView" allowsPictureInPicture={false} /> : null}
   </Pressable>;
@@ -306,6 +311,6 @@ const styles = StyleSheet.create({
   side: { gap: 14, alignItems: "center" },
   sideButton: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.4)" },
   sideText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  track: { position: "absolute", left: 0, right: 0, height: 2, backgroundColor: "rgba(255,255,255,0.3)" },
+  track: { position: "absolute", left: 0, right: 0, bottom: 0, height: 2, backgroundColor: "rgba(255,255,255,0.3)" },
   progress: { height: 2, backgroundColor: "#fff" },
 });
