@@ -12,6 +12,8 @@ import type { Language, Video } from "../types";
 import { PhoneAccountSheet, PhoneProfileAvatar, type PhoneProfiles } from "./PhoneAccountSheet";
 import { PhoneBookmarksScreen } from "./PhoneBookmarksScreen";
 import { PhoneChannelScreen } from "./PhoneChannelScreen";
+import { PhoneDownloadsScreen } from "./PhoneDownloadsScreen";
+import { phoneDownloads } from "../usePhoneDownloads";
 import { PhoneFeedScreen } from "./PhoneFeedScreen";
 import { PhoneListRow } from "./PhoneList";
 import { PhoneFollowedPlaylistsScreen, PhonePlaylistScreen } from "./PhonePlaylistScreens";
@@ -28,7 +30,8 @@ type Pushed =
   | { kind: "bookmarks"; title: string }
   | { kind: "playlists"; title: string }
   | { kind: "playlist"; id: string; title: string }
-  | { kind: "channel"; id: string };
+  | { kind: "channel"; id: string }
+  | { kind: "phoneDownloads" };
 
 const libraryDestinations = new Set<string>(["/watchlist", "/followed-playlists", "/downloads", "/liked", "/bookmarks", "/archive", "/recommendations", "/shorts"]);
 
@@ -88,11 +91,12 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   };
 
   const title = !top ? tab === "search" ? t("searchTitle") : tab === "live" ? t("navLive") : tab === "library" ? t("navLibrary") : brandName
-    : top.kind === "settings" ? t("navSettings") : top.kind === "channel" || top.kind === "playlist" ? "" : top.title;
+    : top.kind === "settings" ? t("navSettings") : top.kind === "channel" || top.kind === "playlist" ? "" : top.kind === "phoneDownloads" ? t("downloadsOnPhone") : top.title;
   const tabScreen = (key: Tab): ReactNode => {
     if (key === "search") return <PhoneSearchScreen api={api} language={language} t={t} onOpen={onOpen} onOpenChannel={openChannel} onVideoLongPress={onVideoLongPress} />;
     if (key === "live") return <PhoneFeedScreen api={api} destination="/live" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
-    if (key === "library") return <View>{library.map((item) => <PhoneListRow key={item.key} title={t(item.labelKey)}
+    if (key === "library") return <View>{phoneDownloads.available ? <PhoneListRow title={t("downloadsOnPhone")}
+      icon={<SidebarIcon name="downloads" color={phoneColors.text} size={22} />} onPress={() => push({ kind: "phoneDownloads" })} /> : null}{library.map((item) => <PhoneListRow key={item.key} title={t(item.labelKey)}
       icon={<SidebarIcon name={item.icon} color={phoneColors.text} size={22} />} onPress={() => openLibraryItem(item)} />)}</View>;
     return <PhoneFeedScreen api={api} destination="/" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
   };
@@ -103,6 +107,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
       case "bookmarks": return <PhoneBookmarksScreen api={api} t={t} videoUpdate={videoUpdate} onOpen={onOpen} />;
       case "playlists": return <PhoneFollowedPlaylistsScreen api={api} t={t} onOpenPlaylist={(playlist) => push({ kind: "playlist", id: playlist.playlist_id, title: playlist.title })} />;
       case "playlist": return <PhonePlaylistScreen api={api} playlistId={screen.id} language={language} t={t} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
+      case "phoneDownloads": return <PhoneDownloadsScreen api={api} t={t} language={language} onOpen={(video) => onOpen(video)} />;
       case "channel": return <PhoneChannelScreen api={api} channelId={screen.id} language={language} t={t} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
     }
   };

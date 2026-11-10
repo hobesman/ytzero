@@ -7,6 +7,7 @@ import { saveStreamQuality, streamQuality } from "../streamQuality";
 import { PhoneBufferSetting } from "./PhoneBufferSetting";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneAppUpdateSettings } from "./PhoneAppUpdateSettings";
+import { PhoneDownloadSettings } from "./PhoneDownloadSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -40,6 +41,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneListRow title={t("qualityFast")} detail={t("qualityFastHint")} trailing={toggle(fastStart, changeFastStart)} />
     <PhoneBufferSetting t={t} onError={() => setFailed(true)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
+    <PhoneDownloadSettings t={t} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />
     <PhoneListRow title={t("changeInstance")} onPress={() => void run(settings.onChangeInstance)} />

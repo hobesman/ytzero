@@ -1,5 +1,6 @@
 import { database } from "./database";
 import { enqueueDownload, removeDownload } from "./downloader";
+import { isDownloadQuality } from "./downloadSettings";
 import { log } from "./logger";
 
 /**
@@ -23,9 +24,13 @@ const ownerSource = (userId: number, videoId: string) =>
   database.prepare("SELECT source FROM download_owners WHERE user_id=? AND video_id=?")
     .get(userId, videoId) as Promise<{ source: string } | null>;
 
-export async function enqueueDeviceDownload(userId: number, videoId: string): Promise<void> {
+/**
+ * `quality` (one of the download qualities) sizes the file for the device, such
+ * as 720p for a phone. A file the server already holds is handed over as it is.
+ */
+export async function enqueueDeviceDownload(userId: number, videoId: string, quality?: unknown): Promise<void> {
   const prior = await ownerSource(userId, videoId);
-  await enqueueDownload(userId, videoId, "manual");
+  await enqueueDownload(userId, videoId, "manual", false, false, isDownloadQuality(quality) ? { downloadQuality: quality } : {});
   if (prior && prior.source !== DEVICE_DOWNLOAD_SOURCE) return;
   await database.prepare("UPDATE download_owners SET source=? WHERE user_id=? AND video_id=?")
     .run(DEVICE_DOWNLOAD_SOURCE, userId, videoId);

@@ -7,6 +7,7 @@ import type { Translate } from "../i18n";
 import type { TvBrowseDestination } from "../navigation";
 import { browseQueue, type OpenVideo } from "../playbackQueue";
 import type { Language, Video } from "../types";
+import { PhoneShortCard, shortsGridColumns, shortsGridStyles, useOpenShort, useShortThumbnail } from "./PhoneShorts";
 import { PhoneVideoCard } from "./PhoneVideoCard";
 import { phoneColors, phoneType } from "./phoneTheme";
 
@@ -28,6 +29,9 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const request = useRef(0);
+  const shortsGrid = destination === "/shorts";
+  const pages = useRef({ page: 0, hasMore: true });
+  pages.current = { page, hasMore };
 
   const load = useCallback(async (nextPage: number, refresh = false) => {
     const id = ++request.current;
@@ -71,7 +75,22 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
     if (!cached) { cached = api.thumbnailSource(url) as ImageSourcePropType; sources.current.set(url, cached); }
     return cached;
   }, [api]);
-  const open = useCallback((video: Video) => onOpen(video, queue), [onOpen, queue]);
+  const shortSource = useShortThumbnail(api);
+  // The Shorts player asks for more as the viewer nears the end; a few pages without Shorts are skipped.
+  const moreShorts = useCallback(async () => {
+    const found: Video[] = [];
+    for (let tries = 0; tries < 3 && !found.length && pages.current.hasMore; tries++) {
+      const result = await api.browse(destination, { page: pages.current.page + 1, showAll: false, sort });
+      pages.current = { page: result.page, hasMore: result.hasMore };
+      setVideos((previous) => [...previous, ...result.videos.filter((video) => !previous.some((item) => item.video_id === video.video_id))]);
+      setPage(result.page);
+      setHasMore(result.hasMore);
+      found.push(...result.videos);
+    }
+    return found;
+  }, [api, destination, sort]);
+  const openShort = useOpenShort();
+  const open = useCallback((video: Video) => openShort(feed, video, moreShorts) || onOpen(video, queue), [feed, moreShorts, onOpen, openShort, queue]);
   // An action that moves a video in or out of Rejected removes it from this list.
   const applyAction = useCallback((updated: Video) => {
     const keep = (destination === "/archive") === (updated.status === "archived");
@@ -96,7 +115,9 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
   if (loading && videos.length === 0) return <View style={styles.center}><ActivityIndicator color={phoneColors.text} size="large" /></View>;
   return <FlatList data={feed} keyExtractor={(video) => video.video_id}
     ListHeaderComponent={listHeader}
-    renderItem={({ item }) => <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress}
+    {...shortsGrid ? { numColumns: shortsGridColumns, columnWrapperStyle: shortsGridStyles.row, contentContainerStyle: shortsGridStyles.content } : {}}
+    renderItem={({ item }) => shortsGrid ? <PhoneShortCard video={item} thumbnail={shortSource(item)} onPress={open} onLongPress={longPress} />
+      : <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress}
       thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />}
     onEndReachedThreshold={1.5} onEndReached={() => { if (hasMore && !loadingMore && !loading && !error) void load(page + 1); }}
     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(0, true)} tintColor={phoneColors.text} colors={[phoneColors.accent]} progressBackgroundColor={phoneColors.surface} />}

@@ -6,6 +6,7 @@ import { queueMessages } from "./queueMessages";
 import { systemProfileMessages } from "./systemProfileMessages";
 import { discoveryMessages } from "./discoveryMessages";
 import { phoneMessages } from "./phoneMessages";
+import { phoneDownloadMessages } from "./phoneDownloadMessages";
 import { appUpdateMessages } from "./appUpdateMessages";
 import { profilePlaybackMessages } from "./profilePlaybackMessages";
 import { bufferMessages } from "./bufferMessages";
@@ -374,7 +375,7 @@ const videoActionMessages: Record<Language, VideoActionMessages> = {
 
 const en = {
   ...discoveryMessages.en,
-  ...phoneMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en,
+  ...phoneMessages.en, ...phoneDownloadMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en,
     ...libraryMessages.en,
     ...emptyMessages.en,
     ...searchMessages.en,
@@ -441,7 +442,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.pl,
     ...systemProfileMessages.pl,
     ...discoveryMessages.pl,
-    ...phoneMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl,
+    ...phoneMessages.pl, ...phoneDownloadMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl,
     ...libraryMessages.pl,
     ...emptyMessages.pl,
     ...searchMessages.pl,
@@ -499,7 +500,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.de,
     ...systemProfileMessages.de,
     ...discoveryMessages.de,
-    ...phoneMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de,
+    ...phoneMessages.de, ...phoneDownloadMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de,
     ...libraryMessages.de,
     ...emptyMessages.de,
     ...searchMessages.de,
@@ -518,7 +519,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.fr,
     ...systemProfileMessages.fr,
     ...discoveryMessages.fr,
-    ...phoneMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr,
+    ...phoneMessages.fr, ...phoneDownloadMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr,
     ...libraryMessages.fr,
     ...emptyMessages.fr,
     ...searchMessages.fr,
@@ -537,7 +538,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.es,
     ...systemProfileMessages.es,
     ...discoveryMessages.es,
-    ...phoneMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es,
+    ...phoneMessages.es, ...phoneDownloadMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es,
     ...libraryMessages.es,
     ...emptyMessages.es,
     ...searchMessages.es,
@@ -556,7 +557,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages["pt-BR"],
     ...systemProfileMessages["pt-BR"],
     ...discoveryMessages["pt-BR"],
-    ...phoneMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"],
+    ...phoneMessages["pt-BR"], ...phoneDownloadMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"],
     ...libraryMessages["pt-BR"],
     ...emptyMessages["pt-BR"],
     ...searchMessages["pt-BR"],
@@ -575,7 +576,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ru,
     ...systemProfileMessages.ru,
     ...discoveryMessages.ru,
-    ...phoneMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru,
+    ...phoneMessages.ru, ...phoneDownloadMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru,
     ...libraryMessages.ru,
     ...emptyMessages.ru,
     ...searchMessages.ru,
@@ -594,7 +595,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ja,
     ...systemProfileMessages.ja,
     ...discoveryMessages.ja,
-    ...phoneMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja,
+    ...phoneMessages.ja, ...phoneDownloadMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja,
     ...libraryMessages.ja,
     ...emptyMessages.ja,
     ...searchMessages.ja,
@@ -613,7 +614,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.hu,
     ...systemProfileMessages.hu,
     ...discoveryMessages.hu,
-    ...phoneMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu,
+    ...phoneMessages.hu, ...phoneDownloadMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu,
     ...libraryMessages.hu,
     ...emptyMessages.hu,
     ...searchMessages.hu,

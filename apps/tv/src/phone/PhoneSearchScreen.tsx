@@ -7,6 +7,7 @@ import type { OpenVideo } from "../playbackQueue";
 import type { Channel, Language, Video } from "../types";
 import { PhoneListRow } from "./PhoneList";
 import { PhoneVideoCard } from "./PhoneVideoCard";
+import { useOpenShort } from "./PhoneShorts";
 import { phoneColors, phoneType } from "./phoneTheme";
 
 type Row = { kind: "heading"; key: string; title: string } | { kind: "video"; key: string; video: Video } | { kind: "channel"; key: string; channel: Channel } | { kind: "note"; key: string; text: string };
@@ -54,7 +55,8 @@ export function PhoneSearchScreen({ api, language, t, onOpen, onOpenChannel, onV
     setSearching(false);
   }, [api, query, t]);
 
-  const open = useCallback((video: Video) => onOpen(video, undefined, true), [onOpen]);
+  const openShort = useOpenShort();
+  const open = useCallback((video: Video) => openShort(rows.flatMap((row) => row.kind === "video" ? [row.video] : []), video) || onOpen(video, undefined, true), [onOpen, openShort, rows]);
   const longPress = useCallback((video: Video) => onVideoLongPress(video, (updated) => setRows((current) => current.map((row) =>
     row.kind === "video" && row.video.video_id === updated.video_id ? { ...row, video: updated } : row))), [onVideoLongPress]);
   return <View style={styles.screen}>

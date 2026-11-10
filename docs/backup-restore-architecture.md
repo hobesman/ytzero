@@ -590,7 +590,10 @@ archive with no such capability restores with public sharing denied.
   shared local files and is rebuilt by future download requests rather than
   exported as portable configuration. Its `device` source marks a transient
   claim for a file headed to the browser ("Download to your device"); it is
-  released after the transfer or within a day, so it is never restored either
+  released after the transfer or within a day, so it is never restored either.
+  The Android phone app uses the same claim for "Download to phone", with an
+  optional `quality` that becomes the job's existing `requested_quality`; no
+  new server state
 - image cache, Deno's yt-dlp JavaScript-solver cache, and other network-derived cache
 - the yt-dlp update channel, automatic-update interval, and last-attempt timestamp;
   these control a machine-installed executable and remain machine-local. A
@@ -671,6 +674,21 @@ archive with no such capability restores with public sharing denied.
   current profile's entry; a token rejected by the server is forgotten. Never
   sent anywhere but its own instance, and excluded from portable and exact
   server backups; no server backup adapter or archive shape changes.
+
+- Videos downloaded to an Android phone for offline playback are **machine-bound
+  device data**, kept only on that phone in the app's own external files folder
+  (`Android/data/app.ytzero.tv/files/downloads`): the video files, their
+  thumbnails, and `index.json`, a versioned record (`version: 1`) of each
+  download's profile (`<instance origin>#<profile id>`), video details, file
+  names and state, plus the phone's download quality and mobile-data choice,
+  the last profile signed in there (whose downloads stay playable offline) and
+  watch positions not yet sent to the server. The files are rebuildable from
+  the server; the index holds no credential. The server never stores or exports
+  any of it, so it is excluded from portable and exact server backups with no
+  backup adapter or archive change. It is also outside Android Auto Backup,
+  whose rules (from expo-secure-store) include shared preferences only.
+  Uninstalling the app deletes it. Pending positions are sent to the profile's
+  instance the next time it is reached, then removed from the index.
 
 - The last active profile id stored in browser `localStorage` is a
   machine-bound presentation convenience. It is scoped to that browser and
