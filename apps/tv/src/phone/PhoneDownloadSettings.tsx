@@ -3,16 +3,17 @@ import { StyleSheet, Switch, Text } from "react-native";
 import { TvChoiceSheet } from "../components/TvChoiceSheet";
 import type { Translate } from "../i18n";
 import { PHONE_DOWNLOAD_QUALITIES, type PhoneDownloadQuality } from "../phoneDownloads";
-import { usePhoneDownloads } from "../usePhoneDownloads";
+import { phoneDownloads, usePhoneDownloads } from "../usePhoneDownloads";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
 /** How this phone saves videos: their quality, and whether mobile data may be used. */
 export function PhoneDownloadSettings({ t }: { t: Translate }) {
-  const store = usePhoneDownloads();
+  const view = usePhoneDownloads();
+  const store = phoneDownloads;
   const [qualitySheet, setQualitySheet] = useState(false);
-  if (!store.available) return null;
-  const { quality, allowMetered } = store.snapshot();
+  if (!view.available) return null;
+  const { quality, allowMetered } = view.index;
   const label = (value: PhoneDownloadQuality) => value === "server" ? t("downloadQualityServer") : `${value}p`;
   return <>
     <PhoneSectionTitle title={t("phoneDownloadsSettings")} />

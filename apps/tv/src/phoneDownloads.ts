@@ -121,6 +121,28 @@ export function downloadFraction(item: PhoneDownload): number | null {
   return Math.max(0, Math.min(1, (item.downloaded ?? 0) / item.total));
 }
 
+/**
+ * What the screens read: the index and whose downloads to show. A new object
+ * after every change, so components (and the React Compiler's memoization)
+ * see each one; reading through the store object itself would look unchanged.
+ */
+export type PhoneDownloadsView = { index: PhoneDownloadIndex; owner: string | null; available: boolean };
+
+export function viewDownloads(view: PhoneDownloadsView): PhoneDownload[] {
+  const { owner } = view;
+  return owner ? view.index.downloads.filter((item) => item.owner === owner).sort((a, b) => b.addedAt - a.addedAt) : [];
+}
+
+export function viewDownload(view: PhoneDownloadsView, videoId: string): PhoneDownload | null {
+  const { owner } = view;
+  return owner ? view.index.downloads.find((item) => item.owner === owner && item.videoId === videoId) ?? null : null;
+}
+
+/** Bytes used by the shown profile's finished downloads. */
+export function viewUsedBytes(view: PhoneDownloadsView): number {
+  return viewDownloads(view).reduce((total, item) => total + (item.state === "done" ? item.size ?? 0 : 0), 0);
+}
+
 export class PhoneDownloadStore {
   private index = emptyIndex();
   private connection: DownloadConnection | null = null;
@@ -155,10 +177,14 @@ export class PhoneDownloadStore {
   /** Changes with every update, for useSyncExternalStore. */
   getVersion = () => this.version;
   snapshot(): PhoneDownloadIndex { return this.index; }
+  private currentView: PhoneDownloadsView = { index: this.index, owner: null, available: false };
+  /** An immutable view for the screens, replaced with every update. */
+  view = () => this.currentView;
 
   private changed(persist = true) {
     this.version++;
     this.index = { ...this.index };
+    this.currentView = { index: this.index, owner: this.owner, available: this.available };
     this.listeners.forEach((listener) => listener());
     if (!persist || !this.native) return;
     const text = JSON.stringify(this.index);
@@ -185,11 +211,11 @@ export class PhoneDownloadStore {
   }
 
   downloads(owner = this.owner): PhoneDownload[] {
-    return owner ? this.index.downloads.filter((item) => item.owner === owner).sort((a, b) => b.addedAt - a.addedAt) : [];
+    return viewDownloads({ index: this.index, owner, available: this.available });
   }
 
   find(videoId: string, owner = this.owner): PhoneDownload | null {
-    return owner ? this.index.downloads.find((item) => item.owner === owner && item.videoId === videoId) ?? null : null;
+    return viewDownload({ index: this.index, owner, available: this.available }, videoId);
   }
 
   private fileUri(name: string): string { return `${this.native!.directoryUri().replace(/\/+$/, "")}/${name}`; }
@@ -283,7 +309,7 @@ export class PhoneDownloadStore {
 
   /** Bytes used by this profile's finished downloads. */
   usedBytes(owner = this.owner): number {
-    return this.downloads(owner).reduce((total, item) => total + (item.state === "done" ? item.size ?? 0 : 0), 0);
+    return viewUsedBytes({ index: this.index, owner, available: this.available });
   }
 
   async freeBytes(): Promise<number | null> {

@@ -1,7 +1,7 @@
 import { Alert } from "react-native";
 import type { Translate } from "../i18n";
 import { localeTags } from "../i18n";
-import { downloadFraction, formatBytes, type PhoneDownload } from "../phoneDownloads";
+import { downloadFraction, formatBytes, viewDownload, type PhoneDownload } from "../phoneDownloads";
 import type { Language, Video } from "../types";
 import { phoneDownloads, usePhoneDownloads } from "../usePhoneDownloads";
 import { PhoneChip } from "./PhoneChip";
@@ -37,9 +37,10 @@ export function confirmDeleteDownload(video: Video, t: Translate, onDeleted?: ()
  * or delete it. Null when the video can't be saved here.
  */
 function useDownloadAction(video: Video, t: Translate, language: Language, canStart: boolean) {
-  const store = usePhoneDownloads();
-  if (!store.available) return null;
-  const item = store.find(video.video_id);
+  const view = usePhoneDownloads();
+  const store = phoneDownloads;
+  if (!view.available) return null;
+  const item = viewDownload(view, video.video_id);
   if (!item) return canStart ? { label: t("downloadToPhone"), detail: undefined, danger: false, onPress: () => void store.download(video) } : null;
   const detail = downloadStatusLabel(item, t, language);
   if (item.state === "failed") return { label: t("tryAgain"), detail, danger: false, onPress: () => void store.retry(video.video_id) };
@@ -55,8 +56,8 @@ export function PhoneDownloadSheetRow({ video, t, language, canStart }: { video:
 
 /** The chip on a video's page: "Download to phone", or the download's state. */
 export function PhoneDownloadChip({ video, t, language, canStart }: { video: Video; t: Translate; language: Language; canStart: boolean }) {
-  const store = usePhoneDownloads();
-  const item = store.available ? store.find(video.video_id) : null;
+  const view = usePhoneDownloads();
+  const item = view.available ? viewDownload(view, video.video_id) : null;
   const action = useDownloadAction(video, t, language, canStart);
   if (!action) return null;
   if (!item) return <PhoneChip label={action.label} onPress={action.onPress} />;

@@ -3,6 +3,7 @@ import type { YtZeroApi } from "../api";
 import { TvButton } from "../components/TvButton";
 import type { Translate } from "../i18n";
 import type { Language, Video } from "../types";
+import { viewDownloads } from "../phoneDownloads";
 import { usePhoneDownloads } from "../usePhoneDownloads";
 import { PhoneChip } from "./PhoneChip";
 import { PhoneDownloadsScreen } from "./PhoneDownloadsScreen";
@@ -10,8 +11,8 @@ import { phoneColors, phoneMetrics, phoneType } from "./phoneTheme";
 
 /** On the "couldn't load" screen: a way into the downloads when the server can't be reached. */
 export function OfflineDownloadsButton({ t, onPress }: { t: Translate; onPress: () => void }) {
-  const store = usePhoneDownloads();
-  const count = store.downloads().filter((item) => item.state === "done").length;
+  const view = usePhoneDownloads();
+  const count = viewDownloads(view).filter((item) => item.state === "done").length;
   return count ? <TvButton deferPress label={t("watchDownloads").replace("{count}", String(count))} variant="ghost" onPress={onPress} /> : null;
 }
 

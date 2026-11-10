@@ -3,9 +3,9 @@ import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View, type ImageSo
 import type { YtZeroApi } from "../api";
 import { formatVideoDuration } from "../duration";
 import { localeTags, type Translate } from "../i18n";
-import { downloadFraction, formatBytes, type PhoneDownload } from "../phoneDownloads";
+import { downloadFraction, formatBytes, viewDownloads, viewUsedBytes, type PhoneDownload } from "../phoneDownloads";
 import type { Language, Video } from "../types";
-import { usePhoneDownloads } from "../usePhoneDownloads";
+import { phoneDownloads, usePhoneDownloads } from "../usePhoneDownloads";
 import { confirmDeleteDownload, downloadStatusLabel } from "./PhoneDownloadStatus";
 import { PhoneChip } from "./PhoneChip";
 import { phoneColors, phoneType } from "./phoneTheme";
@@ -19,9 +19,10 @@ type Props = {
 
 /** Library → On this phone: the videos saved here, how much space they use, and their downloads. */
 export function PhoneDownloadsScreen({ api, t, language, onOpen, header }: Props) {
-  const store = usePhoneDownloads();
-  const items = store.downloads();
-  const used = store.usedBytes();
+  const view = usePhoneDownloads();
+  const store = phoneDownloads;
+  const items = viewDownloads(view);
+  const used = viewUsedBytes(view);
   const [free, setFree] = useState<number | null>(null);
   const finished = items.filter((item) => item.state === "done").length;
   useEffect(() => { void store.freeBytes().then(setFree); }, [store, finished]);
@@ -47,7 +48,8 @@ export function PhoneDownloadsScreen({ api, t, language, onOpen, header }: Props
 }
 
 function DownloadRow({ item, api, t, language, onOpen }: { item: PhoneDownload; api: YtZeroApi; t: Translate; language: Language; onOpen: (video: Video) => void }) {
-  const store = usePhoneDownloads();
+  const view = usePhoneDownloads();
+  const store = phoneDownloads;
   const { video } = item;
   const done = item.state === "done";
   const fraction = downloadFraction(item);
