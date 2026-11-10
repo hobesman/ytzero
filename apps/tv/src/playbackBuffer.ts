@@ -1,4 +1,4 @@
-import type { VideoPlayer } from "expo-video";
+import type { BufferOptions, VideoPlayer } from "expo-video";
 import type { YtZeroApi } from "./api";
 import { resumePosition } from "./playback";
 import { playableSpeed } from "./playbackSpeeds";
@@ -15,6 +15,12 @@ export type BufferedPlayback = {
   /** Reloads the source at the current position, e.g. after the stream quality changed. */
   reload: () => void;
   dispose: () => void;
+};
+
+/** The server answered and refused the renewal (an expired or revoked ticket), rather than being unreachable. */
+const renewalRefused = (error: unknown): boolean => {
+  const status = (error as { status?: unknown } | null)?.status;
+  return typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429;
 };
 
 /** Memory-only native players. Preparing a neighbour never records a play. */
@@ -36,7 +42,20 @@ export class PlaybackBuffer {
     private defaultSpeed: () => unknown = () => 1,
     /** The stream quality to ask for ("" for the server's choice, "fast" for the progressive stream). */
     private quality: () => string = () => "",
+    /** The native buffer for a player: the playing one may buffer further ahead than its neighbours. */
+    private bufferOptions?: (active: boolean) => BufferOptions,
   ) {}
+  private appliedBuffers = new WeakMap<VideoPlayer, string>();
+
+  private applyBuffer(entry: BufferedPlayback, active: boolean) {
+    if (!this.bufferOptions) return;
+    const options = this.bufferOptions(active);
+    const key = JSON.stringify(options);
+    // Each assignment crosses the native bridge: skip ones that change nothing.
+    if (this.appliedBuffers.get(entry.player) === key) return;
+    this.appliedBuffers.set(entry.player, key);
+    entry.player.bufferOptions = options;
+  }
 
   prepare(video: Video, position = resumePosition(video.watch_position, video.watch_duration, video.watched)): BufferedPlayback {
     const live = video.live_status === "live";
@@ -56,6 +75,8 @@ export class PlaybackBuffer {
     // After a fallback or reload the viewer is already watching: keep playing.
     let resume = false;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
+    let renewRetry: ReturnType<typeof setTimeout> | undefined;
+    const stopRenewing = () => { clearInterval(renewTimer); clearTimeout(renewRetry); };
     let loading: Promise<void> = Promise.resolve();
     let resolveReady!: () => void;
     let rejectReady!: (reason: unknown) => void;
@@ -68,7 +89,7 @@ export class PlaybackBuffer {
       if (this.activeEntry === entry) { this.activeEntry = null; this.playbackVersion++; }
       void this.silence(player).catch(() => {});
       clearTimeout(timeout);
-      clearInterval(renewTimer);
+      stopRenewing();
       controller.abort();
       rejectReady(error);
       this.onFailure(entry, error);
@@ -144,7 +165,7 @@ export class PlaybackBuffer {
         void this.silence(player).catch(() => {});
         controller.abort();
         clearTimeout(timeout);
-        clearInterval(renewTimer);
+        stopRenewing();
         listeners.forEach((listener) => listener.remove());
         rejectReady(new Error("Playback buffer released"));
         // Cancel source preparation now, then drain any replacement already
@@ -169,15 +190,24 @@ export class PlaybackBuffer {
         const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer, prefer || live ? undefined : this.quality());
         if (disposed) { releaseTicket(authorization); return; }
         if (ticket) releaseTicket(ticket);
-        clearInterval(renewTimer);
+        stopRenewing();
         ticket = authorization;
         const source = this.api.playbackSource(authorization);
         sourceUri = source.uri;
         clearTimeout(timeout);
         timeout = setTimeout(() => fail(new Error("Native source timed out")), 60_000);
-        renewTimer = setInterval(() => {
-          void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).catch(fail);
-        }, Math.max(10_000, authorization.expires_in * 1000 / 3));
+        const renew = () => {
+          clearTimeout(renewRetry);
+          void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).catch((error) => {
+            if (disposed || entry.error || ticket !== authorization) return;
+            if (renewalRefused(error)) { fail(error); return; }
+            // No connection for a moment, e.g. between wifi hotspots: the
+            // ticket outlives several renewals, so keep playing from the
+            // buffer and try again soon instead of ending playback.
+            renewRetry = setTimeout(renew, Math.max(1000, Math.min(15_000, authorization.expires_in * 1000 / 6)));
+          });
+        };
+        renewTimer = setInterval(renew, Math.max(10_000, authorization.expires_in * 1000 / 3));
         await player.replaceAsync({ ...source, useCaching: false, metadata: { title: video.title, artist: video.channel_title } });
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }
       } catch (error) { fail(error); }
@@ -202,6 +232,8 @@ export class PlaybackBuffer {
     const current = () => version === this.playbackVersion && this.entries.get(entry.video.video_id) === entry && !entry.error;
     if (!current()) return false;
     this.activeEntry = entry;
+    // The playing video buffers as far ahead as this device asks; neighbours keep the short buffer.
+    for (const item of this.entries.values()) this.applyBuffer(item, item === entry);
     try {
       const initial = this.initialRates.get(entry);
       if (initial !== undefined) {
@@ -220,6 +252,11 @@ export class PlaybackBuffer {
     }
     if (this.activeEntry !== entry) await this.silence(entry.player).catch(() => {});
     return false;
+  }
+
+  /** Re-reads the buffer choice for every player, e.g. after the device setting changed mid-video. */
+  refreshBuffers() {
+    for (const item of this.entries.values()) this.applyBuffer(item, item === this.activeEntry);
   }
 
   async pause() {

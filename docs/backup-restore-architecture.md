@@ -656,6 +656,13 @@ archive with no such capability restores with public sharing denied.
   server backup adapter or archive shape changes. The server keeps no state for
   it beyond its in-memory streaming sessions.
 
+- The Android app's forward buffer (`ytzero.tv.forward-buffer`, SecureStore) is
+  machine-bound playback configuration for that device, shared across
+  profiles: the seconds of video the playing player buffers ahead, one of 5
+  (the default for missing or invalid values), 30, 60 or 120. It is never sent
+  to the instance and is excluded from portable and exact server backups; no
+  server backup adapter or archive shape changes.
+
 - Saved phone profile sign-ins (`ytzero.tv.saved-profiles.v1`, SecureStore,
   phones and tablets only) are **secrets**: one profile-scoped bearer per profile
   this phone paired to, kept only when the instance gives each profile its own
