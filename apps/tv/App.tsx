@@ -57,6 +57,7 @@ import { TvButton } from "./src/components/TvButton";
 import { TvFocusScope } from "./src/components/TvFocusScope";
 import { TvGlassVisibility } from "./src/components/TvGlassSurface";
 import type { OpenVideo, PlaybackQueueContext } from "./src/playbackQueue";
+import { useLocalProgressSync } from "./src/useLocalProgressSync";
 
 // "offline": a phone's downloads, while the server can't be reached.
 type Screen = "profile-selection" | "boot" | "instance" | "pair" | "channel" | "playlist" | "detail" | "offline" | TvDestination;
@@ -192,6 +193,7 @@ function TvApp() {
   // Phones play their downloaded videos from the file; see phoneDownloadApi.ts.
   const api = useMemo(() => instanceUrl ? new PhoneDownloadApi(instanceUrl, accessToken, phoneDownloads) : null, [accessToken, instanceUrl]);
   const pairingApi = useMemo(() => pairingInstanceUrl ? new YtZeroApi(pairingInstanceUrl) : null, [pairingInstanceUrl]);
+  useLocalProgressSync(accessToken ? api : null, profileState?.active.id);
   // Android thumbnails authenticate with the session cookie; see sessionCookie.android.ts.
   const cookieInstance = useRef<string | null>(null);
   useEffect(() => {

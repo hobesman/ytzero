@@ -370,8 +370,8 @@ describe("full-quality stream fallback", () => {
       expect(player.playing).toBe(true);
       expect(h.failures).toEqual([]);
       expect(h.released).toContain("hq");
-      // A second failure, on the progressive stream, is a real failure.
-      player.emit("statusChange", { status: "error", error: new Error("still broken") });
+      // A second refusal, on the progressive stream, is a real failure.
+      player.emit("statusChange", { status: "error", error: new Error("Source error Response code: 403") });
       await flush();
       expect(h.failures).toEqual(["hq"]);
     } finally { h.pool.dispose(); await flush(); }
@@ -484,12 +484,129 @@ describe("playback ticket renewal", () => {
   const intervals: Array<() => void> = [];
   const timeouts: Array<{ fn: () => void; ms: number }> = [];
   const capture = () => {
+    intervals.length = 0;
+    timeouts.length = 0;
     globalThis.setInterval = ((fn: () => void) => { intervals.push(fn); return 0; }) as unknown as typeof setInterval;
     globalThis.setTimeout = ((fn: () => void, ms: number) => { timeouts.push({ fn, ms }); return 0; }) as unknown as typeof setTimeout;
   };
   const restore = () => Object.assign(globalThis, realTimers);
 
-  test("a dropped connection keeps playing and retries; a refused renewal ends playback", async () => {
+  test("a playing video that runs out of buffer offline reloads the same stream where it stopped once the network returns", async () => {
+    const h = harness();
+    const prefers: Array<string | undefined> = [];
+    let online = true;
+    h.api.playbackTicket = async (id: string, _signal?: AbortSignal, prefer?: "progressive") => {
+      prefers.push(prefer);
+      if (!online) throw new TypeError("Network request failed");
+      return { ticket: `${id}-${prefers.length}`, url: `/api/videos/${id}/direct-hls/index.m3u8`, content_type: "hls", expires_in: 60 };
+    };
+    capture();
+    try {
+      const entry = h.pool.prepare({ ...video("tunnel"), is_short: 0 }, 0);
+      await entry.ready;
+      expect(await h.pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 45;
+      online = false;
+      // ExoPlayer stalls, then gives up on the unanswered segment requests.
+      player.status = "loading";
+      player.emit("statusChange", { status: "loading" });
+      player.playing = false;
+      player.emit("playingChange", { isPlaying: false });
+      player.emit("timeUpdate", { currentTime: 45 });
+      // A failed player may forget its position; the reload still starts where it stopped.
+      player.currentTime = 0;
+      player.emit("statusChange", { status: "error", error: new Error("A playback exception has occurred: Source error Unable to connect") });
+      await flush();
+      expect(h.failures).toEqual([]);
+      // Still offline: it keeps trying, a little less often each time.
+      timeouts.at(-1)!.fn();
+      await flush();
+      expect(timeouts.at(-1)!.ms).toBe(2000);
+      expect(h.failures).toEqual([]);
+      online = true;
+      timeouts.at(-1)!.fn();
+      await flush(); await flush();
+      // The same full-quality stream, not the progressive fallback.
+      expect(prefers).toEqual([undefined, undefined, undefined, undefined]);
+      expect(String((player.source as { uri: string }).uri)).toContain("/direct-hls/");
+      expect(player.currentTime).toBe(45);
+      expect(player.playing).toBe(true);
+      expect(h.failures).toEqual([]);
+      expect(h.released).toEqual(["tunnel"]);
+    } finally { restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("pausing while it reconnects keeps loading but never resumes playback; play resumes and tries at once", async () => {
+    const h = harness();
+    let online = true;
+    const answer = h.api.playbackTicket;
+    h.api.playbackTicket = async (id: string, signal?: AbortSignal) => {
+      if (!online) throw new TypeError("Network request failed");
+      return answer(id, signal);
+    };
+    capture();
+    try {
+      const entry = h.pool.prepare(video("hold"));
+      await entry.ready;
+      expect(await h.pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 20;
+      online = false;
+      player.playing = false;
+      player.emit("statusChange", { status: "error", error: new Error("Source error Unable to connect") });
+      await flush();
+      expect(entry.waitState()).toEqual({ waiting: "reconnecting", held: false });
+      entry.hold();
+      expect(entry.waitState()).toEqual({ waiting: "reconnecting", held: true });
+      // The connection returns while paused: the stream loads, and stays paused.
+      online = true;
+      timeouts.at(-1)!.fn();
+      await flush(); await flush();
+      expect(String((player.source as { uri: string }).uri)).toContain("/media/hold");
+      expect(player.currentTime).toBe(20);
+      expect(player.playing).toBe(false);
+      expect(entry.waitState()).toEqual({ waiting: "none", held: true });
+      entry.resume();
+      await flush();
+      expect(player.playing).toBe(true);
+      expect(entry.waitState().held).toBe(false);
+      // Lost again, and play pressed between attempts: it tries now, not at the next timer.
+      online = false;
+      player.playing = false;
+      player.emit("statusChange", { status: "error", error: new Error("Source error Unable to connect") });
+      await flush();
+      const issued = h.issued.length;
+      online = true;
+      entry.resume();
+      await flush(); await flush();
+      expect(h.issued.length).toBe(issued + 1);
+      expect(player.playing).toBe(true);
+      expect(entry.waitState()).toEqual({ waiting: "none", held: false });
+      expect(h.failures).toEqual([]);
+    } finally { restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("a video the viewer paused reloads after a dropped connection without starting by itself", async () => {
+    const h = harness();
+    capture();
+    try {
+      const entry = h.pool.prepare(video("paused"));
+      await entry.ready;
+      expect(await h.pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 30;
+      player.pause();
+      player.emit("statusChange", { status: "error", error: new Error("Source error Unable to connect") });
+      await flush(); await flush();
+      expect(h.issued).toEqual(["paused", "paused"]);
+      expect(player.currentTime).toBe(30);
+      expect(player.playing).toBe(false);
+      expect(h.failures).toEqual([]);
+    } finally { restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("a dropped connection keeps playing and retries; a refused renewal asks for a new ticket, and a refused ticket ends playback", async () => {
     const h = harness();
     const renewals: string[] = [];
     let answer: () => Promise<{ expires_in: number }> = () => Promise.reject(new TypeError("Network request failed"));
@@ -510,8 +627,205 @@ describe("playback ticket renewal", () => {
       expect(h.failures).toEqual([]);
       answer = () => Promise.reject(Object.assign(new Error("expired media ticket"), { status: 401 }));
       timeouts.at(-1)!.fn();
-      await flush();
+      await flush(); await flush();
+      expect(h.issued).toEqual(["wifi", "wifi"]);
+      expect(h.failures).toEqual([]);
+      // The new ticket's renewal is refused too, and so is the next ticket: the session is over.
+      h.api.playbackTicket = async () => { throw Object.assign(new Error("signed out"), { status: 401 }); };
+      intervals.at(-1)!();
+      await flush(); await flush();
       expect(h.failures).toEqual(["wifi"]);
     } finally { restore(); h.pool.dispose(); await flush(); }
+  });
+});
+
+describe("expired playback tickets", () => {
+  // Captures the renewal timer so a test can fire it.
+  function captureIntervals() {
+    const original = globalThis.setInterval;
+    const callbacks: Array<() => void> = [];
+    globalThis.setInterval = ((fn: () => void) => { callbacks.push(fn); return 0; }) as unknown as typeof setInterval;
+    return { callbacks, restore: () => { globalThis.setInterval = original; } };
+  }
+
+  test("a renewal the server refuses as expired reloads a fresh ticket at the same position and keeps playing", async () => {
+    const timers = captureIntervals();
+    const h = harness();
+    let renewals = 0;
+    h.api.renewPlaybackTicket = async () => { renewals++; throw Object.assign(new Error("expired media ticket"), { status: 401 }); };
+    try {
+      const entry = h.pool.prepare({ ...video("long"), is_short: 0 }, 0);
+      await entry.ready;
+      expect(await h.pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 45;
+      timers.callbacks.at(-1)!();
+      await flush(); await flush();
+      expect(renewals).toBe(1);
+      expect(h.issued).toEqual(["long", "long"]);
+      expect(player.currentTime).toBe(45);
+      expect(player.playing).toBe(true);
+      expect(h.failures).toEqual([]);
+    } finally { timers.restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("a paused player stays paused when its ticket is replaced", async () => {
+    const timers = captureIntervals();
+    const h = harness();
+    h.api.renewPlaybackTicket = async () => { throw Object.assign(new Error("expired media ticket"), { status: 401 }); };
+    try {
+      const entry = h.pool.prepare({ ...video("paused"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      const player = h.players[0]!;
+      player.currentTime = 30;
+      player.pause();
+      timers.callbacks.at(-1)!();
+      await flush(); await flush();
+      expect(h.issued).toEqual(["paused", "paused"]);
+      expect(player.currentTime).toBe(30);
+      expect(player.playing).toBe(false);
+      expect(h.failures).toEqual([]);
+    } finally { timers.restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("a renewal lost to the network is retried later; a refused video still fails", async () => {
+    const timers = captureIntervals();
+    const h = harness();
+    let refuse = false;
+    h.api.renewPlaybackTicket = async () => { throw refuse ? Object.assign(new Error("restricted"), { status: 403 }) : new Error("Network request failed"); };
+    try {
+      const entry = h.pool.prepare({ ...video("net"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      timers.callbacks.at(-1)!();
+      await flush();
+      expect(h.failures).toEqual([]);
+      expect(h.issued).toEqual(["net"]);
+      refuse = true;
+      timers.callbacks.at(-1)!();
+      await flush();
+      expect(h.failures).toEqual(["net"]);
+    } finally { timers.restore(); h.pool.dispose(); await flush(); }
+  });
+
+  // A buffer with a controllable clock, as after a long stay in the background.
+  function clockedHarness() {
+    const clock = { time: 0 };
+    const players: FakePlayer[] = [];
+    const failures: string[] = [];
+    const issued: string[] = [];
+    const renewals: string[] = [];
+    const api = {
+      playbackTicket: async (id: string) => {
+        issued.push(id);
+        return { ticket: `${id}-${issued.length}`, url: `/api/videos/${id}/direct-hls/index.m3u8`, content_type: "hls" as const, expires_in: 900 };
+      },
+      playbackSource: (value: PlaybackTicket) => ({ uri: "http://test.local" + value.url, contentType: value.content_type }),
+      renewPlaybackTicket: async (_id: string, ticket: string) => { renewals.push(ticket); return { expires_in: 900 }; },
+      releasePlaybackTicket: async () => ({ ok: true as const }),
+    };
+    const control = { play: async (player: VideoPlayer) => { player.play(); }, pause: async (player: VideoPlayer) => { player.pause(); } };
+    const pool = new PlaybackBuffer(api, () => { const player = new FakePlayer(); players.push(player); return player as unknown as VideoPlayer; },
+      async (player, seconds) => { player.currentTime = seconds; }, (entry) => failures.push(entry.video.video_id), undefined, control, undefined, undefined, undefined, () => clock.time);
+    return { clock, players, failures, issued, renewals, pool };
+  }
+
+  test("returning after the ticket lapsed fetches a new one before Play, and keeps the player paused", async () => {
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("away"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      const player = h.players[0]!;
+      player.currentTime = 45;
+      player.pause();
+      // A fresh ticket is left alone.
+      entry.refresh();
+      await flush();
+      expect(h.issued).toEqual(["away"]);
+      h.clock.time += 17 * 60_000;
+      entry.refresh();
+      await flush(); await flush();
+      expect(h.issued).toEqual(["away", "away"]);
+      expect(player.currentTime).toBe(45);
+      expect(player.playing).toBe(false);
+      expect(h.failures).toEqual([]);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+
+  test("a renewal timer that fires late replaces the lapsed ticket instead of renewing it", async () => {
+    const timers = captureIntervals();
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("late"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      h.players[0]!.currentTime = 60;
+      h.clock.time += 20 * 60_000;
+      timers.callbacks.at(-1)!();
+      await flush(); await flush();
+      expect(h.renewals).toEqual([]);
+      expect(h.issued).toEqual(["late", "late"]);
+      expect(h.players[0]!.playing).toBe(true);
+    } finally { timers.restore(); h.pool.dispose(); await flush(); }
+  });
+
+  test("a stale stream that starts buffering reloads at the same position and plays on", async () => {
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("stall"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      const player = h.players[0]!;
+      player.currentTime = 40;
+      // Buffering with a valid ticket is ordinary buffering.
+      player.emit("statusChange", { status: "loading" });
+      await flush();
+      expect(h.issued).toEqual(["stall"]);
+      player.emit("statusChange", { status: "readyToPlay" });
+      h.clock.time += 16 * 60_000;
+      player.emit("statusChange", { status: "loading" });
+      await flush(); await flush();
+      expect(h.issued).toEqual(["stall", "stall"]);
+      expect(player.currentTime).toBe(40);
+      expect(player.playing).toBe(true);
+      expect(h.failures).toEqual([]);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+
+  test("a stream error after the ticket lapsed reloads it at the same position instead of failing", async () => {
+    let time = 0;
+    const players: FakePlayer[] = [];
+    const failures: string[] = [];
+    const prefers: Array<string | undefined> = [];
+    const api = {
+      playbackTicket: async (id: string, _signal?: AbortSignal, prefer?: "progressive") => {
+        prefers.push(prefer);
+        return { ticket: `${id}-${prefers.length}`, url: `/api/videos/${id}/direct-hls/index.m3u8`, content_type: "hls" as const, expires_in: 900 };
+      },
+      playbackSource: (value: PlaybackTicket) => ({ uri: "http://test.local" + value.url, contentType: value.content_type }),
+      renewPlaybackTicket: async () => ({ expires_in: 900 }),
+      releasePlaybackTicket: async () => ({ ok: true as const }),
+    };
+    const control = { play: async (player: VideoPlayer) => { player.play(); }, pause: async (player: VideoPlayer) => { player.pause(); } };
+    const pool = new PlaybackBuffer(api, () => { const player = new FakePlayer(); players.push(player); return player as unknown as VideoPlayer; },
+      async (player, seconds) => { player.currentTime = seconds; }, (entry) => failures.push(entry.video.video_id), undefined, control, undefined, undefined, undefined, () => time);
+    try {
+      const entry = pool.prepare({ ...video("lapsed"), is_short: 0 }, 0);
+      await entry.ready;
+      await pool.play(entry);
+      const player = players[0]!;
+      player.currentTime = 50;
+      // Twenty minutes in the background with no renewal.
+      time += 20 * 60_000;
+      player.emit("statusChange", { status: "error", error: new Error("Response code: 401") });
+      await flush(); await flush();
+      // Same quality again, not the progressive fallback.
+      expect(prefers).toEqual([undefined, undefined]);
+      expect(player.currentTime).toBe(50);
+      expect(player.playing).toBe(true);
+      expect(failures).toEqual([]);
+    } finally { pool.dispose(); await flush(); }
   });
 });
