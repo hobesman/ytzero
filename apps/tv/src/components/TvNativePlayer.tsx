@@ -14,6 +14,7 @@ import { TvChoiceSheet } from "./TvChoiceSheet";
 import { useMiniPlayerSlot, usePlayerWindowSlot } from "./MiniPlayerHost";
 import { setPhoneImmersive } from "../phoneOrientation";
 import { TvMiniPlayer } from "./TvMiniPlayer";
+import { PlaybackWaitOverlay } from "./PlaybackWaitOverlay";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
@@ -568,6 +569,7 @@ export function TvNativePlayer(props: Props) {
         if (!failure.current) void close();
       }} />
     </View>
+    {ownsSpeedControl && presented && !error && !dismissing ? <PlaybackWaitOverlay entry={active} t={t} /> : null}
     {skippedNotice && presented ? <View pointerEvents="none" style={[styles.skippedNotice, inline && !props.fullscreenActive && styles.inlineSkippedNotice]}>
       <Text style={styles.skippedNoticeText}>{skippedNotice}</Text>
     </View> : null}

@@ -534,6 +534,56 @@ describe("playback ticket renewal", () => {
     } finally { restore(); h.pool.dispose(); await flush(); }
   });
 
+  test("pausing while it reconnects keeps loading but never resumes playback; play resumes and tries at once", async () => {
+    const h = harness();
+    let online = true;
+    const answer = h.api.playbackTicket;
+    h.api.playbackTicket = async (id: string, signal?: AbortSignal) => {
+      if (!online) throw new TypeError("Network request failed");
+      return answer(id, signal);
+    };
+    capture();
+    try {
+      const entry = h.pool.prepare(video("hold"));
+      await entry.ready;
+      expect(await h.pool.play(entry)).toBe(true);
+      const player = h.players[0]!;
+      player.currentTime = 20;
+      online = false;
+      player.playing = false;
+      player.emit("statusChange", { status: "error", error: new Error("Source error Unable to connect") });
+      await flush();
+      expect(entry.waitState()).toEqual({ waiting: "reconnecting", held: false });
+      entry.hold();
+      expect(entry.waitState()).toEqual({ waiting: "reconnecting", held: true });
+      // The connection returns while paused: the stream loads, and stays paused.
+      online = true;
+      timeouts.at(-1)!.fn();
+      await flush(); await flush();
+      expect(String((player.source as { uri: string }).uri)).toContain("/media/hold");
+      expect(player.currentTime).toBe(20);
+      expect(player.playing).toBe(false);
+      expect(entry.waitState()).toEqual({ waiting: "none", held: true });
+      entry.resume();
+      await flush();
+      expect(player.playing).toBe(true);
+      expect(entry.waitState().held).toBe(false);
+      // Lost again, and play pressed between attempts: it tries now, not at the next timer.
+      online = false;
+      player.playing = false;
+      player.emit("statusChange", { status: "error", error: new Error("Source error Unable to connect") });
+      await flush();
+      const issued = h.issued.length;
+      online = true;
+      entry.resume();
+      await flush(); await flush();
+      expect(h.issued.length).toBe(issued + 1);
+      expect(player.playing).toBe(true);
+      expect(entry.waitState()).toEqual({ waiting: "none", held: false });
+      expect(h.failures).toEqual([]);
+    } finally { restore(); h.pool.dispose(); await flush(); }
+  });
+
   test("a video the viewer paused reloads after a dropped connection without starting by itself", async () => {
     const h = harness();
     capture();

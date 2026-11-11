@@ -14,8 +14,17 @@ export type BufferedPlayback = {
   error: unknown;
   /** Reloads the source at the current position, e.g. after the stream quality changed. */
   reload: () => void;
+  /** Whether playback is held up, and whether the viewer paused it there. */
+  waitState: () => PlaybackWait;
+  onWaitChange: (listener: () => void) => () => void;
+  /** The viewer's pause: nothing starts playback again, not even a reconnect, until resume(). */
+  hold: () => void;
+  /** The viewer's play: resumes, trying the server at once if the stream was lost. */
+  resume: () => void;
   dispose: () => void;
 };
+/** "buffering": waiting for data; "reconnecting": the stream was lost and is being loaded again. */
+export type PlaybackWait = { waiting: "none" | "buffering" | "reconnecting"; held: boolean };
 
 /** The server answered and refused the renewal (an expired or revoked ticket), rather than being unreachable. */
 const renewalRefused = (error: unknown): boolean => {
@@ -103,6 +112,16 @@ export class PlaybackBuffer {
     let reconnectAttempt = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let settleTimer: ReturnType<typeof setTimeout> | undefined;
+    // The stream was lost and has not loaded again yet.
+    let reconnecting = false;
+    // The viewer paused while playback was held up. Loading carries on; playing waits for them.
+    let held = false;
+    let requesting = false;
+    const waitListeners = new Set<() => void>();
+    const waitState = (): PlaybackWait => ({
+      waiting: reconnecting ? "reconnecting" : started && lastStatus === "loading" ? "buffering" : "none", held,
+    });
+    const emitWait = () => waitListeners.forEach((listener) => listener());
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let renewRetry: ReturnType<typeof setTimeout> | undefined;
     const stopRenewing = () => { clearInterval(renewTimer); clearTimeout(renewRetry); clearTimeout(reconnectTimer); clearTimeout(settleTimer); };
@@ -143,14 +162,16 @@ export class PlaybackBuffer {
     // A video that was playing and lost its stream: reload it rather than end it.
     const recover = (prefer: "progressive" | undefined) => {
       recoveries++;
-      reloadAt(prefer, this.activeEntry === entry && wantsPlay);
+      reconnecting = true;
+      reloadAt(prefer, this.activeEntry === entry && wantsPlay && !held);
+      emitWait();
     };
     const listeners = [
       player.addListener("playingChange", ({ isPlaying }) => {
         // Native controls or a late native command must never start a neighbour.
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
         // Running out of buffer reports "loading" first; only a pause while ready is the viewer's.
-        if (isPlaying) wantsPlay = true;
+        if (isPlaying) { wantsPlay = true; if (held) { held = false; emitWait(); } }
         else if (lastStatus === "readyToPlay") wantsPlay = false;
       }),
       player.addListener("statusChange", ({ status, error }) => {
@@ -165,13 +186,14 @@ export class PlaybackBuffer {
           // instead of ending playback.
           if (!fellBack && !live && /\/direct-hls\//.test(sourceUri)) {
             fellBack = true;
-            reloadAt("progressive", true);
+            reloadAt("progressive", !held);
             return;
           }
           fail(error ?? new Error("Native source failed"));
         }
         playable = status === "readyToPlay";
         checkReady();
+        emitWait();
       }),
       player.addListener("sourceLoad", ({ videoSource, duration, availableSubtitleTracks }) => {
         const uri = typeof videoSource === "string" ? videoSource : typeof videoSource === "object" ? videoSource?.uri : null;
@@ -189,9 +211,10 @@ export class PlaybackBuffer {
             loaded = true;
             checkReady();
             reconnectAttempt = 0;
+            if (reconnecting) { reconnecting = false; emitWait(); }
             clearTimeout(settleTimer);
             if (recoveries > 0) settleTimer = setTimeout(() => { recoveries = 0; }, RECOVERY_SETTLE_MS);
-            if (resume && this.activeEntry === entry) await this.control.play(player);
+            if (resume && !held && this.activeEntry === entry) await this.control.play(player);
           } catch (error) { fail(error); }
         })();
       }),
@@ -206,6 +229,27 @@ export class PlaybackBuffer {
         fellBack = false;
         reloadAt(!live && this.quality() === "fast" ? "progressive" : undefined, this.activeEntry === entry && player.playing);
       },
+      waitState,
+      onWaitChange: (listener) => { waitListeners.add(listener); return () => { waitListeners.delete(listener); }; },
+      hold: () => {
+        if (disposed || entry.error) return;
+        held = true;
+        wantsPlay = false;
+        resume = false;
+        void this.control.pause(player).catch(() => {});
+        emitWait();
+      },
+      resume: () => {
+        if (disposed || entry.error) return;
+        held = false;
+        wantsPlay = true;
+        resume = true;
+        if (reconnecting && !sourceUri) {
+          // Waiting between attempts: try now rather than at the next one.
+          if (!requesting) { clearTimeout(reconnectTimer); reconnectAttempt = 0; loading = loadSource(preference); }
+        } else if (this.activeEntry === entry) void this.control.play(player).catch(() => {});
+        emitWait();
+      },
       dispose: () => {
         if (disposed) return;
         disposed = true;
@@ -215,6 +259,7 @@ export class PlaybackBuffer {
         clearTimeout(timeout);
         stopRenewing();
         listeners.forEach((listener) => listener.remove());
+        waitListeners.clear();
         rejectReady(new Error("Playback buffer released"));
         // Cancel source preparation now, then drain any replacement already
         // crossing the native bridge. Revoke authorization only after AVPlayer
@@ -235,8 +280,10 @@ export class PlaybackBuffer {
     // then once, after a full-quality stream fails, the progressive stream.
     const loadSource = async (prefer?: "progressive") => {
       preference = prefer;
+      requesting = true;
       try {
         const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer, prefer || live ? undefined : this.quality());
+        requesting = false;
         if (disposed) { releaseTicket(authorization); return; }
         if (ticket) releaseTicket(ticket);
         stopRenewing();
@@ -267,6 +314,7 @@ export class PlaybackBuffer {
         await player.replaceAsync({ ...source, useCaching: false, metadata: { title: video.title, artist: video.channel_title } });
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }
       } catch (error) {
+        requesting = false;
         // Still offline: keep the video where it stopped and try again shortly.
         if (started && !disposed && !entry.error && unreachable(error)) {
           const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt++, RECONNECT_DELAYS.length - 1)]!;
