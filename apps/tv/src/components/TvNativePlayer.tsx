@@ -13,6 +13,7 @@ import { useKeepScreenAwake } from "../useKeepScreenAwake";
 import { TvChoiceSheet } from "./TvChoiceSheet";
 import { useMiniPlayerSlot, usePlayerWindowSlot } from "./MiniPlayerHost";
 import { setPhoneImmersive } from "../phoneOrientation";
+import { leavesIntoPictureInPicture, onPictureInPictureDismiss } from "../pictureInPicture";
 import { TvMiniPlayer } from "./TvMiniPlayer";
 import { PlaybackWaitOverlay } from "./PlaybackWaitOverlay";
 import { ApiError, type YtZeroApi } from "../api";
@@ -558,6 +559,10 @@ export function TvNativePlayer(props: Props) {
     });
     return () => { clearInterval(interval); state.remove(); };
   }, [api, buffer, isChild]);
+  // Closing the picture-in-picture window stops the video; it would otherwise play on unseen.
+  useEffect(() => onPictureInPictureDismiss(() => {
+    if (session.current && !closing.current) void buffer.pause().catch(() => {});
+  }), [buffer]);
 
   useEffect(() => {
     // When the item is ready, the earlier present effect is handing focus to
@@ -608,6 +613,8 @@ export function TvNativePlayer(props: Props) {
       }}>
     <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
       fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
+      // Leaving the app while a video plays floats it over other apps; a paused one stays behind.
+      startsPictureInPictureAutomatically={leavesIntoPictureInPicture && playing && presented && !error && !dismissing}
       buttonOptions={ownsSpeedControl ? { showSettings: false } : undefined}
       onFullscreenExit={() => {
         // On Android, leaving a fullscreen the viewer chose returns to the inline player.
