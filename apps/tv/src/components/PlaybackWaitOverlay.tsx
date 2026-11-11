@@ -51,9 +51,10 @@ export function PlaybackWaitOverlay({ entry, t }: { entry: BufferedPlayback | nu
 }
 
 const styles = StyleSheet.create({
-  overlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", gap: 12 },
-  button: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0, 0, 0, 0.6)" },
-  pressed: { backgroundColor: "rgba(255, 255, 255, 0.25)" },
-  caption: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(0, 0, 0, 0.6)" },
+  // The button sits exactly on ExoPlayer's centre button, which can't act here, and hides it.
+  overlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
+  button: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0, 0, 0, 0.85)" },
+  pressed: { backgroundColor: "rgba(60, 60, 60, 0.95)" },
+  caption: { position: "absolute", top: "50%", marginTop: 52, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: "rgba(0, 0, 0, 0.6)" },
   captionText: { color: colors.text, fontSize: 14, lineHeight: 18, fontWeight: "600", textAlign: "center" },
 });
