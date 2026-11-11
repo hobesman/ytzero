@@ -2,7 +2,7 @@ import { isFocusInteraction } from "./src/focusEntry";
 import { lastActivatedVideoTarget, requestTvFocus, TvContentFocusRequests, useTvShellFocus } from "./src/focus";
 import { restoreFocus } from "./src/focusRestoration";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Animated, BackHandler, Platform, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
+import { Animated, AppState, BackHandler, Platform, StyleSheet, TVEventControl, TVFocusGuideView, useTVEventHandler, useWindowDimensions, View, type FocusDestination } from "react-native";
 import { YtZeroApi } from "./src/api";
 import { deviceLanguage, normalizeLanguage, translator, type Translate } from "./src/i18n";
 import { InstanceScreen } from "./src/screens/InstanceScreen";
@@ -716,7 +716,9 @@ function TvApp() {
   const immersive = phoneMode && videoOpen && videoFullscreen;
   useEffect(() => { setPhoneImmersive(immersive); }, [immersive]);
   useEffect(() => {
-    if (phoneMode && videoOpen && phonePlaying && !videoFullscreen && !portraitHeld && windowSize.width > windowSize.height) setVideoFullscreen(true);
+    // The picture-in-picture window is wide too, but it is not the phone turning: the app is not active then.
+    if (phoneMode && videoOpen && phonePlaying && !videoFullscreen && !portraitHeld && windowSize.width > windowSize.height
+      && AppState.currentState === "active") setVideoFullscreen(true);
   }, [phoneMode, phonePlaying, portraitHeld, videoFullscreen, videoOpen, windowSize.height, windowSize.width]);
   const toggleVideoFullscreen = useCallback(() => {
     if (videoFullscreen) setPortraitHeld(true);

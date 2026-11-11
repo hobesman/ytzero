@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import type { Translate } from "../i18n";
 import { colors } from "../theme";
+import { leavesIntoPictureInPicture } from "../pictureInPicture";
 import { useMiniPlayerBottom } from "./MiniPlayerHost";
 
 /** The minimized phone player: tap to expand, with play/pause and close. */
@@ -19,7 +20,8 @@ export function TvMiniPlayer({ player, title, t, onExpand, onClose }: {
   return <View style={[styles.frame, { right: insets.right + 12, bottom: Math.max(reserved, insets.bottom) + 12, width: frameWidth }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={t("miniPlayerExpand")} onPress={onExpand}>
       <View pointerEvents="none" style={{ width: frameWidth, height: frameWidth * 9 / 16 }}>
-        <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" allowsPictureInPicture={false} />
+        <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" allowsPictureInPicture={false}
+          startsPictureInPictureAutomatically={leavesIntoPictureInPicture && isPlaying} />
       </View>
     </Pressable>
     <View style={styles.bar}>
