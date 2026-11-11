@@ -513,6 +513,9 @@ describe("playback ticket renewal", () => {
       player.emit("statusChange", { status: "loading" });
       player.playing = false;
       player.emit("playingChange", { isPlaying: false });
+      player.emit("timeUpdate", { currentTime: 45 });
+      // A failed player may forget its position; the reload still starts where it stopped.
+      player.currentTime = 0;
       player.emit("statusChange", { status: "error", error: new Error("A playback exception has occurred: Source error Unable to connect") });
       await flush();
       expect(h.failures).toEqual([]);

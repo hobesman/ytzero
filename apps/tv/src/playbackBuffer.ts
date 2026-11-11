@@ -108,6 +108,7 @@ export class PlaybackBuffer {
     // Whether the viewer last had it playing; a stall is not a pause.
     let wantsPlay = false;
     let lastStatus = "idle";
+    let lastTime = 0;
     let recoveries = 0;
     let reconnectAttempt = 0;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -149,7 +150,8 @@ export class PlaybackBuffer {
     // Loads the source again where the viewer was, with a fresh ticket. The
     // ticket request doubles as the test that the server is reachable again.
     const reloadAt = (prefer: "progressive" | undefined, keepPlaying: boolean) => {
-      if (player.currentTime > 0) position = player.currentTime;
+      // A failed player can report 0: fall back to where it last played.
+      if (!live) position = player.currentTime > 0 ? player.currentTime : lastTime || position;
       resume = keepPlaying;
       clearTimeout(timeout);
       // The old ticket is replaced: stop renewing it.
@@ -167,6 +169,7 @@ export class PlaybackBuffer {
       emitWait();
     };
     const listeners = [
+      player.addListener("timeUpdate", ({ currentTime }) => { if (loaded && currentTime > 0) lastTime = currentTime; }),
       player.addListener("playingChange", ({ isPlaying }) => {
         // Native controls or a late native command must never start a neighbour.
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
