@@ -47,6 +47,13 @@ describe("watch history routes", () => {
     expect(result.secondaryRowsAfterDelete).toBe(1);
   });
 
+  test("marking a partly watched video watched takes it out of Continue watching", () => {
+    expect(result.inProgressBefore).toContain("history0010");
+    expect(result.completeStatus).toBe(200);
+    expect(result.inProgressAfter).not.toContain("history0010");
+    expect(result.completedProgress).toEqual({ watch_position: 1000, watch_duration: 1000 });
+  });
+
   test("does not let child profiles erase their watch history", () => {
     expect(result.childDeleteStatus).toBe(403);
     expect(result.childUnwatchStatus).toBe(200);

@@ -46,7 +46,19 @@ const childHistoryId = childHistory.videos.find((video: any) => video.video_id =
 const childDeleteResponse = await request(child.id, `/history/${childHistoryId}`, "DELETE");
 const childUnwatchResponse = await request(child.id, "/videos/history0001/complete", "DELETE");
 
+// A rewatch in progress (watched before, stopped part-way) leaves Continue watching once marked watched.
+db.prepare("UPDATE videos SET published_at = ? WHERE video_id = ?").run("2026-07-01 00:00:00", "history0010");
+db.prepare("INSERT INTO user_videos(user_id, video_id, watched, watch_position, watch_duration) VALUES(1, ?, 1, 300, 1000)").run("history0010");
+const inProgressIds = async () => ((await (await request(1, "/in-progress")).json()) as any).videos.map((video: any) => video.video_id);
+const inProgressBefore = await inProgressIds();
+const completeStatus = (await request(1, "/videos/history0010/complete", "POST")).status;
+const inProgressAfter = await inProgressIds();
+
 console.log("RESULT " + JSON.stringify({
+  inProgressBefore,
+  completeStatus,
+  inProgressAfter,
+  completedProgress: db.prepare("SELECT watch_position, watch_duration FROM user_videos WHERE user_id = 1 AND video_id = ?").get("history0010"),
   firstStatus: firstResponse.status,
   firstCount: first.videos.length,
   firstHasMore: first.has_more,

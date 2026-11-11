@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { channelsForTags, dueScheduledVideos, scheduledVideosInOrder, visibleFeedTags, withoutInProgress } from "./feedSections";
+import { channelsForTags, dueScheduledVideos, partlyWatched, scheduledVideosInOrder, staysInProgress, visibleFeedTags, withoutInProgress } from "./feedSections";
 import type { Channel, Video } from "./types";
 
 const video = (video_id: string, fields: Partial<Video> = {}): Video => ({
@@ -17,6 +17,16 @@ const video = (video_id: string, fields: Partial<Video> = {}): Video => ({
 });
 
 describe("TV feed sections", () => {
+  test("keeps a video on Continue watching only while it is unfinished and in the inbox", () => {
+    const partial = { watch_position: 300, watch_duration: 1000 };
+    expect(staysInProgress(video("a", partial))).toBe(true);
+    expect(staysInProgress(video("a", { ...partial, watched: 1 }))).toBe(true);
+    expect(staysInProgress(video("a", { watch_position: 990, watch_duration: 1000 }))).toBe(false);
+    expect(staysInProgress(video("a", { ...partial, status: "archived" }))).toBe(false);
+    expect(staysInProgress(video("a", { watch_position: null, watch_duration: null }))).toBe(false);
+    expect(partlyWatched({ watch_position: 10, watch_duration: 20 })).toBe(false);
+  });
+
   test("uses backend filter visibility and ANY-tag channel semantics", () => {
     expect(visibleFeedTags([
       { id: 1, name: "One", color: "#fff" },

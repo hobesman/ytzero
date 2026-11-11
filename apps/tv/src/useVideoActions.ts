@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { YtZeroApi } from "./api";
+import { partlyWatched } from "./feedSections";
 import type { Translate } from "./i18n";
 import { SESSION_QUEUE_LIMIT } from "./playbackQueue";
 import { useSessionQueue } from "./SessionQueue";
 import type { Bucket, UserPlaylist, Video } from "./types";
 import { visibleTvVideoCardActions, type TvVideoCardActionId, type VideoCardActionConfig } from "./videoCardActions";
 
-export type VideoActionView = "actions" | "schedule" | "playlists";
+/** A rewatch stopped part-way is still unfinished: its menu offers Mark watched, not Mark unwatched. */
+export const fullyWatched = (video: Video): boolean => video.watched === 1 && !partlyWatched(video);
+
+export type VideoActionView ="actions" | "schedule" | "playlists";
 export type VideoActionItem = "channel" | TvVideoCardActionId;
 
 export const scheduleBuckets: Array<{ bucket: Bucket; label: "scheduleToday" | "scheduleTonight" | "scheduleTomorrow" | "scheduleTomorrowEvening" | "scheduleWeekend" }> = [
@@ -138,15 +142,17 @@ export function useVideoActions({ api, actionConfig, video, onClose, onRemove, o
       void run(id, onRemove);
       return;
     }
-    const watched = currentVideo.watched === 1;
+    const watched = fullyWatched(currentVideo);
     void run(id, async () => {
       if (watched) {
         await api.markUnwatched(currentVideo.video_id);
-        updateVideo({ ...currentVideo, watched: 0 });
+        updateVideo({ ...currentVideo, watched: 0, watch_position: null, watch_duration: null });
       } else {
         await api.markWatched(currentVideo.video_id);
         await api.reject(currentVideo.video_id);
-        updateVideo({ ...currentVideo, watched: 1, status: "archived", bucket: null });
+        // The server counts a partial watch as finished (videoCompletion.ts).
+        updateVideo({ ...currentVideo, watched: 1, status: "archived", bucket: null,
+          watch_position: currentVideo.watch_duration ?? currentVideo.watch_position });
       }
     });
   }, [actions, api, busy, currentVideo, onClose, onRemove, openPlaylists, queue, queued, run, updateVideo, verifiedId]);
@@ -185,7 +191,7 @@ export function useVideoActions({ api, actionConfig, video, onClose, onRemove, o
       case "playlist": return t("addToPlaylist");
       case "download": return currentVideo.download_status === "queued" || currentVideo.download_status === "downloading" ? t("cancelDownload") : t("downloadVideo");
       case "archive": return t("reject");
-      case "watched": return currentVideo.watched === 1 ? t("markUnwatched") : t("markWatched");
+      case "watched": return fullyWatched(currentVideo) ? t("markUnwatched") : t("markWatched");
       case "restore": return t("restoreVideo");
       case "remove": return t("removeFromHistory");
     }
