@@ -468,7 +468,8 @@ export default function FeedPage({
             >
               {inProgress.map((v) => (
                 <div key={v.video_id} className="h-scroll-card" style={{ width: hCardWidth }}>
-                  <VideoCard video={v} onPlay={(video) => onPlay(video, video.playback_context ?? inProgressQueue)} onChanged={handleInProgressChanged} />
+                  {/* Everything here is unfinished, even a rewatch, so the card offers Mark watched. */}
+                  <VideoCard video={v} isWatched={false} onPlay={(video) => onPlay(video, video.playback_context ?? inProgressQueue)} onChanged={handleInProgressChanged} />
                 </div>
               ))}
             </div>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
 import type { YtZeroApi } from "../api";
-import { scheduledVideosInOrder, withoutInProgress } from "../feedSections";
+import { scheduledVideosInOrder, staysInProgress, withoutInProgress } from "../feedSections";
 import { browseEmptyState } from "../emptyState";
 import type { Translate } from "../i18n";
 import type { TvBrowseDestination } from "../navigation";
@@ -56,13 +56,23 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
 
   useEffect(() => { void load(0); return () => { request.current++; }; }, [load]);
 
-  // Progress saved by the player shows on the card without a reload.
+  // Progress saved by the player shows on the card without a reload. A video
+  // finished there leaves Continue watching; one newly started joins it.
+  const inProgressRef = useRef(inProgress);
+  inProgressRef.current = inProgress;
   useEffect(() => {
     if (!videoUpdate) return;
     const apply = (list: Video[]) => list.map((video) => video.video_id === videoUpdate.video_id ? { ...video, ...videoUpdate } : video);
     setVideos(apply);
-    setInProgress(apply);
-  }, [videoUpdate]);
+    const existing = inProgressRef.current.find((video) => video.video_id === videoUpdate.video_id);
+    const shown = existing !== undefined;
+    const stays = staysInProgress({ ...existing, ...videoUpdate });
+    if (shown && !stays) setInProgress((list) => list.filter((video) => video.video_id !== videoUpdate.video_id));
+    else setInProgress(apply);
+    if (home && !shown && stays && videoUpdate.is_short === 0) {
+      void api.inProgress().then((value) => setInProgress(value.videos.filter((video) => video.is_short === 0))).catch(() => {});
+    }
+  }, [api, home, videoUpdate]);
 
   const feed = useMemo(() => home ? withoutInProgress(videos, inProgress)
     : destination === "/watchlist" ? scheduledVideosInOrder(videos) : videos, [destination, home, inProgress, videos]);

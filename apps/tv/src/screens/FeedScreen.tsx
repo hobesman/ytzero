@@ -17,7 +17,7 @@ import { TvTagFilter } from "../components/TvTagFilter";
 import { TvVideoShelf } from "../components/TvVideoShelf";
 import type { VideoActionOptions } from "../components/TvVideoActionMenu";
 import { VideoCard } from "../components/VideoCard";
-import { channelsForTags, dueScheduledVideos, scheduledVideosInOrder, visibleFeedTags, withoutInProgress } from "../feedSections";
+import { channelsForTags, dueScheduledVideos, scheduledVideosInOrder, staysInProgress, visibleFeedTags, withoutInProgress } from "../feedSections";
 import { focusWhenReady, useContentFocusAllowed } from "../focus";
 import { colors, typography, screenPadding } from "../theme";
 import { browseQueue, type OpenVideo } from "../playbackQueue";
@@ -66,6 +66,8 @@ export function FeedScreen({ active, api, videoUpdate, destination, feedSort, fo
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
   const [appliedFilter, setAppliedFilter] = useState({ tags: [] as number[], sort: feedSort });
   const [inProgress, setInProgress] = useState<Video[]>([]);
+  const inProgressRef = useRef(inProgress);
+  inProgressRef.current = inProgress;
   const [scheduled, setScheduled] = useState<Video[]>([]);
   const [topChannels, setTopChannels] = useState<Channel[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -246,12 +248,16 @@ export function FeedScreen({ active, api, videoUpdate, destination, feedSort, fo
       }));
     setInProgress((current) => current
       .map((video) => video.video_id === updated.video_id ? updated : video)
-      .filter((video) => video.video_id !== updated.video_id || (updated.status !== "archived" && updated.watched !== 1)));
+      .filter((video) => video.video_id !== updated.video_id || staysInProgress(updated)));
+    // A video started from elsewhere joins Continue watching once its progress is saved.
+    if (home && updated.is_short === 0 && staysInProgress(updated) && !inProgressRef.current.some((video) => video.video_id === updated.video_id)) {
+      void api.inProgress().then((result) => setInProgress(result.videos.filter((video) => video.is_short === 0))).catch(() => {});
+    }
     setScheduled((current) => {
       const withoutVideo = current.filter((video) => video.video_id !== updated.video_id);
       return updated.status === "queued" ? [...withoutVideo, updated] : withoutVideo;
     });
-  }, [destination]);
+  }, [api, destination, home]);
 
   // Playback updates individual entries; remounting the screen here discards
   // the originating card, loaded pages, filters and scroll position.

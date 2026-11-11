@@ -36,6 +36,18 @@ export function scheduledVideosInOrder(videos: Video[]): Video[] {
     });
 }
 
+/** The server's Continue watching rule (libraryRoutes `/in-progress`): stopped part-way through a non-trivial video. */
+export function partlyWatched(video: Pick<Video, "watch_position" | "watch_duration">): boolean {
+  const position = video.watch_position ?? null;
+  const duration = video.watch_duration ?? null;
+  return position != null && duration != null && duration > 30 && position >= 3 && position / duration < 0.92;
+}
+
+/** Whether a video still belongs on Continue watching after the player or an action changed it. */
+export function staysInProgress(video: Pick<Video, "watch_position" | "watch_duration" | "status">): boolean {
+  return partlyWatched(video) && video.status === "inbox";
+}
+
 export function withoutInProgress(videos: Video[], inProgress: Video[]): Video[] {
   const inProgressIds = new Set(inProgress.map((video) => video.video_id));
   return videos.filter((video) => !inProgressIds.has(video.video_id));
