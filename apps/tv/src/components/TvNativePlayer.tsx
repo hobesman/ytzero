@@ -560,9 +560,10 @@ export function TvNativePlayer(props: Props) {
     return () => { clearInterval(interval); state.remove(); };
   }, [api, buffer, isChild]);
   // Closing the picture-in-picture window stops the video; it would otherwise play on unseen.
+  // A viewer's pause, not buffer.pause(): that releases the video, and Play would be silenced.
   useEffect(() => onPictureInPictureDismiss(() => {
-    if (session.current && !closing.current) void buffer.pause().catch(() => {});
-  }), [buffer]);
+    if (session.current && !closing.current) session.current.entry.player.pause();
+  }), []);
 
   useEffect(() => {
     // When the item is ready, the earlier present effect is handing focus to

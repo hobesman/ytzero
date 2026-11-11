@@ -1,14 +1,17 @@
 import { useEvent } from "expo";
 import { VideoView, type VideoPlayer } from "expo-video";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Svg, { Path } from "react-native-svg";
 import type { Translate } from "../i18n";
 import { colors } from "../theme";
 import { leavesIntoPictureInPicture } from "../pictureInPicture";
 import { useMiniPlayerBottom } from "./MiniPlayerHost";
+import { useMiniPlayerDrag } from "./useMiniPlayerDrag";
 
-/** The minimized phone player: tap to expand, with play/pause and close. */
+const barHeight = 40;
+
+/** The minimized phone player: tap to expand, with play/pause and close; drag it out of the way. */
 export function TvMiniPlayer({ player, title, t, onExpand, onClose }: {
   player: VideoPlayer; title: string; t: Translate; onExpand: () => void; onClose: () => void;
 }) {
@@ -17,7 +20,14 @@ export function TvMiniPlayer({ player, title, t, onExpand, onClose }: {
   const reserved = useMiniPlayerBottom();
   const { isPlaying } = useEvent(player, "playingChange", { isPlaying: player.playing });
   const frameWidth = height > width ? width * 0.56 : Math.min(320, width * 0.36);
-  return <View style={[styles.frame, { right: insets.right + 12, bottom: Math.max(reserved, insets.bottom) + 12, width: frameWidth }]}>
+  const bottom = Math.max(reserved, insets.bottom) + 12;
+  const frameHeight = frameWidth * 9 / 16 + barHeight;
+  const drag = useMiniPlayerDrag({
+    maxLeft: width - frameWidth - insets.left - insets.right - 24,
+    maxUp: height - frameHeight - bottom - insets.top - 12,
+  });
+  return <Animated.View {...drag.handlers}
+    style={[styles.frame, { right: insets.right + 12, bottom, width: frameWidth, transform: drag.transform }]}>
     <Pressable accessibilityRole="button" accessibilityLabel={t("miniPlayerExpand")} onPress={onExpand}>
       <View pointerEvents="none" style={{ width: frameWidth, height: frameWidth * 9 / 16 }}>
         <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" allowsPictureInPicture={false}
@@ -42,13 +52,13 @@ export function TvMiniPlayer({ player, title, t, onExpand, onClose }: {
         </Svg>
       </Pressable>
     </View>
-  </View>;
+  </Animated.View>;
 }
 
 const styles = StyleSheet.create({
   frame: { position: "absolute", zIndex: 1000, elevation: 12, borderRadius: 12, overflow: "hidden", backgroundColor: colors.black,
     shadowColor: colors.black, shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
-  bar: { flexDirection: "row", alignItems: "center", paddingLeft: 10, paddingRight: 4, minHeight: 40, backgroundColor: colors.surface },
+  bar: { flexDirection: "row", alignItems: "center", paddingLeft: 10, paddingRight: 4, minHeight: barHeight, backgroundColor: colors.surface },
   titleButton: { flex: 1, paddingVertical: 8 },
   title: { color: colors.text, fontSize: 13, fontWeight: "600" },
   icon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
