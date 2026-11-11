@@ -23,6 +23,24 @@ const renewalRefused = (error: unknown): boolean => {
   return typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429;
 };
 
+/** No answer from the server at all (offline, between networks), or a gateway that lost it for a moment. */
+const unreachable = (error: unknown): boolean => {
+  const value = error as { status?: unknown; name?: unknown } | null;
+  if (value?.name === "AbortError") return false;
+  return typeof value?.status !== "number" || [408, 429, 502, 504].includes(value.status);
+};
+
+/** ExoPlayer names the HTTP status when the stream answered and refused, e.g. "Response code: 403". */
+const streamRefused = (error: unknown): boolean =>
+  /response code:\s*[45]\d\d/i.test(String((error as { message?: unknown } | null)?.message ?? ""));
+
+/** Waits between attempts to reach the server again after the connection dropped mid-video. */
+const RECONNECT_DELAYS = [1000, 2000, 3000, 5000];
+/** Reloads of a playing video that may follow one another before the next failure is final. */
+const MAX_RECOVERIES = 3;
+/** Playing this long after a reload shows the stream is healthy again. */
+const RECOVERY_SETTLE_MS = 60_000;
+
 /** Memory-only native players. Preparing a neighbour never records a play. */
 export class PlaybackBuffer {
   private entries = new Map<string, BufferedPlayback>();
@@ -74,9 +92,20 @@ export class PlaybackBuffer {
     let fellBack = false;
     // After a fallback or reload the viewer is already watching: keep playing.
     let resume = false;
+    // The ticket preference of the source loaded now, reused to reload the same stream.
+    let preference: "progressive" | undefined;
+    // Became ready once: a later failure interrupts a video the viewer is watching.
+    let started = false;
+    // Whether the viewer last had it playing; a stall is not a pause.
+    let wantsPlay = false;
+    let lastStatus = "idle";
+    let recoveries = 0;
+    let reconnectAttempt = 0;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let settleTimer: ReturnType<typeof setTimeout> | undefined;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let renewRetry: ReturnType<typeof setTimeout> | undefined;
-    const stopRenewing = () => { clearInterval(renewTimer); clearTimeout(renewRetry); };
+    const stopRenewing = () => { clearInterval(renewTimer); clearTimeout(renewRetry); clearTimeout(reconnectTimer); clearTimeout(settleTimer); };
     let loading: Promise<void> = Promise.resolve();
     let resolveReady!: () => void;
     let rejectReady!: (reason: unknown) => void;
@@ -96,26 +125,47 @@ export class PlaybackBuffer {
     };
     let timeout = setTimeout(() => fail(new Error("Playback preparation timed out")), 10 * 60_000);
     const checkReady = () => {
-      if (!disposed && !entry.error && loaded && playable) { clearTimeout(timeout); resolveReady(); }
+      if (!disposed && !entry.error && loaded && playable) { clearTimeout(timeout); started = true; resolveReady(); }
+    };
+    // Loads the source again where the viewer was, with a fresh ticket. The
+    // ticket request doubles as the test that the server is reachable again.
+    const reloadAt = (prefer: "progressive" | undefined, keepPlaying: boolean) => {
+      if (player.currentTime > 0) position = player.currentTime;
+      resume = keepPlaying;
+      clearTimeout(timeout);
+      // The old ticket is replaced: stop renewing it.
+      stopRenewing();
+      loaded = false;
+      playable = false;
+      sourceUri = "";
+      loading = loadSource(prefer);
+    };
+    // A video that was playing and lost its stream: reload it rather than end it.
+    const recover = (prefer: "progressive" | undefined) => {
+      recoveries++;
+      reloadAt(prefer, this.activeEntry === entry && wantsPlay);
     };
     const listeners = [
       player.addListener("playingChange", ({ isPlaying }) => {
         // Native controls or a late native command must never start a neighbour.
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
+        // Running out of buffer reports "loading" first; only a pause while ready is the viewer's.
+        if (isPlaying) wantsPlay = true;
+        else if (lastStatus === "readyToPlay") wantsPlay = false;
       }),
       player.addListener("statusChange", ({ status, error }) => {
+        lastStatus = status;
         if (status === "error" && sourceUri) {
+          // The connection dropped and the buffer ran out: the stream did not
+          // refuse, it went unanswered. Reload the same stream at the same
+          // position, waiting for the network to come back.
+          if (started && !streamRefused(error) && recoveries < MAX_RECOVERIES) { recover(preference); return; }
           // A full-quality stream YouTube stops serving mid-way fails the player.
           // Switch once to the single progressive stream at the same position
           // instead of ending playback.
           if (!fellBack && !live && /\/direct-hls\//.test(sourceUri)) {
             fellBack = true;
-            resume = true;
-            if (player.currentTime > 0) position = player.currentTime;
-            loaded = false;
-            playable = false;
-            sourceUri = "";
-            loading = loadSource("progressive");
+            reloadAt("progressive", true);
             return;
           }
           fail(error ?? new Error("Native source failed"));
@@ -138,6 +188,9 @@ export class PlaybackBuffer {
             }
             loaded = true;
             checkReady();
+            reconnectAttempt = 0;
+            clearTimeout(settleTimer);
+            if (recoveries > 0) settleTimer = setTimeout(() => { recoveries = 0; }, RECOVERY_SETTLE_MS);
             if (resume && this.activeEntry === entry) await this.control.play(player);
           } catch (error) { fail(error); }
         })();
@@ -150,13 +203,8 @@ export class PlaybackBuffer {
       video, player, ready, initialPosition: position, error: null,
       reload: () => {
         if (disposed || entry.error || live || !sourceUri) return;
-        if (player.currentTime > 0) position = player.currentTime;
-        resume = this.activeEntry === entry && player.playing;
         fellBack = false;
-        loaded = false;
-        playable = false;
-        sourceUri = "";
-        loading = firstSource();
+        reloadAt(!live && this.quality() === "fast" ? "progressive" : undefined, this.activeEntry === entry && player.playing);
       },
       dispose: () => {
         if (disposed) return;
@@ -186,6 +234,7 @@ export class PlaybackBuffer {
     // Loads a ticket's source into this player: first the server's choice,
     // then once, after a full-quality stream fails, the progressive stream.
     const loadSource = async (prefer?: "progressive") => {
+      preference = prefer;
       try {
         const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer, prefer || live ? undefined : this.quality());
         if (disposed) { releaseTicket(authorization); return; }
@@ -200,7 +249,14 @@ export class PlaybackBuffer {
           clearTimeout(renewRetry);
           void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).catch((error) => {
             if (disposed || entry.error || ticket !== authorization) return;
-            if (renewalRefused(error)) { fail(error); return; }
+            // The ticket ran out, e.g. while the phone was offline for a long
+            // time: a video already playing asks for a new one and carries on.
+            if (renewalRefused(error)) {
+              if (!started || recoveries >= MAX_RECOVERIES) fail(error);
+              // An empty source means a reload is already asking for one.
+              else if (sourceUri) recover(preference);
+              return;
+            }
             // No connection for a moment, e.g. between wifi hotspots: the
             // ticket outlives several renewals, so keep playing from the
             // buffer and try again soon instead of ending playback.
@@ -210,7 +266,15 @@ export class PlaybackBuffer {
         renewTimer = setInterval(renew, Math.max(10_000, authorization.expires_in * 1000 / 3));
         await player.replaceAsync({ ...source, useCaching: false, metadata: { title: video.title, artist: video.channel_title } });
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }
-      } catch (error) { fail(error); }
+      } catch (error) {
+        // Still offline: keep the video where it stopped and try again shortly.
+        if (started && !disposed && !entry.error && unreachable(error)) {
+          const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt++, RECONNECT_DELAYS.length - 1)]!;
+          reconnectTimer = setTimeout(() => { if (!disposed && !entry.error) loading = loadSource(prefer); }, delay);
+          return;
+        }
+        fail(error);
+      }
     };
     // "fast" goes straight to the progressive stream: no high-quality attempt to wait out.
     const firstSource = () => loadSource(!live && this.quality() === "fast" ? "progressive" : undefined);

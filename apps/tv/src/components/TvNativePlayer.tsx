@@ -618,7 +618,8 @@ export function TvNativePlayer(props: Props) {
   if (inline && !docked) return <View style={styles.inline}>
     {surface}
     {speedChoice}
-    {!presented && !dismissing ? <View style={styles.inlinePanel}>
+    {/* A failure mid-video leaves the player presented: show the message and retry over it. */}
+    {(!presented || error) && !dismissing ? <View style={styles.inlinePanel}>
       {error ? <>
         <Text style={styles.inlineError}>{t(error)}</Text>
         {error !== "playbackRestricted" ? <Pressable accessibilityRole="button" style={styles.inlineRetry} onPress={() => { switching.current = false; setAttempt((value) => value + 1); }}>
@@ -633,7 +634,7 @@ export function TvNativePlayer(props: Props) {
         {/* Android draws this edge to edge; keep the controls clear of any system bars showing. */}
         <SafeAreaView edges={playerSafeEdges} style={styles.video}>{surface}</SafeAreaView>
         {speedChoice}
-        {!presented && !dismissing ? <View style={styles.panel}>
+        {(!presented || error) && !dismissing ? <View style={styles.panel}>
           {!error ? <TvLoadingMark accessibilityLabel={t("preparingPlayback")} size={48} /> : null}
           <Text style={styles.eyebrow}>{error ? t("playbackErrorTitle") : t("preparingPlayback")}</Text>
           <Text accessibilityRole="header" numberOfLines={3} style={styles.title}>{currentVideo.title}</Text>
