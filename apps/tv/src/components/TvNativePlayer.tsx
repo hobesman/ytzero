@@ -10,6 +10,8 @@ import { forwardBuffer, forwardBufferOptions, NEIGHBOUR_BUFFER_OPTIONS, onForwar
 import { sponsorCategories } from "../sponsorBlock";
 import { useSponsorBlock } from "../useSponsorBlock";
 import { useKeepScreenAwake } from "../useKeepScreenAwake";
+import { useSleepTimer } from "../useSleepTimer";
+import { setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
 import { TvChoiceSheet } from "./TvChoiceSheet";
 import { useMiniPlayerSlot, usePlayerWindowSlot } from "./MiniPlayerHost";
 import { setPhoneImmersive } from "../phoneOrientation";
@@ -139,6 +141,7 @@ export function TvNativePlayer(props: Props) {
   const [rate, setRate] = useState(1);
   const [speedSheet, setSpeedSheet] = useState(false);
   const [qualitySheet, setQualitySheet] = useState(false);
+  const [sleepSheet, setSleepSheet] = useState(false);
   const [quality, setQuality] = useState<StreamQuality>(streamQuality);
   // The height of the video track playing now, as ExoPlayer adapts.
   const [trackHeight, setTrackHeight] = useState<number | null>(null);
@@ -484,7 +487,10 @@ export function TvNativePlayer(props: Props) {
         // source loads. Only a player that played or knows its length can end.
         if (!current.didPlay && !(player.duration > 0)) return;
         current.completed = active.video.live_status !== "live";
-        const next = latest.current.advanceOnEnd ? latest.current.nextVideo : null;
+        // A sleep timer set to the end of the video stops here instead of playing the next one.
+        const stopsHere = sleepTimer().kind === "end";
+        if (stopsHere) setSleepTimer("off");
+        const next = latest.current.advanceOnEnd && !stopsHere ? latest.current.nextVideo : null;
         if (next) void advance(next);
         else if (fullscreen.current) void exitPresentation(); else void close();
       }),
@@ -576,13 +582,16 @@ export function TvNativePlayer(props: Props) {
 
   // The screen stays on while a video plays in the app; in the background it sleeps as usual.
   useKeepScreenAwake(playing && !dismissing);
+  const showNotice = (text: string) => {
+    setSkippedNotice(text);
+    clearTimeout(skippedNoticeTimer.current);
+    skippedNoticeTimer.current = setTimeout(() => setSkippedNotice(null), skippedNoticeTimeout);
+  };
   useSponsorBlock({ api, player: active?.player ?? null, video: active?.video ?? null,
     categories: sponsorCategories(props.settings?.sponsorblock_enabled, props.settings?.sponsorblock_categories),
-    record: !incognito, onSkip: (seconds) => {
-      setSkippedNotice(t("sponsorSkipped").replace("{seconds}", String(Math.max(1, Math.round(seconds)))));
-      clearTimeout(skippedNoticeTimer.current);
-      skippedNoticeTimer.current = setTimeout(() => setSkippedNotice(null), skippedNoticeTimeout);
-    } });
+    record: !incognito, onSkip: (seconds) => showNotice(t("sponsorSkipped").replace("{seconds}", String(Math.max(1, Math.round(seconds))))) });
+  const sleep = useSleepTimer(ownsSpeedControl ? active?.player ?? null : null, () => showNotice(t("sleepTimerStopped")));
+  const sleepLabel = sleep.remaining !== null ? sleepCountdownLabel(sleep.remaining) : sleep.timer.kind === "end" ? t("sleepTimerEndOfVideo") : null;
   // With "remember speed changes" on, a speed picked here outlasts this video.
   const rememberSpeed = (entry: BufferedPlayback, value: string) => {
     const state = latest.current;
@@ -640,6 +649,15 @@ export function TvNativePlayer(props: Props) {
         onPress={() => { clearTimeout(speedButtonTimer.current); setSpeedSheet(true); }}>
         <Text style={styles.speedButtonText}>{speedLabel(rate)}</Text>
       </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} hitSlop={12}
+        style={({ pressed }) => [styles.speedButton, styles.sleepButton, pressed && styles.speedButtonPressed]}
+        onPress={() => { clearTimeout(speedButtonTimer.current); setSleepSheet(true); }}>
+        <Svg width={18} height={18} viewBox="0 0 24 24">
+          <Path stroke={colors.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill={sleepLabel ? colors.text : "none"}
+            d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </Svg>
+        {sleepLabel ? <Text style={styles.speedButtonText}>{sleepLabel}</Text> : null}
+      </Pressable>
       {props.onToggleFullscreen ? <Pressable accessibilityRole="button" accessibilityLabel={t(props.fullscreenActive ? "exitFullscreen" : "enterFullscreen")} hitSlop={12}
         style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]} onPress={props.onToggleFullscreen}>
         <Svg width={20} height={20} viewBox="0 0 24 24">
@@ -670,7 +688,12 @@ export function TvNativePlayer(props: Props) {
       void saveStreamQuality(deviceStore, next).catch(() => {});
       active.reload();
     }}
-    onClose={() => { setQualitySheet(false); revealSpeedButton(); }} /> : null;
+    onClose={() => { setQualitySheet(false); revealSpeedButton(); }} /> : sleepSheet ? <TvChoiceSheet<SleepTimerChoice> title={t("sleepTimer")} t={t}
+    value={sleepTimerChoice(sleep.timer)}
+    options={SLEEP_TIMER_CHOICES.map((value) => ({ value, label: value === "off" ? t("sleepTimerOff") : value === "end" ? t("sleepTimerEndOfVideo")
+      : t("sleepTimerMinutes").replace("{count}", value) }))}
+    onSelect={(value) => { setSleepTimer(value); setSleepSheet(false); revealSpeedButton(); }}
+    onClose={() => { setSleepSheet(false); revealSpeedButton(); }} /> : null;
 
   // Phones: the player drawn in the details page, above its title and actions.
   if (inline && !docked) return <View style={styles.inline}>
@@ -743,6 +766,7 @@ const styles = StyleSheet.create({
   inlineRetry: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.15)" },
   speedButton: { minWidth: 44, alignItems: "center", justifyContent: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 18,
     backgroundColor: "rgba(0, 0, 0, 0.6)" },
+  sleepButton: { flexDirection: "row", gap: 6 },
   speedButtonPressed: { backgroundColor: "rgba(255, 255, 255, 0.25)" },
   speedButtonText: { color: colors.text, fontSize: 16, lineHeight: 20, fontWeight: "700" },
 });
