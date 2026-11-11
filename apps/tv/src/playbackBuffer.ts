@@ -5,6 +5,12 @@ import { playableSpeed } from "./playbackSpeeds";
 import type { PlaybackTicket, Video } from "./types";
 
 type BufferApi = Pick<YtZeroApi, "playbackTicket" | "playbackSource" | "renewPlaybackTicket" | "releasePlaybackTicket">;
+// A ticket this close to its expiry is treated as expired: a stream error then
+// most likely means the server stopped accepting it.
+const ticketMargin = 30_000;
+const errorStatus = (error: unknown) => (error as { status?: unknown } | null)?.status;
+// The server refused the video itself (restricted, removed, unavailable): renewing again cannot help.
+const ticketRefused = (error: unknown) => [403, 404, 409].includes(errorStatus(error) as number);
 type PlaybackControl = { play: (player: VideoPlayer) => Promise<void>; pause: (player: VideoPlayer) => Promise<void> };
 export type BufferedPlayback = {
   video: Video;
@@ -14,6 +20,11 @@ export type BufferedPlayback = {
   error: unknown;
   /** Reloads the source at the current position, e.g. after the stream quality changed. */
   reload: () => void;
+  /**
+   * Replaces a ticket that lapsed while the app was away, before the viewer
+   * presses Play: the paused player would otherwise buffer forever on refused segments.
+   */
+  refresh: () => void;
   /** Whether playback is held up, and whether the viewer paused it there. */
   waitState: () => PlaybackWait;
   onWaitChange: (listener: () => void) => () => void;
@@ -71,6 +82,7 @@ export class PlaybackBuffer {
     private quality: () => string = () => "",
     /** The native buffer for a player: the playing one may buffer further ahead than its neighbours. */
     private bufferOptions?: (active: boolean) => BufferOptions,
+    private now: () => number = Date.now,
   ) {}
   private appliedBuffers = new WeakMap<VideoPlayer, string>();
 
@@ -123,6 +135,11 @@ export class PlaybackBuffer {
       waiting: reconnecting ? "reconnecting" : started && lastStatus === "loading" ? "buffering" : "none", held,
     });
     const emitWait = () => waitListeners.forEach((listener) => listener());
+    // Android stops the app's timers while it is in the background, so a long
+    // pause or a screen-off session can outlive the ticket without a renewal.
+    let ticketValidUntil = 0;
+    let renewalFailed = false;
+    const ticketStale = () => renewalFailed || this.now() >= ticketValidUntil - ticketMargin;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let renewRetry: ReturnType<typeof setTimeout> | undefined;
     const stopRenewing = () => { clearInterval(renewTimer); clearTimeout(renewRetry); clearTimeout(reconnectTimer); clearTimeout(settleTimer); };
@@ -161,12 +178,16 @@ export class PlaybackBuffer {
       sourceUri = "";
       loading = loadSource(prefer);
     };
-    // A video that was playing and lost its stream: reload it rather than end it.
-    const recover = (prefer: "progressive" | undefined) => {
-      recoveries++;
+    // Loads the same stream again with a new ticket, showing the reconnect until it plays.
+    const reconnect = (keepPlaying: boolean) => {
       reconnecting = true;
-      reloadAt(prefer, this.activeEntry === entry && wantsPlay && !held);
+      reloadAt(preference, keepPlaying && !held);
       emitWait();
+    };
+    // A video that was playing and lost its stream: reload it rather than end it.
+    const recover = () => {
+      recoveries++;
+      reconnect(this.activeEntry === entry && wantsPlay);
     };
     const listeners = [
       player.addListener("timeUpdate", ({ currentTime }) => { if (loaded && currentTime > 0) lastTime = currentTime; }),
@@ -179,11 +200,16 @@ export class PlaybackBuffer {
       }),
       player.addListener("statusChange", ({ status, error }) => {
         lastStatus = status;
+        // A loaded stream that starts buffering after its ticket lapsed is
+        // being refused segments; ExoPlayer can keep retrying them without failing.
+        if (status === "loading" && sourceUri && loaded && recoveries < MAX_RECOVERIES && ticketStale()) { recover(); return; }
         if (status === "error" && sourceUri) {
-          // The connection dropped and the buffer ran out: the stream did not
-          // refuse, it went unanswered. Reload the same stream at the same
-          // position, waiting for the network to come back.
-          if (started && !streamRefused(error) && recoveries < MAX_RECOVERIES) { recover(preference); return; }
+          // The connection dropped and the buffer ran out (the stream went
+          // unanswered), or the ticket lapsed while paused or in the
+          // background (the stream refused it). Either way, reload the same
+          // stream at the same position with a new ticket, waiting for the
+          // network to come back if need be.
+          if (started && recoveries < MAX_RECOVERIES && (ticketStale() || !streamRefused(error))) { recover(); return; }
           // A full-quality stream YouTube stops serving mid-way fails the player.
           // Switch once to the single progressive stream at the same position
           // instead of ending playback.
@@ -231,6 +257,10 @@ export class PlaybackBuffer {
         if (disposed || entry.error || live || !sourceUri) return;
         fellBack = false;
         reloadAt(!live && this.quality() === "fast" ? "progressive" : undefined, this.activeEntry === entry && player.playing);
+      },
+      refresh: () => {
+        if (disposed || entry.error || !sourceUri || !loaded || reconnecting || !ticketStale()) return;
+        reconnect(this.activeEntry === entry && player.playing);
       },
       waitState,
       onWaitChange: (listener) => { waitListeners.add(listener); return () => { waitListeners.delete(listener); }; },
@@ -291,20 +321,31 @@ export class PlaybackBuffer {
         if (ticket) releaseTicket(ticket);
         stopRenewing();
         ticket = authorization;
+        ticketValidUntil = this.now() + authorization.expires_in * 1000;
+        renewalFailed = false;
         const source = this.api.playbackSource(authorization);
         sourceUri = source.uri;
         clearTimeout(timeout);
         timeout = setTimeout(() => fail(new Error("Native source timed out")), 60_000);
         const renew = () => {
           clearTimeout(renewRetry);
-          void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).catch((error) => {
+          // The timer stopped while the app was in the background: renewing a lapsed ticket fails.
+          if (loaded && this.now() >= ticketValidUntil) { entry.refresh(); return; }
+          void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).then((renewed) => {
+            if (ticket !== authorization) return;
+            ticketValidUntil = this.now() + renewed.expires_in * 1000;
+            renewalFailed = false;
+          }, (error) => {
             if (disposed || entry.error || ticket !== authorization) return;
+            // The server refused the video itself: a new ticket cannot help.
+            if (ticketRefused(error)) { fail(error); return; }
+            renewalFailed = true;
             // The ticket ran out, e.g. while the phone was offline for a long
             // time: a video already playing asks for a new one and carries on.
             if (renewalRefused(error)) {
               if (!started || recoveries >= MAX_RECOVERIES) fail(error);
               // An empty source means a reload is already asking for one.
-              else if (sourceUri) recover(preference);
+              else if (sourceUri) recover();
               return;
             }
             // No connection for a moment, e.g. between wifi hotspots: the
