@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { loadOpenDetails, loadPhoneLayout, OPEN_DETAILS_KEY, PHONE_LAYOUT_KEY, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./devicePreferences";
+import { loadMusicMode, loadOpenDetails, loadPhoneLayout, MUSIC_MODE_KEY, OPEN_DETAILS_KEY, saveMusicMode, PHONE_LAYOUT_KEY, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./devicePreferences";
 
 describe("device thumbnail preference", () => {
   test("defaults to playback and persists the optional details choice only on this device", async () => {
@@ -48,5 +48,18 @@ describe("phone layout", () => {
     expect([...values.keys()]).toEqual([PHONE_LAYOUT_KEY]);
     values.set(PHONE_LAYOUT_KEY, "yes");
     expect(await loadPhoneLayout(store, true)).toBe(true);
+  });
+});
+
+describe("music mode", () => {
+  test("is off until chosen and remembers the last mode on this device", async () => {
+    const values = new Map<string, string>();
+    const store = { getItemAsync: async (key: string) => values.get(key) ?? null, setItemAsync: async (key: string, value: string) => { values.set(key, value); } };
+    expect(await loadMusicMode(store)).toBe(false);
+    await saveMusicMode(store, true);
+    expect(await loadMusicMode(store)).toBe(true);
+    await saveMusicMode(store, false);
+    expect(await loadMusicMode(store)).toBe(false);
+    expect([...values.keys()]).toEqual([MUSIC_MODE_KEY]);
   });
 });

@@ -1,0 +1,22 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'app.ytzero'
+version = '0.1.0'
+
+android {
+  namespace "app.ytzero.musicplayer"
+  defaultConfig {
+    versionCode 1
+    versionName '0.1.0'
+  }
+}
+
+dependencies {
+  // The same Media3 release expo-video uses, so the app carries one copy.
+  def media3Version = "1.9.0"
+  implementation "androidx.media3:media3-exoplayer:${media3Version}"
+  implementation "androidx.media3:media3-session:${media3Version}"
+}

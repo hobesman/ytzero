@@ -69,7 +69,8 @@
           "supportsBackgroundPlayback": true,
           "supportsPictureInPicture": true
         }
-      ]
+      ],
+      "./plugins/withMusicShortcut"
     ],
     "locales": {
       "en": "./locales/en.json",
