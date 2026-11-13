@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
 import type { YtZeroApi } from "../api";
 import { SidebarIcon } from "../components/SidebarIcon";
@@ -10,6 +10,7 @@ import type { MusicApi } from "./musicApi";
 import { MusicHomeScreen, MusicLibraryScreen, MusicSearchScreen } from "./MusicBrowseScreens";
 import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
+import { MusicAlbumScreen, MusicArtistScreen, type MusicPage } from "./MusicPages";
 import { current } from "./musicQueue";
 import { useMusicSession, type MusicSession } from "./musicSession";
 
@@ -31,6 +32,11 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["home"]));
   const [playerOpen, setPlayerOpen] = useState(false);
   const [account, setAccount] = useState(false);
+  // Album and artist pages opened from the tabs; Back closes the top one.
+  const [pages, setPages] = useState<MusicPage[]>([]);
+  const openPage = useCallback((page: MusicPage) => setPages((open) => [...open.slice(-9), page]), []);
+  const closePage = useCallback(() => setPages((open) => open.slice(0, -1)), []);
+  const topPage = pages.at(-1) ?? null;
   const [notice, setNotice] = useState<string | null>(null);
   const playingId = current(state.queue)?.videoId ?? null;
 
@@ -52,18 +58,20 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (account) { setAccount(false); return true; }
       if (playerOpen) { setPlayerOpen(false); return true; }
+      if (pages.length) { closePage(); return true; }
       if (tab !== "home") { setTab("home"); return true; }
       return false;
     });
     return () => subscription.remove();
-  }, [account, playerOpen, tab]);
+  }, [account, closePage, pages.length, playerOpen, tab]);
 
   const selectTab = (next: Tab) => {
     setTab(next);
+    setPages([]);
     setVisited((visitedTabs) => visitedTabs.has(next) ? visitedTabs : new Set([...visitedTabs, next]));
   };
   const screen = (key: Tab): ReactNode => {
-    const props = { api: musicApi, session, t, visible: key === tab, playingId };
+    const props = { api: musicApi, session, t, visible: key === tab && !pages.length, playingId, onOpen: openPage };
     if (key === "search") return <MusicSearchScreen {...props} />;
     if (key === "library") return <MusicLibraryScreen {...props} />;
     return <MusicHomeScreen {...props} />;
@@ -85,6 +93,11 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     </View>
     <View style={styles.body}>
       {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, key !== tab && styles.gone]}>{screen(key)}</View>)}
+      {topPage ? <View key={`${pages.length}:${topPage.kind}:${topPage.id}`} style={styles.layer}>
+        {topPage.kind === "album"
+          ? <MusicAlbumScreen api={musicApi} session={session} t={t} playingId={playingId} id={topPage.id} onOpen={openPage} onBack={closePage} />
+          : <MusicArtistScreen api={musicApi} session={session} t={t} playingId={playingId} id={topPage.id} onOpen={openPage} onBack={closePage} />}
+      </View> : null}
     </View>
     {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
     <MusicMiniBar api={musicApi} session={session} state={state} t={t} onOpen={() => setPlayerOpen(true)} />

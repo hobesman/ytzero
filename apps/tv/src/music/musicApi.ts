@@ -13,7 +13,30 @@ export type MusicTrack = {
   rating: 1 | -1 | null;
 };
 
-export type MusicSeed = { kind: "track"; videoId: string } | { kind: "liked" } | { kind: "mix" };
+/** An album or single, as search, artist pages and the library list it. */
+export type MusicAlbum = {
+  browseId: string;
+  title: string;
+  artist: string;
+  artistId: string | null;
+  year: string | null;
+  thumbnail: string | null;
+  kind: "album" | "single";
+};
+
+export type MusicArtist = { channelId: string; name: string; thumbnail: string | null };
+export type MusicAlbumPage = MusicAlbum & { tracks: MusicTrack[]; saved: boolean };
+export type MusicArtistPage = MusicArtist & { topSongs: MusicTrack[]; albums: MusicAlbum[]; singles: MusicAlbum[] };
+export type MusicSearchResults = { tracks: MusicTrack[]; albums: MusicAlbum[]; artists: MusicArtist[] };
+export type MusicLibrary = { liked: MusicTrack[]; recent: MusicTrack[]; albums: MusicAlbum[] };
+
+export type MusicSeed =
+  | { kind: "track"; videoId: string }
+  | { kind: "liked" }
+  | { kind: "mix" }
+  /** An album from `startAt` (its first track when absent); a station like it follows. */
+  | { kind: "album"; browseId: string; startAt?: string }
+  | { kind: "artist"; artistId: string };
 export type MusicEndReason = "completed" | "skipped" | "stopped";
 export type MusicPlay = {
   videoId: string;
@@ -59,9 +82,21 @@ export class MusicApi {
     } finally { clearTimeout(timer); }
   }
 
-  async search(q: string): Promise<MusicTrack[]> {
-    const result = await this.request<{ tracks?: MusicTrack[] }>(`/search?q=${encodeURIComponent(q.trim())}`, {}, 30000);
-    return result.tracks ?? [];
+  async search(q: string): Promise<MusicSearchResults> {
+    const result = await this.request<Partial<MusicSearchResults>>(`/search?q=${encodeURIComponent(q.trim())}`, {}, 30000);
+    return { tracks: result.tracks ?? [], albums: result.albums ?? [], artists: result.artists ?? [] };
+  }
+
+  album(browseId: string): Promise<MusicAlbumPage> {
+    return this.request(`/albums/${encodeURIComponent(browseId)}`, {}, 30000);
+  }
+
+  artist(channelId: string): Promise<MusicArtistPage> {
+    return this.request(`/artists/${encodeURIComponent(channelId)}`, {}, 30000);
+  }
+
+  setAlbumSaved(browseId: string, saved: boolean): Promise<{ ok: true; saved: boolean }> {
+    return this.request(`/albums/${encodeURIComponent(browseId)}/saved`, { method: saved ? "PUT" : "DELETE", body: saved ? "{}" : undefined }, 20000);
   }
 
   station(seed: MusicSeed, served: string[], skipped: string[], count = 10): Promise<{ seed: string; tracks: MusicTrack[] }> {
@@ -82,8 +117,9 @@ export class MusicApi {
     return this.request(`/tracks/${encodeURIComponent(videoId)}/rating`, { method: "PUT", body: JSON.stringify({ rating }) }, 8000);
   }
 
-  library(): Promise<{ liked: MusicTrack[]; recent: MusicTrack[] }> {
-    return this.request("/library");
+  async library(): Promise<MusicLibrary> {
+    const result = await this.request<Partial<MusicLibrary>>("/library");
+    return { liked: result.liked ?? [], recent: result.recent ?? [], albums: result.albums ?? [] };
   }
 
   audioUrl(videoId: string): string {

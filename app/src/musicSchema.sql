@@ -42,3 +42,19 @@ CREATE TABLE IF NOT EXISTS music_ratings (
   rated_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, video_id)
 );
+
+-- Albums a profile saved to its library, with the details shown there.
+-- Portable personal state.
+CREATE TABLE IF NOT EXISTS music_saved_albums (
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  browse_id TEXT NOT NULL,
+  title     TEXT NOT NULL DEFAULT '',
+  artist    TEXT NOT NULL DEFAULT '',
+  artist_id TEXT,
+  year      TEXT,
+  thumbnail TEXT NOT NULL DEFAULT '',
+  -- album | single
+  kind      TEXT NOT NULL DEFAULT 'album' CHECK (kind IN ('album', 'single')),
+  saved_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, browse_id)
+);

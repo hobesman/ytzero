@@ -47,11 +47,16 @@ class YtZeroMusicPlayerModule : Module() {
   // Sleep timer: JS timers stop in the background, so the player checks it here.
   private var sleepDeadline = 0L
   private var sleepAtEndOfSong = false
+  // Non-music parts (talking intros and outros) to jump over, by video id, in milliseconds.
+  private val skips = HashMap<String, List<LongRange>>()
+  // Set while jumping over an outro into the next song, so that change counts as the song finishing.
+  private var skippingOutro = false
 
   private val tick = object : Runnable {
     override fun run() {
       val player = MusicPlayerHolder.existing() ?: return
       remember(player)
+      skipNonMusic(player)
       if (sleepDeadline > 0 && System.currentTimeMillis() >= sleepDeadline) {
         sleepDeadline = 0
         if (player.isPlaying) {
@@ -72,7 +77,9 @@ class YtZeroMusicPlayerModule : Module() {
       currentId = mediaItem?.mediaId
       currentPositionMs = 0
       currentDurationMs = 0
-      if (sleepAtEndOfSong && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+      val finished = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO || (skippingOutro && reason == Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+      skippingOutro = false
+      if (sleepAtEndOfSong && finished) {
         sleepAtEndOfSong = false
         player.pause()
         sendEvent("onSleep", mapOf<String, Any>())
@@ -80,11 +87,13 @@ class YtZeroMusicPlayerModule : Module() {
       sendEvent("onTrackChange", mapOf(
         "index" to player.currentMediaItemIndex,
         "videoId" to currentId,
-        "reason" to when (reason) {
-          Player.MEDIA_ITEM_TRANSITION_REASON_AUTO -> "auto"
-          Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> "seek"
-          Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> "repeat"
-          else -> "playlist"
+        "reason" to when {
+          finished -> "auto"
+          else -> when (reason) {
+            Player.MEDIA_ITEM_TRANSITION_REASON_SEEK -> "seek"
+            Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT -> "repeat"
+            else -> "playlist"
+          }
         },
         "previous" to previous,
       ))
@@ -120,6 +129,13 @@ class YtZeroMusicPlayerModule : Module() {
     AsyncFunction("setSleepTimer") { deadline: Double, endOfSong: Boolean ->
       sleepDeadline = deadline.toLong()
       sleepAtEndOfSong = endOfSong
+    }.runOnQueue(Queues.MAIN)
+
+    // Parts of a song to jump over, as [start, end] pairs in seconds. An empty list clears them.
+    AsyncFunction("setSkips") { videoId: String, segments: List<List<Double>> ->
+      val ranges = segments.filter { it.size == 2 && it[1] > it[0] }.map { (it[0] * 1000).toLong()..(it[1] * 1000).toLong() }
+      if (ranges.isEmpty()) skips.remove(videoId) else skips[videoId] = ranges
+      while (skips.size > 300) skips.remove(skips.keys.first())
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("setQueue") { tracks: List<MusicTrackRecord>, startIndex: Int, play: Boolean ->
@@ -222,6 +238,28 @@ class YtZeroMusicPlayerModule : Module() {
     listening?.removeListener(listener)
     listening = null
     main.removeCallbacks(tick)
+  }
+
+  /**
+   * Jumps over a non-music part the song is in. Near a part's end there is
+   * nothing left worth skipping; an outro skips to the next song as if it ended.
+   */
+  private fun skipNonMusic(player: Player) {
+    if (!player.isPlaying || skippingOutro) return
+    val ranges = skips[player.currentMediaItem?.mediaId ?: return] ?: return
+    val position = player.currentPosition
+    val range = ranges.firstOrNull { position >= it.first && position < it.last - 300 } ?: return
+    val duration = player.duration
+    if (duration > 0 && range.last >= duration - 1000) {
+      if (player.hasNextMediaItem()) {
+        skippingOutro = true
+        player.seekToNextMediaItem()
+      } else {
+        player.seekTo(duration)
+      }
+    } else {
+      player.seekTo(range.last)
+    }
   }
 
   private fun remember(player: Player) {

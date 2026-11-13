@@ -78,7 +78,7 @@ describe("music mode", () => {
     expect(result.likedIds).toEqual([result.served[0]]);
     expect(result.firstRating).toBe(1);
     expect(result.recentIds).toEqual([result.served[1], result.served[0]]);
-    expect(result.otherLibrary).toEqual({ liked: [], recent: [] });
+    expect(result.otherLibrary).toEqual({ liked: [], recent: [], albums: [] });
   });
 
   test("is not available to child profiles", () => {
@@ -86,12 +86,47 @@ describe("music mode", () => {
     expect(result.childStationStatus).toBe(403);
   });
 
+  test("plays an album from a chosen track, then continues with a station without album repeats", () => {
+    expect(result.albumStatus).toBe(200);
+    expect(result.albumTitle).toBe("Abbey Road (2019 Mix)");
+    expect(result.albumIds).toHaveLength(17);
+    expect(result.albumSavedBefore).toBe(false);
+    expect(result.albumStartIds).toEqual(result.albumIds.slice(2));
+    expect(result.albumStartSeed).toBe("album:MPREb_LQwx7Jq6u9H");
+    expect(result.albumNextIds.length).toBeGreaterThan(0);
+    for (const id of result.albumNextIds) expect(result.albumIds.slice(2)).not.toContain(id);
+  });
+
+  test("saves albums per profile and unsaves them", () => {
+    expect(result.saveStatus).toBe(200);
+    expect(result.savedFlag).toBe(true);
+    expect(result.librarySavedIds).toEqual(["MPREb_LQwx7Jq6u9H"]);
+    expect(result.librarySavedTitle).toBe("Abbey Road (2019 Mix)");
+    expect(result.libraryUnsaved).toEqual([]);
+    expect(result.otherSaved).toEqual([]);
+  });
+
+  test("shows artist pages, starts artist stations, and searches albums and artists with songs", () => {
+    expect(result.artistStatus).toBe(200);
+    expect(result.artistName).toBe("The Beatles");
+    expect(result.artistAlbums).toBeGreaterThan(0);
+    expect(result.artistStationIds.length).toBeGreaterThan(0);
+    expect(result.artistStationIds.some((id: string) => result.artistTopIds.includes(id))).toBe(true);
+    expect(result.badAlbumStatus).toBe(404);
+    expect(result.childAlbumStatus).toBe(403);
+    expect(result.mixedAlbums[0]).toBe("MPREb_LQwx7Jq6u9H");
+    expect(result.mixedArtists).toBeGreaterThan(0);
+    expect(result.mixedTracks).toBeGreaterThan(0);
+  });
+
   test("round-trips through backup, restores idempotently, and replaces on request", () => {
     expect(result.exported.ratings).toHaveLength(2);
     expect(result.exported.plays).toHaveLength(2);
+    expect(result.exported.saved_albums.map((album: any) => album.browse_id)).toEqual(["MPREb_LQwx7Jq6u9H"]);
+    expect(result.restoredV1).toEqual({ ...result.exported, saved_albums: [] });
     expect(result.exported.tracks.map((track: any) => track.video_id).sort()).toEqual([result.served[0], result.served[1], result.served[2]].sort());
     expect(result.restoredTwice).toEqual(result.exported);
     expect(result.replaced).toEqual(result.exported);
-    expect(result.malformedSkipped).toBe(2);
+    expect(result.malformedSkipped).toBe(3);
   });
 });

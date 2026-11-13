@@ -7,7 +7,7 @@ import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { onSleepTimerChange, setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, sleepTimerRemaining, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
 import type { MusicApi } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
-import { current, upNext } from "./musicQueue";
+import { current, playingFrom, upNext } from "./musicQueue";
 import type { MusicSession, MusicSessionState } from "./musicSession";
 import { durationLabel, MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
 
@@ -76,6 +76,7 @@ export function MusicNowPlaying({ api, session, state, t, onClose }: { api: Musi
   const track = current(state.queue);
   const position = usePosition(state, true);
   const next = upNext(state.queue);
+  const source = playingFrom(state.queue);
   if (!track) return null;
   const duration = state.player?.duration ?? track.duration ?? 0;
   const playing = state.player?.playing ?? false;
@@ -118,7 +119,10 @@ export function MusicNowPlaying({ api, session, state, t, onClose }: { api: Musi
   return <View style={styles.screen}>
     <View style={styles.top}>
       <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={t("close")} onPress={onClose}><MusicIcon name="down" color={phoneColors.text} size={28} /></Pressable>
-      <Text style={styles.heading}>{t("musicNowPlaying")}</Text>
+      <View style={styles.topCopy}>
+        <Text style={styles.heading}>{t("musicNowPlaying")}</Text>
+        <Text numberOfLines={1} style={styles.source}>{source ? t("musicFromAlbum").replace("{title}", source) : t("musicStation")}</Text>
+      </View>
       <View style={styles.topSpacer} />
     </View>
     <FlatList data={next} keyExtractor={(entry) => entry.videoId} ListHeaderComponent={header} contentContainerStyle={styles.list}
@@ -142,6 +146,8 @@ const styles = StyleSheet.create({
   top: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16 },
   heading: { ...phoneType.title, color: phoneColors.text },
   topSpacer: { width: 28 },
+  topCopy: { flex: 1, alignItems: "center", gap: 1 },
+  source: { ...phoneType.caption, color: phoneColors.textMuted },
   list: { paddingBottom: 16 },
   player: { alignItems: "center", paddingHorizontal: 24, paddingTop: 8 },
   copy: { alignSelf: "stretch", gap: 4, marginTop: 24 },

@@ -19,10 +19,29 @@ export type MusicQueue = {
   /** When the current song started, ISO. */
   startedAt: string | null;
   skipped: string[];
+  /** The album this queue opened with, and how many of its first songs are the album's. Null for a station. */
+  from: { title: string; count: number } | null;
 };
 
-export function createQueue(seed: MusicSeed, seedKey: string | null, tracks: MusicTrack[], now: Date): MusicQueue {
-  return { seed, seedKey, tracks: unique([], tracks), index: 0, startedAt: tracks.length ? now.toISOString() : null, skipped: [] };
+export function createQueue(seed: MusicSeed, seedKey: string | null, tracks: MusicTrack[], now: Date, fromTitle: string | null = null): MusicQueue {
+  const queued = unique([], tracks);
+  const from = fromTitle ? { title: fromTitle, count: queued.length } : null;
+  return { seed, seedKey, tracks: queued, index: 0, startedAt: queued.length ? now.toISOString() : null, skipped: [], from };
+}
+
+/** The tracks in a random order (Fisher–Yates), for playing an album shuffled. */
+export function shuffleTracks<T>(tracks: readonly T[], random: () => number = Math.random): T[] {
+  const result = [...tracks];
+  for (let index = result.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1));
+    [result[index], result[other]] = [result[other]!, result[index]!];
+  }
+  return result;
+}
+
+/** The album still playing, if any; null once the station after it has begun. */
+export function playingFrom(queue: MusicQueue | null): string | null {
+  return queue?.from && queue.index < queue.from.count ? queue.from.title : null;
 }
 
 /** Songs to add to the end, without any already queued. */
@@ -104,7 +123,8 @@ export function applyTrackChange(queue: MusicQueue, change: MusicTrackChange, no
 /** The player was told to drop a song from the up-next list. */
 export function removeTrack(queue: MusicQueue, index: number): MusicQueue {
   if (index <= queue.index || index >= queue.tracks.length) return queue;
-  return { ...queue, tracks: queue.tracks.filter((_, at) => at !== index) };
+  const from = queue.from && index < queue.from.count ? { ...queue.from, count: queue.from.count - 1 } : queue.from;
+  return { ...queue, tracks: queue.tracks.filter((_, at) => at !== index), from };
 }
 
 export function rateTrack(queue: MusicQueue, videoId: string, rating: 1 | -1 | null): MusicQueue {

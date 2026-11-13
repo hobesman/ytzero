@@ -37,9 +37,15 @@ const panel = (videoId: string, name: string) => ({ playlistPanelVideoRenderer: 
 } });
 const radioIds = ["seedSong001", ...Array.from({ length: 12 }, (_, index) => `radioSong${String(index + 1).padStart(2, "0")}`)];
 const youtubeRequests: string[] = [];
+// Album, artist and mixed-search answers are real (trimmed) YouTube Music responses.
+const fixture = async (name: string) => JSON.parse(await Bun.file(new URL(`../src/music/fixtures/ytm-${name}.json`, import.meta.url)).text());
+const [albumFixture, artistFixture, searchFixture] = await Promise.all([fixture("album"), fixture("artist"), fixture("search")]);
 const fakeFetch = async (url: string, init?: RequestInit) => {
   youtubeRequests.push(url);
   if (init?.method !== "POST") return new Response('<script>{"INNERTUBE_CLIENT_VERSION":"1.2026"}</script>');
+  const request = JSON.parse(String(init.body ?? "{}"));
+  if (url.includes("/browse")) return Response.json(String(request.browseId).startsWith("MPREb_") ? albumFixture : artistFixture);
+  if (url.includes("/search") && !request.params) return Response.json(searchFixture);
   if (url.includes("/search")) {
     return Response.json({ contents: [{ musicResponsiveListItemRenderer: {
       playlistItemData: { videoId: "seedSong001" },
@@ -110,6 +116,28 @@ const otherLibrary = await (await call("/music/library", "GET", undefined, secon
 const childSearch = await call("/music/search?q=seed", "GET", undefined, child.id);
 const childStation = await call("/music/station", "POST", { seed: { kind: "liked" } }, child.id);
 
+// Albums and artists.
+const ALBUM = "MPREb_LQwx7Jq6u9H";
+const ARTIST = "UC2XdaAVUannpujzv32jcouQ";
+const albumResponse = await call(`/music/albums/${ALBUM}`);
+const album = await albumResponse.json() as any;
+const albumIds: string[] = album.tracks.map((track: any) => track.videoId);
+const albumStart = await (await call("/music/station", "POST", { seed: { kind: "album", browseId: ALBUM, startAt: albumIds[2] }, count: 5 })).json() as any;
+const albumNext = await (await call("/music/station", "POST", { seed: { kind: "album", browseId: ALBUM, startAt: albumIds[2] }, served: albumIds.slice(2), count: 5 })).json() as any;
+const saveResponse = await call(`/music/albums/${ALBUM}/saved`, "PUT");
+const savedFlag = (await (await call(`/music/albums/${ALBUM}`)).json() as any).saved;
+const librarySaved = (await (await call("/music/library")).json() as any).albums;
+await call(`/music/albums/${ALBUM}/saved`, "DELETE");
+const libraryUnsaved = (await (await call("/music/library")).json() as any).albums;
+await call(`/music/albums/${ALBUM}/saved`, "PUT");
+const otherSaved = (await (await call("/music/library", "GET", undefined, secondary.id)).json() as any).albums;
+const artistResponse = await call(`/music/artists/${ARTIST}`);
+const artistPage = await artistResponse.json() as any;
+const artistStation = await (await call("/music/station", "POST", { seed: { kind: "artist", artistId: ARTIST }, count: 5 })).json() as any;
+const badAlbumStatus = (await call("/music/albums/nope")).status;
+const childAlbumStatus = (await call(`/music/albums/${ALBUM}`, "GET", undefined, child.id)).status;
+const mixedSearch = await (await call("/music/search?q=abbey")).json() as any;
+
 const after = counts();
 
 // Backup round trip into another profile: merge twice, then replace.
@@ -120,7 +148,13 @@ const restoredTwice = await exportMusicBackup(secondary.id);
 await call(`/music/tracks/${served[3]}/rating`, "PUT", { rating: 1 }, secondary.id);
 await restoreMusicBackup(secondary.id, exported, "replace");
 const replaced = await exportMusicBackup(secondary.id);
-const malformed = await restoreMusicBackup(secondary.id, { ratings: [{ video_id: "x", rating: 1 }], plays: [{ video_id: served[0], started_at: "never" }] }, "merge");
+const malformed = await restoreMusicBackup(secondary.id, { ratings: [{ video_id: "x", rating: 1 }], plays: [{ video_id: served[0], started_at: "never" }], saved_albums: [{ browse_id: "VLnope" }] }, "merge");
+// A schema v1 document, from before saved albums, restores into an empty profile.
+const third = db.prepare("INSERT INTO users(name,avatar_color,sort_order,portable_uuid) VALUES('Third','#111111',3,?) RETURNING id")
+  .get(crypto.randomUUID()) as { id: number };
+const { saved_albums: _savedAlbums, ...v1Document } = exported;
+await restoreMusicBackup(third.id, v1Document, "merge");
+const restoredV1 = await exportMusicBackup(third.id);
 
 console.log("RESULT " + JSON.stringify({
   before, after,
@@ -156,6 +190,30 @@ console.log("RESULT " + JSON.stringify({
   restoredTwice,
   replaced,
   malformedSkipped: malformed.skipped,
+  restoredV1,
+  albumStatus: albumResponse.status,
+  albumTitle: album.title,
+  albumIds,
+  albumSavedBefore: album.saved,
+  albumStartIds: albumStart.tracks.map((track: any) => track.videoId),
+  albumStartSeed: albumStart.seed,
+  albumNextIds: albumNext.tracks.map((track: any) => track.videoId),
+  saveStatus: saveResponse.status,
+  savedFlag,
+  librarySavedIds: librarySaved.map((saved: any) => saved.browseId),
+  librarySavedTitle: librarySaved[0]?.title,
+  libraryUnsaved,
+  otherSaved,
+  artistStatus: artistResponse.status,
+  artistName: artistPage.name,
+  artistAlbums: artistPage.albums.length,
+  artistStationIds: artistStation.tracks.map((track: any) => track.videoId),
+  artistTopIds: artistPage.topSongs.map((track: any) => track.videoId),
+  badAlbumStatus,
+  childAlbumStatus,
+  mixedAlbums: mixedSearch.albums.map((item: any) => item.browseId),
+  mixedArtists: mixedSearch.artists.length,
+  mixedTracks: mixedSearch.tracks.length,
 }));
 
 db.close();

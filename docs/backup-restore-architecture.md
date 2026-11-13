@@ -551,18 +551,23 @@ archive with no such capability restores with public sharing denied.
 - `watch_time_log`, `scheduling_event_log`, `watch_tag_time_log`, and
   `sponsorblock_skip_log` if Insights/Pulse history is selected.
 - Music mode is a separate service and has its own versioned section,
-  `profile.music` (schema v1, `profiles/<uuid>/music.json`). It holds the
-  profile's `music_ratings` (liked songs and "not this one") and `music_plays`
-  (listening history with listened seconds and how each song ended). Both are
+  `profile.music` (schema v2, `profiles/<uuid>/music.json`). It holds the
+  profile's `music_ratings` (liked songs and "not this one"), `music_plays`
+  (listening history with listened seconds and how each song ended) and, since
+  v2, `music_saved_albums` (albums saved to the library, keyed by YouTube
+  Music album ID, with the title, artist, year and artwork shown there). A v1
+  document has no saved albums and restores as before. Ratings and plays are
   keyed by YouTube video ID, never by a `videos` row: music never writes the
   video catalog, so the section does not depend on
   `library.referenced-videos`. `music_tracks` is a rebuildable cache of songs
   seen in search or radio; only the rows the exported ratings and plays point
   at travel with them, as a rehydration seed, and restore never overwrites an
-  existing track row. Merge upserts ratings by profile and video and inserts
-  plays idempotently by profile, video and start time; replace clears the
-  mapped profile's ratings and plays first. Malformed rows are skipped and
-  counted. In-memory radio results and prepared audio prefixes are transient.
+  existing track row. Merge upserts ratings by profile and video, inserts
+  plays idempotently by profile, video and start time, and keeps an album
+  already saved by the profile; replace clears the mapped profile's ratings,
+  plays and saved albums first. Malformed rows are skipped and counted.
+  In-memory radio results, album and artist pages, and prepared audio
+  prefixes are transient.
 - minimal channel/video metadata for objects referenced by the selected state.
   This is a rehydration seed, not the entire cached feed/library.
 

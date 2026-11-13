@@ -2,8 +2,9 @@ import { useSyncExternalStore } from "react";
 import { musicPlayer, type MusicPlayerProgress, type MusicPlayerState, type MusicTrackChange } from "../musicPlayer";
 import { onSleepTimerChange, setSleepTimer, sleepTimer } from "../sleepTimer";
 import type { MusicApi, MusicSeed, MusicTrack } from "./musicApi";
+import { nonMusicSegments } from "./musicNonMusic";
 import {
-  appendTracks, applyTrackChange, createQueue, current, endReason, needsMore, playFor, rateTrack, removeTrack, served,
+  appendTracks, applyTrackChange, createQueue, current, endReason, needsMore, playFor, rateTrack, removeTrack, served, shuffleTracks,
   type MusicQueue,
 } from "./musicQueue";
 
@@ -60,8 +61,11 @@ export class MusicSession {
     void musicPlayer.setSleepTimer(timer.kind === "time" ? timer.deadline : 0, timer.kind === "end");
   }
 
-  /** Starts a station, replacing whatever was playing. */
-  async start(seed: MusicSeed) {
+  /**
+   * Starts a station, replacing whatever was playing. An album seed plays the
+   * album first (shuffled on request, titled `from`); its station follows.
+   */
+  async start(seed: MusicSeed, options: { shuffle?: boolean; from?: string } = {}) {
     const generation = ++this.generation;
     this.update({ starting: true, error: null });
     try {
@@ -69,10 +73,12 @@ export class MusicSession {
       if (generation !== this.generation) return;
       if (!station.tracks.length) { this.update({ starting: false, error: "empty" }); return; }
       await this.recordReplaced();
-      const queue = createQueue(seed, station.seed, station.tracks, new Date());
+      const tracks = options.shuffle ? shuffleTracks(station.tracks) : station.tracks;
+      const queue = createQueue(seed, station.seed, tracks, new Date(), seed.kind === "album" ? options.from ?? null : null);
       this.update({ queue, starting: false });
       await musicPlayer.setQueue(queue.tracks.map((track) => this.api.playerTrack(track)), 0, true);
       this.prepare(queue.tracks[1]?.videoId ?? null);
+      this.loadSkips(queue.tracks);
     } catch (error) {
       if (generation === this.generation) this.update({ starting: false, error: error instanceof Error ? error.message : String(error) });
     }
@@ -86,6 +92,15 @@ export class MusicSession {
     if (result.play) this.api.recordPlay(result.play).catch(() => {});
     this.prepare(result.prepare);
     if (needsMore(result.queue)) void this.refill();
+  }
+
+  /** Has the player jump over the non-music parts of music videos; fetched in the background. */
+  private loadSkips(tracks: readonly MusicTrack[]) {
+    for (const track of tracks) {
+      nonMusicSegments(track).then((segments) => {
+        if (segments.length) return musicPlayer.setSkips(track.videoId, segments);
+      }).catch(() => {});
+    }
   }
 
   private prepare(videoId: string | null) {
@@ -106,6 +121,7 @@ export class MusicSession {
       if (!added.length) return;
       this.update({ queue: next });
       await musicPlayer.append(added.map((track) => this.api.playerTrack(track)));
+      this.loadSkips(added);
       // The song after the current one may have just arrived.
       if (next.index + 1 === latest.tracks.length) this.prepare(added[0]?.videoId ?? null);
     } catch {
