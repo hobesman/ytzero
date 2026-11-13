@@ -39,6 +39,7 @@ import { registerFeedBuilderRoutes } from "./routes/feedBuilderRoutes";
 import { registerLibraryRoutes } from "./routes/libraryRoutes";
 import { registerChildRoutes } from "./routes/childRoutes";
 import { registerInsightRoutes } from "./routes/insightRoutes";
+import { registerMusicRoutes } from "./routes/musicRoutes";
 import { registerDownloadRoutes } from "./routes/downloadRoutes";
 import { migrateDownloadsFromPlugin, profileDownloadsEnabled } from "./downloadConfig";
 import { registerChannelPlaylistRoutes } from "./routes/channelPlaylistRoutes";
@@ -336,11 +337,10 @@ registerFeedRoutes(api, { currentUserId, attachTags });
 registerFeedBuilderRoutes(api, { currentUserId, attachTags });
 
 registerLibraryRoutes(api, { currentUserId, attachTags, attachWatchedState });
-
 registerChildRoutes(api, { currentUserId, isAdmin, isChildLockEnabled, isSixDigitPin, verifyChildLockPin });
 
 registerInsightRoutes(api, currentUserId);
-
+registerMusicRoutes(api, { currentUserId });
 registerPluginRoutes(api, { isAdmin, currentUserId });
 
 registerSocialRoutes(api, { isAdmin, currentUserId });
