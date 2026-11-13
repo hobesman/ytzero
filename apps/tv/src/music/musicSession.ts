@@ -18,6 +18,11 @@ export type MusicSessionState = {
 
 const EMPTY: MusicSessionState = { queue: null, player: null, starting: false, error: null };
 
+/** How long a station fetched ahead of a tap stays usable; the server keeps its first song's start as long. */
+const WARM_TTL_MS = 3 * 60_000;
+
+type StationResult = { seed: string; tracks: MusicTrack[] };
+
 /**
  * The station playing now, shared by every music screen: it keeps the native
  * player's queue a few songs ahead, has the server ready the next song, and
@@ -29,6 +34,7 @@ export class MusicSession {
   private readonly unsubscribe: (() => void)[] = [];
   private refilling = false;
   private generation = 0;
+  private warmed: { key: string; at: number; station: Promise<StationResult> } | null = null;
 
   constructor(private readonly api: MusicApi) {
     void musicPlayer.setAuthorization(api.accessToken ?? null);
@@ -62,6 +68,30 @@ export class MusicSession {
   }
 
   /**
+   * Fetches a station the listener is likely to start, such as the mix on Home
+   * or the album on screen. Starting a station has the server prepare its first
+   * song, so a later `start` with the same seed plays without waiting for the
+   * station or that song's audio.
+   */
+  warm(seed: MusicSeed) {
+    const key = JSON.stringify(seed);
+    if (this.warmed?.key === key && Date.now() - this.warmed.at < WARM_TTL_MS) return;
+    const station = this.api.station(seed, [], [], 10);
+    const entry = { key, at: Date.now(), station };
+    station.catch(() => { if (this.warmed === entry) this.warmed = null; });
+    this.warmed = entry;
+  }
+
+  /** The warmed station for this seed, once; a failed one falls back to a fresh request. */
+  private stationFor(seed: MusicSeed): Promise<StationResult> {
+    const fresh = () => this.api.station(seed, [], [], 10);
+    const entry = this.warmed;
+    if (!entry || entry.key !== JSON.stringify(seed) || Date.now() - entry.at >= WARM_TTL_MS) return fresh();
+    this.warmed = null;
+    return entry.station.catch(fresh);
+  }
+
+  /**
    * Starts a station, replacing whatever was playing. An album seed plays the
    * album first (shuffled on request, titled `from`); its station follows.
    */
@@ -69,7 +99,7 @@ export class MusicSession {
     const generation = ++this.generation;
     this.update({ starting: true, error: null });
     try {
-      const station = await this.api.station(seed, [], [], 10);
+      const station = await this.stationFor(seed);
       if (generation !== this.generation) return;
       if (!station.tracks.length) { this.update({ starting: false, error: "empty" }); return; }
       await this.recordReplaced();

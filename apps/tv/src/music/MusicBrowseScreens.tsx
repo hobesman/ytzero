@@ -50,6 +50,9 @@ function Note({ text, action, onAction }: { text: string; action?: string; onAct
 export function MusicHomeScreen({ api, session, t, visible, playingId }: ScreenProps) {
   const { library, failed, load } = useMusicLibrary(api, visible);
   const start = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
+  // The mix is the likeliest first tap, so fetch it ahead while nothing plays.
+  const hasMix = Boolean(library?.recent.length);
+  useEffect(() => { if (visible && hasMix && !playingId) session.warm({ kind: "mix" }); }, [hasMix, playingId, session, visible]);
   const header = <View>
     <View style={styles.cards}>
       {/* The mix is built from what the profile played, so it needs some plays first. */}

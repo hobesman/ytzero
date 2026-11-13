@@ -68,6 +68,9 @@ export function MusicAlbumScreen({ api, session, t, playingId, id, onOpen, onBac
   const load = useCallback(() => api.album(id), [api, id]);
   const { data: album, setData, failed, retry } = usePageData<MusicAlbumPage>(load);
   const [saving, setSaving] = useState(false);
+  // Fetch the album's station while the page is read, so Play starts at once.
+  const warmId = album?.tracks.length ? album.browseId : null;
+  useEffect(() => { if (warmId) session.warm({ kind: "album", browseId: warmId }); }, [session, warmId]);
   const play = (options: { startAt?: string; shuffle?: boolean } = {}) => {
     if (!album) return;
     void session.start({ kind: "album", browseId: album.browseId, ...(options.startAt ? { startAt: options.startAt } : {}) },
