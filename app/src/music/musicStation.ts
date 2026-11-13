@@ -1,12 +1,19 @@
 import { database } from "../database";
 import { musicTracks, upsertMusicTracks, type StoredMusicTrack } from "./musicCatalog";
 import { artistKey, pickStationTracks, type MusicPlaySignal, type MusicSignals } from "./musicStationRanking";
+import type { MusicPages } from "./musicAlbums";
+import { ALBUM_ID, ARTIST_ID } from "./youtubeMusicBrowseParsers";
 import type { MusicTrack, YouTubeMusicClient } from "./youtubeMusicClient";
 
 export type StationSeed =
   | { kind: "track"; videoId: string }
   | { kind: "liked" }
-  | { kind: "mix" };
+  | { kind: "mix" }
+  /** An album from `startAt` (its first track when absent), then a station like it. */
+  | { kind: "album"; browseId: string; startAt?: string }
+  | { kind: "artist"; artistId: string };
+
+const ALBUM_TRACK_LIMIT = 200;
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const RADIO_TTL_MS = 30 * 60_000;
@@ -15,16 +22,26 @@ const LIKED_RADIO_EVERY = 5;
 const PLAY_HISTORY_LIMIT = 500;
 
 export function parseStationSeed(value: unknown): StationSeed | null {
-  const seed = value as { kind?: unknown; videoId?: unknown } | null;
+  const seed = value as { kind?: unknown; videoId?: unknown; browseId?: unknown; startAt?: unknown; artistId?: unknown } | null;
   if (seed?.kind === "liked" || seed?.kind === "mix") return { kind: seed.kind };
   if (seed?.kind === "track" && typeof seed.videoId === "string" && VIDEO_ID.test(seed.videoId)) {
     return { kind: "track", videoId: seed.videoId };
+  }
+  if (seed?.kind === "album" && typeof seed.browseId === "string" && ALBUM_ID.test(seed.browseId)) {
+    if (seed.startAt == null) return { kind: "album", browseId: seed.browseId };
+    return typeof seed.startAt === "string" && VIDEO_ID.test(seed.startAt) ? { kind: "album", browseId: seed.browseId, startAt: seed.startAt } : null;
+  }
+  if (seed?.kind === "artist" && typeof seed.artistId === "string" && ARTIST_ID.test(seed.artistId)) {
+    return { kind: "artist", artistId: seed.artistId };
   }
   return null;
 }
 
 export function stationSeedKey(seed: StationSeed): string {
-  return seed.kind === "track" ? `track:${seed.videoId}` : seed.kind;
+  if (seed.kind === "track") return `track:${seed.videoId}`;
+  if (seed.kind === "album") return `album:${seed.browseId}`;
+  if (seed.kind === "artist") return `artist:${seed.artistId}`;
+  return seed.kind;
 }
 
 export function parseVideoIdList(value: unknown, limit = 500): string[] {
@@ -67,7 +84,7 @@ async function mostPlayedVideoIds(userId: number, limit = 20): Promise<string[]>
   return rows.map((row) => row.video_id);
 }
 
-export function createMusicStations(client: YouTubeMusicClient) {
+export function createMusicStations(client: YouTubeMusicClient, pages: MusicPages) {
   const radioCache = new Map<string, { at: number; tracks: StoredMusicTrack[] }>();
 
   async function radioFor(userId: number, videoId: string): Promise<StoredMusicTrack[]> {
@@ -99,7 +116,21 @@ export function createMusicStations(client: YouTubeMusicClient) {
     const radioSeeds: string[] = [];
     const sources: StoredMusicTrack[][] = [];
 
-    if (seed.kind === "track") {
+    if (seed.kind === "album") {
+      const page = await pages.album(userId, seed.browseId);
+      if (!page?.tracks.length) throw new Error("album unavailable");
+      // The first call is the album itself; once it is queued, a station like it follows.
+      if (!servedIds.length) {
+        const start = Math.max(0, page.tracks.findIndex((track) => track.videoId === seed.startAt));
+        return page.tracks.slice(start, start + ALBUM_TRACK_LIMIT);
+      }
+      radioSeeds.push((page.tracks.find((track) => track.videoId === seed.startAt) ?? page.tracks[0]).videoId);
+    } else if (seed.kind === "artist") {
+      const page = await pages.artist(userId, seed.artistId);
+      if (!page?.topSongs.length) throw new Error("artist unavailable");
+      sources.push(page.topSongs);
+      radioSeeds.push(page.topSongs[0].videoId);
+    } else if (seed.kind === "track") {
       radioSeeds.push(seed.videoId);
     } else {
       const base = seed.kind === "liked" ? liked : await mostPlayedVideoIds(userId);

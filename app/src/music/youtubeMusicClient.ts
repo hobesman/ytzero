@@ -2,8 +2,9 @@ import { youtubeFetch } from "../youtubeFetch";
 import { readYouTubeResponse, youtubeRefusalGate, isYouTubeRefusalError } from "../youtubeRateLimit";
 import { resolveYouTubeLanguage, youtubeRequestHeaders } from "../youtubeRequestLanguage";
 import { parseRadioResponse, parseSearchResponse, type MusicTrack } from "./youtubeMusicParsers";
+import { ALBUM_ID, ARTIST_ID, parseAlbumPage, parseArtistPage, parseSearchShelves, type MusicAlbum, type MusicAlbumPage, type MusicArtist, type MusicArtistPage } from "./youtubeMusicBrowseParsers";
 
-export type { MusicTrack };
+export type { MusicTrack, MusicAlbum, MusicAlbumPage, MusicArtist, MusicArtistPage };
 
 const MUSIC_ORIGIN = "https://music.youtube.com";
 const FALLBACK_MUSIC_CLIENT_VERSION = "1.20241106.01.00";
@@ -44,7 +45,7 @@ export function createYouTubeMusicClient(options: YouTubeMusicClientOptions = {}
     }
   }
 
-  async function innertube(userId: number, origin: string, endpoint: "next" | "search", client: { clientName: string; clientVersion: string }, body: Record<string, unknown>): Promise<unknown> {
+  async function innertube(userId: number, origin: string, endpoint: "next" | "search" | "browse", client: { clientName: string; clientVersion: string }, body: Record<string, unknown>): Promise<unknown> {
     youtubeRefusalGate.enter();
     try {
       const language = resolveYouTubeLanguage(userId);
@@ -88,7 +89,27 @@ export function createYouTubeMusicClient(options: YouTubeMusicClientOptions = {}
     return parseRadioResponse(data);
   }
 
-  return { searchSongs, radio };
+  async function remix(userId: number, endpoint: "search" | "browse", body: Record<string, unknown>): Promise<unknown> {
+    const version = await musicClientVersion(userId);
+    return innertube(userId, MUSIC_ORIGIN, endpoint, { clientName: "WEB_REMIX", clientVersion: version }, body);
+  }
+
+  /** Albums and artists matching a query, from YouTube Music's unfiltered search. */
+  async function searchAll(userId: number, query: string): Promise<{ albums: MusicAlbum[]; artists: MusicArtist[] }> {
+    return parseSearchShelves(await remix(userId, "search", { query }));
+  }
+
+  async function album(userId: number, browseId: string): Promise<MusicAlbumPage | null> {
+    if (!ALBUM_ID.test(browseId)) return null;
+    return parseAlbumPage(browseId, await remix(userId, "browse", { browseId }));
+  }
+
+  async function artist(userId: number, channelId: string): Promise<MusicArtistPage | null> {
+    if (!ARTIST_ID.test(channelId)) return null;
+    return parseArtistPage(channelId, await remix(userId, "browse", { browseId: channelId }));
+  }
+
+  return { searchSongs, searchAll, radio, album, artist };
 }
 
 export type YouTubeMusicClient = ReturnType<typeof createYouTubeMusicClient>;

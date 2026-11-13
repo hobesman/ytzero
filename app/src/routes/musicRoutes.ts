@@ -3,11 +3,14 @@ import { parseAudioRange } from "../audioRange";
 import { isChildUser } from "../childTime";
 import { database } from "../database";
 import { log } from "../logger";
+import { createMusicPages } from "../music/musicAlbums";
 import { createMusicAudio, type MusicAudio } from "../music/musicAudio";
 import { musicTrack, musicTracks, upsertMusicTracks, type StoredMusicTrack } from "../music/musicCatalog";
+import { upstreamFailure, withRatings } from "../music/musicRouteHelpers";
+import { savedAlbums } from "../music/musicSavedAlbums";
 import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey, type MusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient, type YouTubeMusicClient } from "../music/youtubeMusicClient";
-import { isYouTubeRefusalError } from "../youtubeRateLimit";
+import { registerMusicAlbumRoutes } from "./musicAlbumRoutes";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type Api = Hono<ApiEnvironment>;
@@ -31,21 +34,6 @@ async function defaultAudio(): Promise<{ audio: MusicAudio; ytdlpAvailable: () =
   };
 }
 
-async function withRatings(userId: number, tracks: readonly StoredMusicTrack[]) {
-  if (!tracks.length) return [];
-  const ids = [...new Set(tracks.map((track) => track.videoId))];
-  const rows = await database.prepare(`SELECT video_id, rating FROM music_ratings WHERE user_id = ? AND video_id IN (${ids.map(() => "?").join(",")})`)
-    .all<{ video_id: string; rating: number }>(userId, ...ids);
-  const ratings = new Map(rows.map((row) => [row.video_id, Number(row.rating)]));
-  return tracks.map(({ songKey: _songKey, ...track }) => ({ ...track, rating: ratings.get(track.videoId) ?? 0 }));
-}
-
-function upstreamFailure(context: ApiContext, error: unknown, event: string) {
-  if (isYouTubeRefusalError(error)) return context.json({ error: "YouTube is refusing requests right now", code: "youtube_refused" }, 503);
-  log.warn(event, { error: error instanceof Error ? error.message : String(error) });
-  return context.json({ error: "YouTube Music is unavailable" }, 502);
-}
-
 /**
  * Music mode: a separate service on the shared server. These routes read and
  * write only the music_* tables and never the video catalog, watch history,
@@ -54,7 +42,8 @@ function upstreamFailure(context: ApiContext, error: unknown, event: string) {
 export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependencies): void {
   const { currentUserId } = dependencies;
   const client = dependencies.client ?? createYouTubeMusicClient();
-  const stations: MusicStations = createMusicStations(client);
+  const pages = createMusicPages(client);
+  const stations: MusicStations = createMusicStations(client, pages);
   let audioDependencies: Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }> | null = null;
   const audioService = () => {
     if (dependencies.audio) return Promise.resolve({ audio: dependencies.audio, ytdlpAvailable: dependencies.ytdlpAvailable ?? (async () => true) });
@@ -70,10 +59,18 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
   api.get("/music/search", async (context) => {
     const userId = currentUserId(context);
     const query = (context.req.query("q") ?? "").trim().slice(0, 200);
-    if (!query) return context.json({ tracks: [] });
+    if (!query) return context.json({ tracks: [], albums: [], artists: [] });
     try {
-      const tracks = await upsertMusicTracks(await client.searchSongs(userId, query));
-      return context.json({ tracks: await withRatings(userId, tracks) });
+      // Albums and artists come from a second search; songs still answer without them.
+      const [songs, shelves] = await Promise.all([
+        client.searchSongs(userId, query),
+        client.searchAll(userId, query).catch((error) => {
+          log.warn("music.search_shelves_failed", { error: error instanceof Error ? error.message : String(error) });
+          return { albums: [], artists: [] };
+        }),
+      ]);
+      const tracks = await upsertMusicTracks(songs);
+      return context.json({ tracks: await withRatings(userId, tracks), albums: shelves.albums.slice(0, 12), artists: shelves.artists.slice(0, 8) });
     } catch (error) {
       return upstreamFailure(context, error, "music.search_failed");
     }
@@ -175,6 +172,9 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
     return context.json({
       liked: await withRatings(userId, pick(likedRows)),
       recent: await withRatings(userId, pick(recentRows)),
+      albums: await savedAlbums(userId),
     });
   });
+
+  registerMusicAlbumRoutes(api, { currentUserId, pages });
 }

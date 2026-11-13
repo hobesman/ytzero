@@ -16,7 +16,7 @@ export interface MusicTrack {
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
-function collect(node: unknown, key: string, out: any[] = []): any[] {
+export function collect(node: unknown, key: string, out: any[] = []): any[] {
   if (!node || typeof node !== "object") return out;
   if (Array.isArray(node)) {
     for (const item of node) collect(item, key, out);
@@ -51,7 +51,7 @@ function videoType(endpoint: any): string | undefined {
 }
 
 /** Split a byline such as "Artist & Other • Album • 3:32" into its parts. */
-function parseByline(runs: any[]): { artist: string; artistId: string | null; album: string | null; duration: number | null } {
+export function parseByline(runs: any[]): { artist: string; artistId: string | null; album: string | null; duration: number | null } {
   const artists: string[] = [];
   let artistId: string | null = null;
   let album: string | null = null;
