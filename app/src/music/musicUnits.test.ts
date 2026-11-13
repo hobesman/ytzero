@@ -171,6 +171,36 @@ describe("prepared music audio", () => {
     expect((await audio.head(1, "songAAAAAA1", null))?.headers.get("content-length")).toBe(String(total));
   });
 
+  test("starts a seek into an unprepared song with a small piece, then streams the rest in pieces", async () => {
+    const source = upstream();
+    const audio = createMusicAudio(source);
+    const start = 50_000;
+    const response = await audio.audio(1, "songAAAAAA1", `bytes=${start}-`);
+    // Only the first small piece is fetched before the answer starts.
+    expect(source.calls).toEqual([`bytes=${start}-${start + MUSIC_PREPARE_BYTES - 1}`]);
+    expect(response?.status).toBe(206);
+    expect(response?.headers.get("content-range")).toBe(`bytes ${start}-${total - 1}/${total}`);
+    expect(response?.headers.get("content-length")).toBe(String(total - start));
+    const bytes = new Uint8Array(await response!.arrayBuffer());
+    expect(bytes.byteLength).toBe(total - start);
+    expect(bytes.every((value, index) => value === (start + index) % 251)).toBe(true);
+    const afterFirst = start + MUSIC_PREPARE_BYTES;
+    expect(source.calls).toEqual([
+      `bytes=${start}-${afterFirst - 1}`,
+      `bytes=${afterFirst}-${total - 1}`,
+    ]);
+  });
+
+  test("passes a short song and upstream failures through unchanged", async () => {
+    const source = upstream();
+    const audio = createMusicAudio(source);
+    const tail = await audio.audio(1, "songAAAAAA1", `bytes=${total - 1000}-`);
+    expect(tail?.headers.get("content-range")).toBe(`bytes ${total - 1000}-${total - 1}/${total}`);
+    expect((await tail!.arrayBuffer()).byteLength).toBe(1000);
+    const failing = createMusicAudio({ getAudioResponse: async () => null, getAudioHeadResponse: async () => null });
+    expect(await failing.audio(1, "songAAAAAA1", "bytes=5000-")).toBeNull();
+  });
+
   test("forgets a prepared prefix after it expires", async () => {
     const source = upstream();
     let clock = 0;

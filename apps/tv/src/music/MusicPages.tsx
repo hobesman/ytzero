@@ -35,14 +35,16 @@ function usePageData<T>(load: () => Promise<T>) {
 function PageFrame({ t, onBack, failed, failedText, loading, onRetry, children }: {
   t: Translate; onBack: () => void; failed: boolean; failedText: string; loading: boolean; onRetry: () => void; children: ReactNode;
 }) {
+  // The back button comes last so it draws over the page without a zIndex: on
+  // Android a zIndex outlives view flattening and lifts it over Now playing too.
   return <View style={styles.page}>
-    <Pressable accessibilityRole="button" accessibilityLabel={t("back")} hitSlop={10} onPress={onBack} style={styles.back}>
-      <MusicIcon name="back" color={phoneColors.text} size={26} />
-    </Pressable>
     {failed ? <View style={styles.note}>
       <Text style={styles.noteText}>{failedText}</Text>
       <PhoneChip label={t("musicRetry")} onPress={onRetry} />
     </View> : loading ? <ActivityIndicator style={styles.loading} color={phoneColors.textMuted} /> : children}
+    <Pressable accessibilityRole="button" accessibilityLabel={t("back")} hitSlop={10} onPress={onBack} style={styles.back}>
+      <MusicIcon name="back" color={phoneColors.text} size={26} />
+    </Pressable>
   </View>;
 }
 
@@ -134,7 +136,7 @@ export function MusicArtistScreen({ api, session, t, playingId, id, onOpen, onBa
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: phoneColors.background },
-  back: { position: "absolute", top: 4, left: 8, zIndex: 1, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
+  back: { position: "absolute", top: 4, left: 8, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.35)" },
   loading: { padding: 48 },
   note: { alignItems: "center", gap: 12, padding: 48 },
   noteText: { ...phoneType.body, color: phoneColors.textMuted, textAlign: "center" },
