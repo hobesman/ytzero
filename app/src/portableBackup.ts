@@ -23,6 +23,7 @@ import { normalizeKeyboardShortcutSetting } from "./keyboardShortcutSettings";
 import { normalizeLanguage } from "./uiLanguage";
 import { normalizeYouTubeTitleLanguage } from "./youtubeRequestLanguage";
 import { exportPlaybackContext, restorePlaybackContext } from "./playbackContextBackup";
+import { exportMusicBackup, MUSIC_BACKUP_SECTION, restoreMusicBackup } from "./music/musicBackup";
 import { hiddenFilterTagUuids, parseHiddenFilterTagUuids, serializeHiddenFilterTagUuids, TAG_FILTER_VISIBILITY_SETTING } from "./tagFilterVisibility";
 import { normalizePlaybackSpeed, normalizePlaybackSpeedOptionsSetting } from "../../shared/playbackSpeeds";
 import { NOTIFICATION_CATEGORIES } from "./notificationPreferences";
@@ -71,6 +72,7 @@ export const BACKUP_SECTIONS: readonly BackupSectionDefinition[] = [
   { id: "profile.bookmarks", schemaVersion: 1, scope: "profile", sensitivity: "personal", dependencies: ["profiles.index", "library.referenced-videos"], category: "personal", path: profilePath("bookmarks.jsonl") },
   { id: "profile.discovery-feedback", schemaVersion: 1, scope: "profile", sensitivity: "personal", dependencies: ["profiles.index", "library.referenced-videos"], category: "discovery", optional: true, path: profilePath("analytics/discovery-feedback.jsonl") },
   { id: "profile.analytics", schemaVersion: 1, scope: "profile", sensitivity: "personal", dependencies: ["profiles.index", "library.referenced-videos"], category: "analytics", optional: true, path: profilePath("analytics/events.jsonl") },
+  MUSIC_BACKUP_SECTION,
   { id: "plugin.social.activity", schemaVersion: 1, scope: "instance", sensitivity: "personal", dependencies: ["profiles.index", "library.referenced-videos"], category: "social", optional: true, path: () => "plugins/social/activity.json" },
   { id: "library.referenced-videos", schemaVersion: 1, scope: "instance", sensitivity: "personal", dependencies: ["instance.channels"], category: "dependency", path: () => "library/referenced-videos.jsonl" },
 ] as const;
@@ -141,7 +143,6 @@ async function portableProfiles(requested: string[]) {
   const requestedSet = new Set(requested);
   return rows.filter((row) => requestedSet.size === 0 || requestedSet.has(row.portable_uuid));
 }
-
 async function referencedVideoIds(userIds: number[], selected: Set<string>): Promise<Set<string>> {
   const ids = new Set<string>();
   const add = async (sql: string, uid: number) => { for (const row of await database.prepare(sql).all(uid) as { video_id: string }[]) ids.add(row.video_id); };
@@ -159,7 +160,6 @@ async function referencedVideoIds(userIds: number[], selected: Set<string>): Pro
   }
   return ids;
 }
-
 async function sectionData(id: string, profile: any | null, referenced: Set<string>, exportProfiles: any[] = []): Promise<unknown | unknown[]> {
   const uid = profile?.id;
   switch (id) {
@@ -238,6 +238,7 @@ async function sectionData(id: string, profile: any | null, referenced: Set<stri
       ...(await database.prepare("SELECT tag_name, tag_color, day, hour, seconds FROM watch_tag_time_log WHERE user_id=?").all(uid) as any[]).map((r) => ({ type: "tag-time", ...r })),
       ...(await database.prepare("SELECT event_id, video_id, segment_uuid, category, skipped_seconds, day, created_at FROM sponsorblock_skip_log WHERE user_id=?").all(uid) as any[]).map((r) => ({ type: "sponsorblock", ...r })),
     ];
+    case "profile.music": return await exportMusicBackup(uid);
     case "plugin.social.activity": {
       const userIds = exportProfiles.map((item) => item.id as number);
       if (!userIds.length) return { posts: [], comments: [], reactions: [], commentLikes: [], postMentions: [], commentMentions: [] };
@@ -259,7 +260,6 @@ async function sectionData(id: string, profile: any | null, referenced: Set<stri
     default: throw new Error(`unsupported section ${id}`);
   }
 }
-
 export async function backupOptions() {
   return {
     formatVersion: BACKUP_FORMAT_VERSION,
@@ -269,7 +269,6 @@ export async function backupOptions() {
     exclusions: ["authentication and passwords", "passkeys and sessions", "download cookies, paths and media", "network-derived caches"],
   };
 }
-
 export async function createPortableBackup(input: { preset?: string; profiles?: string[]; sections?: string[] }): Promise<Uint8Array> {
   const preset = input.preset && BACKUP_PRESETS[input.preset] ? input.preset : "custom";
   const selected = selectedWithDependencies(input.sections?.length ? input.sections : BACKUP_PRESETS[preset] ?? BACKUP_PRESETS.setup);
@@ -471,6 +470,7 @@ export async function commitPortableRestore(adminId: number, id: string, revisio
         if (selected.has("profile.bookmarks")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM bookmarks WHERE user_id=?").run(uid); for (const row of get("profile.bookmarks")??[]) { const position=Number(row.position_seconds); if (typeof row.video_id!=="string" || !Number.isFinite(position) || position<0 || !await database.prepare("SELECT 1 FROM videos WHERE video_id=?").get(row.video_id)) { counts.skipped++; continue; } const uuid=typeof row.uuid==="string"&&UUID.test(row.uuid)?row.uuid:crypto.randomUUID(); await database.prepare("INSERT INTO bookmarks(portable_uuid,user_id,video_id,position_seconds,description,created_at,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(portable_uuid) DO UPDATE SET position_seconds=excluded.position_seconds,description=excluded.description,updated_at=excluded.updated_at").run(uuid,uid,row.video_id,Math.min(position,1_000_000_000),String(row.description??"").slice(0,2000),row.created_at??new Date().toISOString(),row.updated_at??row.created_at??new Date().toISOString()); } }
         if (selected.has("profile.discovery-feedback")) { if (state.plan!.strategy === "replace") await database.prepare("DELETE FROM recommendation_feedback WHERE user_id=?").run(uid); for (const row of get("profile.discovery-feedback")??[]) await database.prepare("INSERT INTO recommendation_feedback(user_id,video_id,action,created_at) VALUES(?,?,?,?) ON CONFLICT(user_id,video_id) DO UPDATE SET action=excluded.action,created_at=excluded.created_at").run(uid,row.video_id,row.action,row.created_at); }
         if (selected.has("profile.analytics")) { if (state.plan!.strategy === "replace") for (const table of ["watch_time_log","scheduling_event_log","watch_tag_time_log","sponsorblock_skip_log"]) await database.prepare(`DELETE FROM ${table} WHERE user_id=?`).run(uid); for (const row of get("profile.analytics")??[]) { if(row.type==="watch-time") await database.prepare("INSERT INTO watch_time_log(user_id,video_id,day,hour,seconds) VALUES(?,?,?,?,?) ON CONFLICT(user_id,video_id,day,hour) DO UPDATE SET seconds=max(watch_time_log.seconds,excluded.seconds)").run(uid,row.video_id,row.day,row.hour,row.seconds); else if(row.type==="scheduling" && !await database.prepare("SELECT 1 FROM scheduling_event_log WHERE user_id=? AND video_id=? AND created_at=?").get(uid,row.video_id,row.created_at)) await database.prepare("INSERT INTO scheduling_event_log(user_id,video_id,channel_id,bucket,source,tags_json,local_day,local_hour,created_at) VALUES(?,?,?,?,?,?,?,?,?)").run(uid,row.video_id,row.channel_id,row.bucket,row.source,row.tags_json,row.local_day,row.local_hour,row.created_at); else if(row.type==="tag-time") { const tagId=(await database.prepare("SELECT id FROM tags WHERE user_id=? AND name=? COLLATE NOCASE").get(uid,row.tag_name) as any)?.id??stableNegativeId(`${state.manifest.sourceInstallationId}:${row.tag_name}`); await database.prepare("INSERT INTO watch_tag_time_log(user_id,tag_id,tag_name,tag_color,day,hour,seconds) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id,tag_id,day,hour) DO UPDATE SET seconds=max(watch_tag_time_log.seconds,excluded.seconds)").run(uid,tagId,row.tag_name,row.tag_color,row.day,row.hour,row.seconds); } else if(row.type==="sponsorblock") await database.prepare("INSERT OR IGNORE INTO sponsorblock_skip_log(event_id,user_id,video_id,segment_uuid,category,skipped_seconds,day,created_at) VALUES(?,?,?,?,?,?,?,?)").run(row.event_id,uid,row.video_id,row.segment_uuid,row.category,row.skipped_seconds,row.day,row.created_at); } }
+        if (selected.has("profile.music")) counts.skipped += (await restoreMusicBackup(uid, get("profile.music"), state.plan!.strategy)).skipped;
         const sourceProfile = (data.get("profiles.index:")??[]).find((p:any)=>p.id===profile.id); if (selected.has("profile.avatar") && sourceProfile?.avatar && entries.has(sourceProfile.avatar)) { const nextFileName=`${uid}.webp`, stage=resolve(sessionPaths(id).dir,`avatar-${uid}.webp.stage`), target=resolve(AVATAR_DIR,nextFileName), previous=((await database.prepare("SELECT avatar FROM users WHERE id=?").get(uid) as { avatar: string } | null)?.avatar ?? ""); writeFileSync(stage,await optimizeProfileAvatar(entries.get(sourceProfile.avatar)!)); await database.prepare("UPDATE users SET avatar=? WHERE id=?").run(optimizedProfileAvatarToken(uid),uid); avatarStages.push({from:stage,to:target,previous,nextFileName}); }
       }
       if (selected.has("plugin.social.activity")) {

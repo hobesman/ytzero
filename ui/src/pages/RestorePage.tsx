@@ -32,6 +32,7 @@ const LABELS = {
   "profile.bookmarks": "Video bookmarks and notes",
   "profile.discovery-feedback": "Discovery feedback",
   "profile.analytics": "Insights and Pulse history",
+  "profile.music": "Music likes and listening history",
   "plugin.social.activity": "Social posts, comments and reactions",
   "library.referenced-videos": "Required referenced-video index",
 } as const satisfies Record<string, I18nKey>;
