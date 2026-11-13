@@ -5,12 +5,14 @@ import type { Translate } from "../i18n";
 import { PhoneChip } from "../phone/PhoneChip";
 import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
-import type { MusicApi, MusicTrack } from "./musicApi";
+import { albumDetail, MusicAlbumCard, MusicArtistCard, MusicShelf } from "./MusicAlbumCard";
+import type { MusicAlbum, MusicApi, MusicArtist, MusicLibrary, MusicSearchResults, MusicTrack } from "./musicApi";
+import type { MusicPage } from "./MusicPages";
 import { MusicIcon, type MusicIconName } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { MusicTrackRow } from "./MusicTrackRow";
 
-type Library = { liked: MusicTrack[]; recent: MusicTrack[] };
+type Library = MusicLibrary;
 
 /** The profile's liked songs and recent plays, reloaded each time the screen is shown. */
 function useMusicLibrary(api: MusicApi, visible: boolean) {
@@ -24,7 +26,7 @@ function useMusicLibrary(api: MusicApi, visible: boolean) {
   return { library, failed, load };
 }
 
-type ScreenProps = { api: MusicApi; session: MusicSession; t: Translate; visible: boolean; playingId: string | null };
+type ScreenProps = { api: MusicApi; session: MusicSession; t: Translate; visible: boolean; playingId: string | null; onOpen: (page: MusicPage) => void };
 
 function StationCard({ icon, title, hint, onPress }: { icon: MusicIconName | "liked"; title: string; hint: string; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={`${title}. ${hint}`} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
@@ -63,26 +65,30 @@ export function MusicHomeScreen({ api, session, t, visible, playingId }: ScreenP
     renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={start} />} />;
 }
 
-/** Library: the songs this profile liked in music mode. */
-export function MusicLibraryScreen({ api, session, t, visible, playingId }: ScreenProps) {
+/** Library: the albums this profile saved and the songs it liked in music mode. */
+export function MusicLibraryScreen({ api, session, t, visible, playingId, onOpen }: ScreenProps) {
   const { library, failed, load } = useMusicLibrary(api, visible);
   const start = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
+  const openAlbum = useCallback((album: MusicAlbum) => onOpen({ kind: "album", id: album.browseId }), [onOpen]);
   const header = <View>
+    <MusicShelf title={t("musicSavedAlbums")} count={library?.albums.length ?? 0}>
+      {library?.albums.map((album) => <MusicAlbumCard key={album.browseId} api={api} album={album} detail={albumDetail(album, t, true)} onPress={openAlbum} />)}
+    </MusicShelf>
     {library?.liked.length ? <View style={styles.cards}>
       <StationCard icon="liked" title={t("musicLikedSongs")} hint={t("musicLikedSongsHint")} onPress={() => void session.start({ kind: "liked" })} />
     </View> : null}
     {failed ? <Note text={t("musicLoadFailed")} action={t("musicRetry")} onAction={load} />
       : !library ? <ActivityIndicator style={styles.loading} color={phoneColors.textMuted} />
-      : library.liked.length === 0 ? <Note text={t("musicLibraryEmpty")} /> : null}
+      : library.liked.length === 0 && library.albums.length === 0 ? <Note text={t("musicLibraryEmpty")} /> : null}
   </View>;
   return <FlatList data={library?.liked ?? []} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
     renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={start} />} />;
 }
 
-/** Search: songs from YouTube Music; a result starts a station from that song. */
-export function MusicSearchScreen({ api, session, t, playingId }: ScreenProps) {
+/** Search: artists, albums and songs from YouTube Music; a song starts a station from it. */
+export function MusicSearchScreen({ api, session, t, playingId, onOpen }: ScreenProps) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<MusicTrack[] | null>(null);
+  const [results, setResults] = useState<MusicSearchResults | null>(null);
   const [searching, setSearching] = useState(false);
   const [failed, setFailed] = useState(false);
   const request = useRef(0);
@@ -92,14 +98,26 @@ export function MusicSearchScreen({ api, session, t, playingId }: ScreenProps) {
     const id = ++request.current;
     setSearching(true); setFailed(false); setResults(null);
     try {
-      const tracks = await api.search(q);
-      if (id === request.current) setResults(tracks);
+      const found = await api.search(q);
+      if (id === request.current) setResults(found);
     } catch {
       if (id === request.current) setFailed(true);
     } finally { if (id === request.current) setSearching(false); }
   }, [api, query]);
   const clear = () => { request.current++; setQuery(""); setResults(null); setSearching(false); setFailed(false); };
   const start = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
+  const openAlbum = useCallback((album: MusicAlbum) => onOpen({ kind: "album", id: album.browseId }), [onOpen]);
+  const openArtist = useCallback((artist: MusicArtist) => onOpen({ kind: "artist", id: artist.channelId }), [onOpen]);
+  const empty = results && !results.tracks.length && !results.albums.length && !results.artists.length;
+  const header = results ? <View>
+    <MusicShelf title={t("musicArtists")} count={results.artists.length}>
+      {results.artists.map((artist) => <MusicArtistCard key={artist.channelId} api={api} artist={artist} onPress={openArtist} />)}
+    </MusicShelf>
+    <MusicShelf title={t("musicAlbums")} count={results.albums.length}>
+      {results.albums.map((album) => <MusicAlbumCard key={album.browseId} api={api} album={album} detail={albumDetail(album, t, true)} onPress={openAlbum} />)}
+    </MusicShelf>
+    {results.tracks.length ? <PhoneSectionTitle title={t("musicSongs")} /> : null}
+  </View> : null;
   return <View style={styles.flex}>
     <View style={styles.field}>
       <SidebarIcon name="search" color={phoneColors.textMuted} size={20} />
@@ -111,8 +129,8 @@ export function MusicSearchScreen({ api, session, t, playingId }: ScreenProps) {
     </View>
     {searching ? <ActivityIndicator style={styles.loading} color={phoneColors.text} accessibilityLabel={t("searchLoading")} /> : null}
     {failed ? <Note text={t("musicSearchFailed")} action={t("musicRetry")} onAction={() => void search()} /> : null}
-    {results && results.length === 0 ? <Note text={t("musicNoResults")} /> : null}
-    <FlatList data={results ?? []} keyExtractor={(track) => track.videoId} keyboardShouldPersistTaps="handled"
+    {empty ? <Note text={t("musicNoResults")} /> : null}
+    <FlatList data={results?.tracks ?? []} keyExtractor={(track) => track.videoId} keyboardShouldPersistTaps="handled" ListHeaderComponent={header}
       renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={start} />} />
   </View>;
 }

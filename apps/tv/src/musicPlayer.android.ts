@@ -31,6 +31,8 @@ declare class YtZeroMusicPlayerModule extends NativeModule<Events> {
   getState(): Promise<MusicPlayerState | null>;
   stop(): Promise<MusicPlayerProgress | null>;
   setSleepTimer(deadline: number, endOfSong: boolean): Promise<void>;
+  /** Parts of a song to jump over, as [start, end] seconds; an empty list clears them. */
+  setSkips(videoId: string, segments: [number, number][]): Promise<void>;
 }
 
 const native = requireOptionalNativeModule<YtZeroMusicPlayerModule>("YtZeroMusicPlayer");
@@ -63,6 +65,7 @@ export const musicPlayer: MusicPlayer = {
   getState: () => native?.getState() ?? Promise.resolve(null),
   stop: () => native?.stop() ?? Promise.resolve(null),
   setSleepTimer: (deadline, endOfSong) => native?.setSleepTimer(deadline, endOfSong) ?? noop(),
+  setSkips: (videoId, segments) => native?.setSkips(videoId, segments) ?? noop(),
   onTrackChange: (listener) => subscribe("onTrackChange", listener),
   onStateChange: (listener) => subscribe("onStateChange", listener),
   onError: (listener) => subscribe("onError", listener),
