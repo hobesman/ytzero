@@ -50,6 +50,9 @@ function Note({ text, action, onAction }: { text: string; action?: string; onAct
 export function MusicHomeScreen({ api, session, t, visible, playingId }: ScreenProps) {
   const { library, failed, load } = useMusicLibrary(api, visible);
   const start = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
+  // The mix is the likeliest first tap, so fetch it ahead while nothing plays.
+  const hasMix = Boolean(library?.recent.length);
+  useEffect(() => { if (visible && hasMix && !playingId) session.warm({ kind: "mix" }); }, [hasMix, playingId, session, visible]);
   const header = <View>
     <View style={styles.cards}>
       {/* The mix is built from what the profile played, so it needs some plays first. */}
@@ -109,6 +112,9 @@ export function MusicSearchScreen({ api, session, t, playingId, onOpen }: Screen
   const openAlbum = useCallback((album: MusicAlbum) => onOpen({ kind: "album", id: album.browseId }), [onOpen]);
   const openArtist = useCallback((artist: MusicArtist) => onOpen({ kind: "artist", id: artist.channelId }), [onOpen]);
   const empty = results && !results.tracks.length && !results.albums.length && !results.artists.length;
+  // The top song is the likeliest tap; albums and artists warm their own Play on their pages.
+  const topSong = results?.tracks[0]?.videoId ?? null;
+  useEffect(() => { if (topSong && !playingId) session.warm({ kind: "track", videoId: topSong }); }, [playingId, session, topSong]);
   const header = results ? <View>
     <MusicShelf title={t("musicArtists")} count={results.artists.length}>
       {results.artists.map((artist) => <MusicArtistCard key={artist.channelId} api={api} artist={artist} onPress={openArtist} />)}

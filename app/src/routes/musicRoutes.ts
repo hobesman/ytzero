@@ -51,6 +51,16 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
     return audioDependencies;
   };
 
+  // A new station's first song has nothing prepared, and its audio address
+  // takes a lookup plus a few seconds before YouTube serves it. Start that now,
+  // while the phone is still setting up its player; the player's own request
+  // joins the same lookup.
+  const prepareInBackground = (userId: number, videoId: string) => {
+    void audioService()
+      .then(async ({ audio, ytdlpAvailable }) => { if (await ytdlpAvailable()) await audio.prepare(userId, videoId); })
+      .catch(() => {});
+  };
+
   api.use("/music/*", async (context, next) => {
     if (await isChildUser(currentUserId(context))) return context.json({ error: "not allowed" }, 403);
     await next();
@@ -85,7 +95,9 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
     if (!seed) return context.json({ error: "invalid seed" }, 400);
     const count = Math.min(25, Math.max(1, Math.floor(Number(body?.count) || 10)));
     try {
-      const tracks = await stations.next(userId, seed, parseVideoIdList(body?.served), parseVideoIdList(body?.skipped), count);
+      const served = parseVideoIdList(body?.served);
+      const tracks = await stations.next(userId, seed, served, parseVideoIdList(body?.skipped), count);
+      if (!served.length && tracks[0]) prepareInBackground(userId, tracks[0].videoId);
       return context.json({ seed: stationSeedKey(seed), tracks: await withRatings(userId, tracks) });
     } catch (error) {
       return upstreamFailure(context, error, "music.station_failed");

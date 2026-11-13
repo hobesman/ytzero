@@ -90,6 +90,9 @@ const search = await (await call("/music/search?q=seed")).json() as any;
 const startResponse = await call("/music/station", "POST", { seed: { kind: "track", videoId: "seedSong001" }, count: 5 });
 const start = await startResponse.json() as any;
 const served = start.tracks.map((track: any) => track.videoId);
+// Starting a station prepares its first song in the background.
+await Bun.sleep(20);
+const stationPreparedFirst = audioCalls.includes(`${served[0]} bytes=0-262143`);
 const prepareResponse = await call(`/music/tracks/${served[1]}/prepare`, "POST");
 const prepared = await prepareResponse.json() as any;
 const callsAfterPrepare = audioCalls.length;
@@ -163,6 +166,7 @@ console.log("RESULT " + JSON.stringify({
   startStatus: startResponse.status,
   served,
   prepared: prepared.ready,
+  stationPreparedFirst,
   preparedStatus: preparedAudio.status,
   preparedRange: preparedAudio.headers.get("content-range"),
   preparedOpenRange: preparedOpen.headers.get("content-range"),
