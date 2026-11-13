@@ -4,6 +4,8 @@ import { parseAudioContentRange, parseAudioRange } from "../audioRange";
 export const MUSIC_PREPARE_BYTES = 262_144;
 const PREPARED_TTL_MS = 3 * 60_000;
 const PREPARED_LIMIT = 8;
+/** Each later piece fetched while a song streams: about a minute of audio. */
+export const MUSIC_STREAM_PIECE_BYTES = 1_048_576;
 
 type AudioResponder = (userId: number, videoId: string, range: string | null, signal?: AbortSignal) => Promise<Response | null>;
 
@@ -11,6 +13,13 @@ export interface MusicAudioDependencies {
   getAudioResponse: AudioResponder;
   getAudioHeadResponse: AudioResponder;
   now?: () => number;
+}
+
+interface StartBytes {
+  start: number;
+  body: ArrayBuffer;
+  mime: string;
+  total: number;
 }
 
 interface PreparedPrefix {
@@ -65,56 +74,71 @@ export function createMusicAudio(dependencies: MusicAudioDependencies) {
   }
 
   /**
-   * A request from the start of a prepared song gets its whole range: the
-   * prefix from memory at once, then the rest from upstream. A shorter answer
-   * would make the player take the prefix for the whole file.
+   * Answer a range whose first bytes are already in hand: those at once, then
+   * the rest from upstream a piece at a time. The headers promise the whole
+   * range, since a shorter answer would make the player take it for the whole
+   * file, and small pieces keep any one upstream fetch from holding playback:
+   * the upstream proxy reads a whole range before it answers.
    */
-  function preparedResponse(userId: number, videoId: string, rangeHeader: string | null, signal?: AbortSignal): Response | null {
-    const range = parseAudioRange(rangeHeader);
-    if (!range || range.start !== 0) return null;
-    const entry = freshPrefix(userId, videoId);
-    if (!entry) return null;
-    const end = Math.min(range.end, entry.total - 1);
-    const prefixLength = entry.body.byteLength;
-    const body = end < prefixLength ? entry.body.slice(0, end + 1) : new ReadableStream<Uint8Array>({
-      start(controller) { controller.enqueue(new Uint8Array(entry.body)); },
+  function streamedResponse(userId: number, videoId: string, first: StartBytes, end: number, signal?: AbortSignal): Response {
+    const firstEnd = first.start + first.body.byteLength - 1;
+    let next = firstEnd + 1;
+    const body = end <= firstEnd ? first.body.slice(0, end - first.start + 1) : new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new Uint8Array(first.body)); },
       async pull(controller) {
-        const rest = await dependencies.getAudioResponse(userId, videoId, `bytes=${prefixLength}-${end}`, signal);
-        const restRange = parseAudioContentRange(rest?.headers.get("content-range") ?? null);
-        if (!rest?.body || rest.status !== 206 || !restRange || restRange.start !== prefixLength || restRange.end !== end) {
-          await rest?.body?.cancel().catch(() => {});
+        const from = next;
+        const to = Math.min(end, from + MUSIC_STREAM_PIECE_BYTES - 1);
+        const piece = await dependencies.getAudioResponse(userId, videoId, `bytes=${from}-${to}`, signal);
+        const pieceRange = parseAudioContentRange(piece?.headers.get("content-range") ?? null);
+        if (!piece?.body || piece.status !== 206 || !pieceRange || pieceRange.start !== from || pieceRange.end !== to) {
+          await piece?.body?.cancel().catch(() => {});
           controller.error(new Error("music audio upstream did not return the rest of the song"));
           return;
         }
-        const reader = rest.body.getReader();
         try {
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-          }
-          controller.close();
+          controller.enqueue(new Uint8Array(await piece.arrayBuffer()));
         } catch (error) {
           controller.error(error);
+          return;
         }
+        next = to + 1;
+        if (next > end) controller.close();
       },
       cancel() { /* The upstream request follows `signal`. */ },
     }, { highWaterMark: 0 });
     return new Response(body, {
       status: 206,
       headers: {
-        "Content-Type": entry.mime,
+        "Content-Type": first.mime,
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-store",
-        "Content-Length": String(end + 1),
-        "Content-Range": `bytes 0-${end}/${entry.total}`,
+        "Content-Length": String(end - first.start + 1),
+        "Content-Range": `bytes ${first.start}-${end}/${first.total}`,
       },
     });
   }
 
+  /**
+   * A song's audio. A prepared song starts from memory; any other range, such
+   * as a seek past a skipped intro, starts with a small piece from upstream
+   * instead of waiting for the whole rest of the song.
+   */
   async function audio(userId: number, videoId: string, rangeHeader: string | null, signal?: AbortSignal): Promise<Response | null> {
-    return preparedResponse(userId, videoId, rangeHeader, signal)
-      ?? await dependencies.getAudioResponse(userId, videoId, rangeHeader, signal);
+    const range = parseAudioRange(rangeHeader);
+    if (!range) return await dependencies.getAudioResponse(userId, videoId, rangeHeader, signal);
+    const entry = range.start === 0 ? freshPrefix(userId, videoId) : null;
+    if (entry) {
+      const start = { start: 0, body: entry.body, mime: entry.mime, total: entry.total };
+      return streamedResponse(userId, videoId, start, Math.min(range.end, entry.total - 1), signal);
+    }
+    const firstEnd = range.start + MUSIC_PREPARE_BYTES - 1;
+    if (firstEnd >= range.end) return await dependencies.getAudioResponse(userId, videoId, rangeHeader, signal);
+    const first = await dependencies.getAudioResponse(userId, videoId, `bytes=${range.start}-${firstEnd}`, signal);
+    const firstRange = parseAudioContentRange(first?.headers.get("content-range") ?? null);
+    // Failures, and a song that ends inside the first piece, pass through as they are.
+    if (!first || first.status !== 206 || !firstRange || firstRange.start !== range.start || firstRange.end !== firstEnd) return first;
+    const start = { start: range.start, body: await first.arrayBuffer(), mime: first.headers.get("content-type") ?? "audio/mp4", total: firstRange.total };
+    return streamedResponse(userId, videoId, start, Math.min(range.end, firstRange.total - 1), signal);
   }
 
   async function head(userId: number, videoId: string, rangeHeader: string | null, signal?: AbortSignal): Promise<Response | null> {
