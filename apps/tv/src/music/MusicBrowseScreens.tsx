@@ -112,6 +112,9 @@ export function MusicSearchScreen({ api, session, t, playingId, onOpen }: Screen
   const openAlbum = useCallback((album: MusicAlbum) => onOpen({ kind: "album", id: album.browseId }), [onOpen]);
   const openArtist = useCallback((artist: MusicArtist) => onOpen({ kind: "artist", id: artist.channelId }), [onOpen]);
   const empty = results && !results.tracks.length && !results.albums.length && !results.artists.length;
+  // The top song is the likeliest tap; albums and artists warm their own Play on their pages.
+  const topSong = results?.tracks[0]?.videoId ?? null;
+  useEffect(() => { if (topSong && !playingId) session.warm({ kind: "track", videoId: topSong }); }, [playingId, session, topSong]);
   const header = results ? <View>
     <MusicShelf title={t("musicArtists")} count={results.artists.length}>
       {results.artists.map((artist) => <MusicArtistCard key={artist.channelId} api={api} artist={artist} onPress={openArtist} />)}
