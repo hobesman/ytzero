@@ -19,16 +19,24 @@ interface DownloadAudioStreamingDependencies {
   audioDiagnostic?: AudioDiagnostic;
   fetchImpl?: typeof fetch;
   spawn?: typeof Bun.spawn;
+  /** Waits between retries of a just-issued address that was refused; tests shorten them. */
+  freshUrlRetryDelaysMs?: number[];
 }
 
 const AUDIO_REQUEST_TIMEOUT_MS = 45_000;
 const AUDIO_REDIRECT_LIMIT = 4;
 const AUDIO_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const FRESH_URL_WINDOW_MS = 5_000;
-const FRESH_URL_RETRY_DELAYS_MS = [250, 400, 650, 1_000];
+/**
+ * Googlevideo refuses a just-issued audio address for its first few seconds
+ * (403), then serves it for its whole life. On the live server addresses
+ * started working about 3 s after yt-dlp returned them, so waiting up to 7 s
+ * beats a 4–5 s yt-dlp lookup whose new address starts out refused too.
+ */
+const FRESH_URL_RETRY_DELAYS_MS = [500, 1_000, 1_500, 2_000, 2_000];
 
 export function createDownloadAudioStreaming(dependencies: DownloadAudioStreamingDependencies) {
-  const { audioDiagnostic = defaultAudioDiagnostic, fetchImpl = fetch } = dependencies;
+  const { audioDiagnostic = defaultAudioDiagnostic, fetchImpl = fetch, freshUrlRetryDelaysMs = FRESH_URL_RETRY_DELAYS_MS } = dependencies;
   const {
     discardAudioSource,
     invalidateAudioSources: invalidateResolvedAudioSources,
@@ -140,7 +148,7 @@ export function createDownloadAudioStreaming(dependencies: DownloadAudioStreamin
     userId: number, videoId: string, source: AudioSource, range: AudioByteRange, signal: AbortSignal,
   ): Promise<Response | null> {
     if (!source.issuedAt || Date.now() - source.issuedAt > FRESH_URL_WINDOW_MS) return null;
-    for (const delay of FRESH_URL_RETRY_DELAYS_MS) {
+    for (const delay of freshUrlRetryDelaysMs) {
       if (!await waitForFreshUrlRetry(delay, signal)) return null;
       const retry = await fetchAudioUpstream(userId, videoId, source, range, signal);
       if (!retry || retry.status !== 403) return retry;
@@ -171,6 +179,11 @@ export function createDownloadAudioStreaming(dependencies: DownloadAudioStreamin
       source = await refreshAudioSource(userId, videoId, source.url, signal);
       if (!source) return null;
       upstream = await fetchAudioUpstream(userId, videoId, source, range, signal);
+      // The replacement is just as new, so it gets the same wait.
+      if (upstream?.status === 403) {
+        await upstream.body?.cancel().catch(() => {});
+        upstream = await retryFreshForbidden(userId, videoId, source, range, signal) ?? new Response(null, { status: 403 });
+      }
     }
     if (!upstream) {
       if (!signal.aborted) discardAudioSource(userId, videoId, source.url);
