@@ -43,10 +43,12 @@ type Props = {
   channelRequest: { id: string; request: number } | null;
   settings: PhoneSettings; onOpen: OpenVideo;
   onVideoLongPress: (video: Video, onChange: (updated: Video) => void) => void;
+  /** Shown where music mode is available. */
+  onSwitchToMusic?: () => void;
 };
 
 /** The phone layout: a top bar with the account menu, the current screen, and bottom tabs. */
-export function PhoneApp({ api, t, language, hidden, brandName, brandColor, profiles, navConfig, sort, shortsEnabled, videoUpdate, channelRequest, settings, onOpen, onVideoLongPress }: Props) {
+export function PhoneApp({ api, t, language, hidden, brandName, brandColor, profiles, navConfig, sort, shortsEnabled, videoUpdate, channelRequest, settings, onOpen, onVideoLongPress, onSwitchToMusic }: Props) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>("home");
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["home"]));
@@ -148,6 +150,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
       })}
     </View>
     {account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
+      modeSwitch={onSwitchToMusic ? { music: false, onPress: onSwitchToMusic } : undefined}
       onHistory={() => { setAccount(false); push({ kind: "feed", destination: "/history", title: t("navHistory") }); }}
       onSettings={() => { setAccount(false); push({ kind: "settings" }); }} /> : null}
   </View>;

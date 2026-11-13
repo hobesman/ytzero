@@ -19,3 +19,8 @@ export const loadPhoneLayout = async (store: Store, deviceDefault: boolean): Pro
   return value === "true" ? true : value === "false" ? false : deviceDefault;
 };
 export const savePhoneLayout = (store: Store, value: boolean): Promise<void> => store.setItemAsync(PHONE_LAYOUT_KEY, String(value));
+
+/** Phones: whether the app opens in music mode, the last mode used on this device. */
+export const MUSIC_MODE_KEY = "ytzero.phone.music-mode";
+export const loadMusicMode = async (store: Store): Promise<boolean> => (await store.getItemAsync(MUSIC_MODE_KEY)) === "true";
+export const saveMusicMode = (store: Store, value: boolean): Promise<void> => store.setItemAsync(MUSIC_MODE_KEY, String(value));

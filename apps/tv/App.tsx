@@ -34,6 +34,8 @@ import { setSessionCookie } from "./src/sessionCookie";
 import { setPhoneImmersive, setPhoneOrientation } from "./src/phoneOrientation";
 import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
+import { MusicApp } from "./src/music/MusicApp";
+import { useMusicMode } from "./src/music/useMusicMode";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { PhoneShortsContext } from "./src/phone/PhoneShorts";
 import { PhoneShortsPlayer } from "./src/phone/PhoneShortsPlayer";
@@ -232,6 +234,17 @@ function TvApp() {
 
   // Phones: Shorts play in their own vertical player, which closes any regular video and the mini player.
   const [shorts, setShorts] = useState<ShortsSession | null>(null);
+
+  // Phones: music mode replaces the video screens; entering it closes any video.
+  const musicMode = useMusicMode({ available: phoneMode, instanceUrl, accessToken, profileId: profileState?.active.id, isChild: Boolean(profileState?.active.is_child) });
+  useEffect(() => {
+    if (!musicMode.music) return;
+    setVideoActionRequest(null);
+    setSelected(null);
+    setPlayerDocked(false);
+    setShorts(null);
+    if (screenRef.current === "detail") setScreen("/");
+  }, [musicMode.music]);
   const phoneModeRef = useRef(phoneMode);
   phoneModeRef.current = phoneMode;
   const openShorts = useCallback<OpenShorts>((items, index, loadMore) => {
@@ -914,16 +927,21 @@ function TvApp() {
   } else {
     content = <View style={styles.boot}><TvLoadingMark accessibilityLabel={t("booting")} size={64} /></View>;
   }
+  const phoneProfiles = (state: ProfileState) => ({ active: state.active, profiles: state.profiles, canSwitch: state.canSwitch, childLockEnabled: state.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile,
+    saved: remembersProfiles ? { profiles: savedLogins, onSwitch: switchToSavedProfile, onAdd: () => void addProfile().catch(() => {}) } : undefined });
 
   return (
     <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
-      {phoneMode && hasShell && api && profileState ? <PhoneShortsContext.Provider value={openShorts}><PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail" || Boolean(shorts)}
-        brandName={brandName} brandColor={brandColor} profiles={{ active: profileState.active, profiles: profileState.profiles, canSwitch: profileState.canSwitch, childLockEnabled: profileState.childLockEnabled, incognito, onIncognitoChange: setIncognito, onSwitch: switchProfile,
-          saved: remembersProfiles ? { profiles: savedLogins, onSwitch: switchToSavedProfile, onAdd: () => void addProfile().catch(() => {}) } : undefined }}
+      {phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
+        ? <MusicApp key={profileState.active.id} api={api} musicApi={musicMode.musicApi} session={musicMode.session} t={t} profiles={phoneProfiles(profileState)}
+          onSwitchToVideo={() => musicMode.setMusic(false)} />
+      : phoneMode && hasShell && api && profileState ? <PhoneShortsContext.Provider value={openShorts}><PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail" || Boolean(shorts)}
+        brandName={brandName} brandColor={brandColor} profiles={phoneProfiles(profileState)}
         navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
-        settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions} /></PhoneShortsContext.Provider> : <>
+        settings={phoneSettings} onOpen={openPhoneVideo} onVideoLongPress={openVideoActions}
+        onSwitchToMusic={musicMode.canUseMusic ? () => musicMode.setMusic(true) : undefined} /></PhoneShortsContext.Provider> : <>
       {screen !== "detail" && browsingScreen === "/" && api
         ? <TvHomeBackdrop api={api} controller={backdropController} height={height} opacity={backdropOpacity} />
         : null}

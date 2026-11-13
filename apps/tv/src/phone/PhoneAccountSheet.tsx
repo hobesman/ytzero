@@ -6,6 +6,7 @@ import { SidebarIcon } from "../components/SidebarIcon";
 import type { Translate } from "../i18n";
 import type { SavedProfile } from "../savedProfiles";
 import type { Profile } from "../types";
+import { MusicIcon } from "../music/MusicIcon";
 import { PhoneChip } from "./PhoneChip";
 import { PhoneAppUpdateEntry } from "./PhoneAppUpdateSettings";
 import { PhoneListRow, PhoneSectionTitle } from "./PhoneList";
@@ -35,8 +36,11 @@ export function PhoneProfileAvatar({ api, profile, size }: { api: YtZeroApi; pro
  * the profiles this device may switch to. A profile PIN, or the child lock
  * PIN when leaving a child profile, is asked for in the sheet itself.
  */
-export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettings, onClose }: {
-  api: YtZeroApi; profiles: PhoneProfiles; t: Translate; onHistory: () => void; onSettings: () => void; onClose: () => void;
+export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettings, modeSwitch, onClose }: {
+  api: YtZeroApi; profiles: PhoneProfiles; t: Translate; onHistory?: () => void; onSettings?: () => void;
+  /** The row that switches between music and video; shown where music mode is available. */
+  modeSwitch?: { music: boolean; onPress: () => void };
+  onClose: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const { active, canSwitch, childLockEnabled, incognito } = state;
@@ -107,11 +111,15 @@ export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettin
           <PhoneProfileAvatar api={api} profile={active} size={44} />
           <View style={styles.flex}><Text style={styles.name}>{active.name}</Text><Text style={styles.caption}>{incognito ? t("incognitoMode") : t("currentProfile")}</Text></View>
         </View>
-        {!active.is_child ? <PhoneListRow title={t("incognitoMode")} detail={t("incognitoModeHint")}
+        {/* Incognito is about video history; music keeps its own. */}
+        {!active.is_child && !modeSwitch?.music ? <PhoneListRow title={t("incognitoMode")} detail={t("incognitoModeHint")}
           trailing={<Switch value={incognito} onValueChange={state.onIncognitoChange}
             trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />} /> : null}
-        <PhoneListRow icon={<SidebarIcon name="history" color={phoneColors.text} size={22} />} title={t("navHistory")} onPress={onHistory} />
-        <PhoneListRow icon={<SidebarIcon name="settings" color={phoneColors.text} size={22} />} title={t("navSettings")} onPress={onSettings} />
+        {modeSwitch ? <PhoneListRow icon={modeSwitch.music ? <SidebarIcon name="home" color={phoneColors.text} size={22} /> : <MusicIcon name="note" color={phoneColors.text} size={22} />}
+          title={modeSwitch.music ? t("musicSwitchToVideo") : t("musicSwitchToMusic")} detail={modeSwitch.music ? undefined : t("musicSwitchHint")}
+          onPress={() => { onClose(); modeSwitch.onPress(); }} /> : null}
+        {onHistory ? <PhoneListRow icon={<SidebarIcon name="history" color={phoneColors.text} size={22} />} title={t("navHistory")} onPress={onHistory} /> : null}
+        {onSettings ? <PhoneListRow icon={<SidebarIcon name="settings" color={phoneColors.text} size={22} />} title={t("navSettings")} onPress={onSettings} /> : null}
         <PhoneAppUpdateEntry t={t} />
         {state.saved ? <>
           <PhoneSectionTitle title={t("profiles")} />

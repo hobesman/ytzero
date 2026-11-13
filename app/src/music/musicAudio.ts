@@ -64,14 +64,43 @@ export function createMusicAudio(dependencies: MusicAudioDependencies) {
     return task;
   }
 
-  /** A request from the start of a prepared song is answered from memory; the player asks for the rest. */
-  function preparedResponse(userId: number, videoId: string, rangeHeader: string | null): Response | null {
+  /**
+   * A request from the start of a prepared song gets its whole range: the
+   * prefix from memory at once, then the rest from upstream. A shorter answer
+   * would make the player take the prefix for the whole file.
+   */
+  function preparedResponse(userId: number, videoId: string, rangeHeader: string | null, signal?: AbortSignal): Response | null {
     const range = parseAudioRange(rangeHeader);
     if (!range || range.start !== 0) return null;
     const entry = freshPrefix(userId, videoId);
     if (!entry) return null;
-    const end = Math.min(range.end, entry.body.byteLength - 1);
-    return new Response(entry.body.slice(0, end + 1), {
+    const end = Math.min(range.end, entry.total - 1);
+    const prefixLength = entry.body.byteLength;
+    const body = end < prefixLength ? entry.body.slice(0, end + 1) : new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(new Uint8Array(entry.body)); },
+      async pull(controller) {
+        const rest = await dependencies.getAudioResponse(userId, videoId, `bytes=${prefixLength}-${end}`, signal);
+        const restRange = parseAudioContentRange(rest?.headers.get("content-range") ?? null);
+        if (!rest?.body || rest.status !== 206 || !restRange || restRange.start !== prefixLength || restRange.end !== end) {
+          await rest?.body?.cancel().catch(() => {});
+          controller.error(new Error("music audio upstream did not return the rest of the song"));
+          return;
+        }
+        const reader = rest.body.getReader();
+        try {
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      cancel() { /* The upstream request follows `signal`. */ },
+    }, { highWaterMark: 0 });
+    return new Response(body, {
       status: 206,
       headers: {
         "Content-Type": entry.mime,
@@ -84,7 +113,7 @@ export function createMusicAudio(dependencies: MusicAudioDependencies) {
   }
 
   async function audio(userId: number, videoId: string, rangeHeader: string | null, signal?: AbortSignal): Promise<Response | null> {
-    return preparedResponse(userId, videoId, rangeHeader)
+    return preparedResponse(userId, videoId, rangeHeader, signal)
       ?? await dependencies.getAudioResponse(userId, videoId, rangeHeader, signal);
   }
 

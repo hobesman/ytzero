@@ -87,8 +87,11 @@ const served = start.tracks.map((track: any) => track.videoId);
 const prepareResponse = await call(`/music/tracks/${served[1]}/prepare`, "POST");
 const prepared = await prepareResponse.json() as any;
 const callsAfterPrepare = audioCalls.length;
-const preparedAudio = await call(`/music/tracks/${served[1]}/audio`, "GET", undefined, 1, { Range: "bytes=0-" });
+const preparedAudio = await call(`/music/tracks/${served[1]}/audio`, "GET", undefined, 1, { Range: "bytes=0-1023" });
 const preparedFromMemory = audioCalls.length === callsAfterPrepare;
+// The player's open request gets the whole song, the prepared prefix first.
+const preparedOpen = await call(`/music/tracks/${served[1]}/audio`, "GET", undefined, 1, { Range: "bytes=0-" });
+const preparedOpenLength = (await preparedOpen.arrayBuffer()).byteLength;
 const headResponse = await call(`/music/tracks/${served[0]}/audio`, "HEAD");
 const unknownAudio = await call("/music/tracks/videoAAAAA1/audio");
 const playResponse = await call("/music/plays", "POST", { videoId: served[0], startedAt: "2026-11-13T10:00:00.000Z", listenedSeconds: 180, duration: 180, endReason: "completed", stationSeed: start.seed });
@@ -128,6 +131,8 @@ console.log("RESULT " + JSON.stringify({
   prepared: prepared.ready,
   preparedStatus: preparedAudio.status,
   preparedRange: preparedAudio.headers.get("content-range"),
+  preparedOpenRange: preparedOpen.headers.get("content-range"),
+  preparedOpenLength,
   preparedFromMemory,
   headStatus: headResponse.status,
   unknownAudioStatus: unknownAudio.status,
