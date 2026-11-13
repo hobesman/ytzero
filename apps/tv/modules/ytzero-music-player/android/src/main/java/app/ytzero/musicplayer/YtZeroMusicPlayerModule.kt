@@ -148,9 +148,10 @@ class YtZeroMusicPlayerModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("play") {
-      val player = MusicPlayerHolder.existing() ?: return@AsyncFunction
-      if (player.playbackState == Player.STATE_IDLE) player.prepare()
-      player.play()
+      MusicPlayerHolder.existing()?.let { player ->
+        if (player.playbackState == Player.STATE_IDLE) player.prepare()
+        player.play()
+      }
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("pause") { MusicPlayerHolder.existing()?.pause() }.runOnQueue(Queues.MAIN)

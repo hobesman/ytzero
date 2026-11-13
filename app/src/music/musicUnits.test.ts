@@ -133,7 +133,8 @@ describe("prepared music audio", () => {
       const match = range?.match(/^bytes=(\d+)-(\d*)$/);
       const start = Number(match?.[1] ?? 0);
       const end = Math.min(match?.[2] ? Number(match[2]) : total - 1, total - 1);
-      return new Response(new Uint8Array(end - start + 1).fill(7), {
+      // Each byte names its position, so a stitched answer can be checked byte for byte.
+      return new Response(Uint8Array.from({ length: end - start + 1 }, (_, index) => (start + index) % 251), {
         status: 206, headers: { "Content-Type": "audio/webm", "Content-Range": `bytes ${start}-${end}/${total}` },
       });
     };
@@ -148,14 +149,23 @@ describe("prepared music audio", () => {
     expect(await audio.prepare(1, "songAAAAAA1")).toBe(true);
     expect(source.calls).toEqual([`bytes=0-${MUSIC_PREPARE_BYTES - 1}`]);
 
-    const first = await audio.audio(1, "songAAAAAA1", "bytes=0-");
-    expect(first?.status).toBe(206);
-    expect(first?.headers.get("content-range")).toBe(`bytes 0-${MUSIC_PREPARE_BYTES - 1}/${total}`);
-    expect((await first!.arrayBuffer()).byteLength).toBe(MUSIC_PREPARE_BYTES);
+    // A request inside the prefix is answered from memory alone.
+    const head = await audio.audio(1, "songAAAAAA1", "bytes=0-1023");
+    expect(head?.headers.get("content-range")).toBe(`bytes 0-1023/${total}`);
+    expect((await head!.arrayBuffer()).byteLength).toBe(1024);
     expect(source.calls).toHaveLength(1);
 
-    // The rest of the song, another profile, and unprepared songs go upstream.
-    await audio.audio(1, "songAAAAAA1", `bytes=${MUSIC_PREPARE_BYTES}-`);
+    // The player's open request gets the whole song: the prefix first, then the rest from upstream.
+    const first = await audio.audio(1, "songAAAAAA1", "bytes=0-");
+    expect(first?.status).toBe(206);
+    expect(first?.headers.get("content-range")).toBe(`bytes 0-${total - 1}/${total}`);
+    expect(first?.headers.get("content-length")).toBe(String(total));
+    const bytes = new Uint8Array(await first!.arrayBuffer());
+    expect(bytes.byteLength).toBe(total);
+    expect(bytes.every((value, index) => value === index % 251)).toBe(true);
+    expect(source.calls).toEqual([`bytes=0-${MUSIC_PREPARE_BYTES - 1}`, `bytes=${MUSIC_PREPARE_BYTES}-${total - 1}`]);
+
+    // Another profile and unprepared songs go upstream.
     await audio.audio(2, "songAAAAAA1", "bytes=0-");
     expect(source.calls).toHaveLength(3);
     expect((await audio.head(1, "songAAAAAA1", null))?.headers.get("content-length")).toBe(String(total));

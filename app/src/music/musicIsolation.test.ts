@@ -45,8 +45,10 @@ describe("music mode", () => {
   test("serves a prepared song's first bytes without asking the audio host again", () => {
     expect(result.prepared).toBe(true);
     expect(result.preparedStatus).toBe(206);
-    expect(result.preparedRange).toBe("bytes 0-262143/500000");
+    expect(result.preparedRange).toBe("bytes 0-1023/500000");
     expect(result.preparedFromMemory).toBe(true);
+    expect(result.preparedOpenRange).toBe("bytes 0-499999/500000");
+    expect(result.preparedOpenLength).toBe(500000);
     expect(result.headStatus).toBe(200);
     expect(result.unknownAudioStatus).toBe(404);
   });

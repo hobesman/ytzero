@@ -111,7 +111,8 @@ export function PhoneAccountSheet({ api, profiles: state, t, onHistory, onSettin
           <PhoneProfileAvatar api={api} profile={active} size={44} />
           <View style={styles.flex}><Text style={styles.name}>{active.name}</Text><Text style={styles.caption}>{incognito ? t("incognitoMode") : t("currentProfile")}</Text></View>
         </View>
-        {!active.is_child ? <PhoneListRow title={t("incognitoMode")} detail={t("incognitoModeHint")}
+        {/* Incognito is about video history; music keeps its own. */}
+        {!active.is_child && !modeSwitch?.music ? <PhoneListRow title={t("incognitoMode")} detail={t("incognitoModeHint")}
           trailing={<Switch value={incognito} onValueChange={state.onIncognitoChange}
             trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />} /> : null}
         {modeSwitch ? <PhoneListRow icon={modeSwitch.music ? <SidebarIcon name="home" color={phoneColors.text} size={22} /> : <MusicIcon name="note" color={phoneColors.text} size={22} />}
