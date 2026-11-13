@@ -17,6 +17,7 @@ interface DownloadStreamingDependencies {
   audioDiagnostic?: import("./audioDiagnostics").AudioDiagnostic;
   fetchImpl?: typeof fetch;
   spawn?: typeof Bun.spawn;
+  freshUrlRetryDelaysMs?: number[];
 }
 
 export function createDownloadStreaming(dependencies: DownloadStreamingDependencies) {

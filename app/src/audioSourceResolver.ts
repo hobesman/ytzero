@@ -1,4 +1,3 @@
-import { audioPlayerClientArgs } from "./audioPlayerClient";
 import { AudioSourceCache, audioSourceKey } from "./audioSourceCache";
 import { defaultAudioDiagnostic, type AudioDiagnostic } from "./audioDiagnostics";
 import { downloadCookieAttempts, isAnonymousAddressRefusal, recordDownloadAttempt, redactYtdlpDiagnostic } from "./downloadStrategy";
@@ -68,7 +67,6 @@ export function createAudioSourceResolver(dependencies: AudioSourceResolverDepen
       "--print", "urls",
       "--print", "%(ext)s",
       "--print", "%(http_headers)j",
-      ...audioPlayerClientArgs(useCookies),
     ];
     if (signal.aborted) return { source: null, anonymousRefused: false };
 

@@ -44,6 +44,7 @@ function factory(overrides: Partial<Parameters<typeof createDownloadStreaming>[0
     readLines: async () => {},
     ytdlpStatus: async () => "test",
     audioDiagnostic: () => {},
+    freshUrlRetryDelaysMs: [1, 1, 1, 1, 1],
     ...overrides,
   });
 }
@@ -183,7 +184,30 @@ describe("audio streaming integration", () => {
     expect(spawns).toBe(2);
     // Fresh signed URLs may take a moment before Googlevideo accepts them;
     // retry the same URL before paying for another yt-dlp resolution.
-    expect(fetches).toBe(6);
+    expect(fetches).toBe(7);
+  });
+
+  test("waits for a just-refreshed URL that is refused at first", async () => {
+    let spawns = 0;
+    const fetchesByUrl = new Map<number, number>();
+    const audio = factory({
+      spawn: (() => {
+        spawns++;
+        return fakeProcess(`https://r1.googlevideo.com/version-${spawns}?expire=${futureExpiry}\nm4a\n{"User-Agent":"yt-dlp-agent"}\n`);
+      }) as unknown as typeof Bun.spawn,
+      fetchImpl: (async (input) => {
+        const version = Number(String(input).match(/version-(\d+)/)?.[1]);
+        const count = (fetchesByUrl.get(version) ?? 0) + 1;
+        fetchesByUrl.set(version, count);
+        // The first address never works; the second works from its third request.
+        return version === 2 && count >= 3 ? rangeResponse([7], 0, 1) : new Response(null, { status: 403 });
+      }) as typeof fetch,
+    });
+
+    const response = await audio.getAudioResponse(1, "video", "bytes=0-0");
+    expect(response?.status).toBe(206);
+    expect(spawns).toBe(2);
+    expect(fetchesByUrl.get(2)).toBe(3);
   });
 
   test("follows a bounded, revalidated googlevideo redirect and preserves Range", async () => {
