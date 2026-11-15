@@ -19,6 +19,8 @@ import { PhoneListRow } from "./PhoneList";
 import { PhoneFollowedPlaylistsScreen, PhonePlaylistScreen } from "./PhonePlaylistScreens";
 import { PhoneSearchScreen } from "./PhoneSearchScreen";
 import { PhoneSettingsScreen, type PhoneSettings } from "./PhoneSettingsScreen";
+import { PhoneSideRail } from "./PhoneSideRail";
+import { useLandscapeLayout } from "../landscapeLayout";
 import { phoneColors, phoneMetrics, phoneType } from "./phoneTheme";
 
 type Tab = "home" | "search" | "live" | "library";
@@ -57,7 +59,9 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   const top = stack[stack.length - 1];
   const push = (screen: Pushed) => setStack((current) => [...current, screen]);
   const pop = () => setStack((current) => current.slice(0, -1));
-  useMiniPlayerOffset(hidden ? 0 : phoneMetrics.tabBar + insets.bottom);
+  // Landscape: the tabs stand along the left edge, so nothing sits under the mini player.
+  const landscape = useLandscapeLayout();
+  useMiniPlayerOffset(hidden ? 0 : (landscape ? 0 : phoneMetrics.tabBar) + insets.bottom);
 
   useEffect(() => {
     if (channelRequest) push({ kind: "channel", id: channelRequest.id });
@@ -122,22 +126,41 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   ];
   // The app root already keeps clear of the system bars. Visited tabs and the
   // screens under the top of the stack stay mounted, keeping their scroll.
-  return <View style={[styles.screen, hidden && styles.hidden]}
-    pointerEvents={hidden ? "none" : "auto"} accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}>
+  const backButton = <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel={t("back")} onPress={pop} style={styles.back}>
+    <Text style={styles.backGlyph}>‹</Text>
+  </Pressable>;
+  const avatar = <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}${profiles.incognito ? `, ${t("incognitoMode")}` : ""}`} onPress={() => setAccount(true)}
+    style={[styles.avatarRing, profiles.incognito && styles.incognitoRing]}>
+    <PhoneProfileAvatar api={api} profile={profiles.active} size={30} />
+  </Pressable>;
+  const body = <View style={styles.body}>
+    {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, (top || key !== tab) && styles.gone]}>{tabScreen(key)}</View>)}
+    {stack.map((screen, index) => <View key={`${index}:${screen.kind}`} style={[styles.layer, index !== stack.length - 1 && styles.gone]}>{pushedScreen(screen)}</View>)}
+  </View>;
+  const accountSheet = account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
+    modeSwitch={onSwitchToMusic ? { music: false, onPress: onSwitchToMusic } : undefined}
+    onHistory={() => { setAccount(false); push({ kind: "feed", destination: "/history", title: t("navHistory") }); }}
+    onSettings={() => { setAccount(false); push({ kind: "settings" }); }} /> : null;
+  const screenProps = { style: [styles.screen, hidden && styles.hidden], pointerEvents: hidden ? "none" as const : "auto" as const,
+    accessibilityElementsHidden: hidden, importantForAccessibility: hidden ? "no-hide-descendants" as const : "auto" as const };
+
+  if (landscape) return <View {...screenProps} style={[...screenProps.style, styles.row]}>
+    <PhoneSideRail items={tabs} selected={top ? null : tab} onSelect={selectTab}
+      top={top ? backButton : <LogoMark size={30} color={brandColor} />} bottom={avatar} />
+    <View style={styles.main}>
+      {title ? <View style={styles.topBar}><Text numberOfLines={1} style={styles.title}>{title}</Text></View> : null}
+      {body}
+    </View>
+    {accountSheet}
+  </View>;
+
+  return <View {...screenProps}>
     <View style={styles.topBar}>
-      {top ? <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel={t("back")} onPress={pop} style={styles.back}>
-        <Text style={styles.backGlyph}>‹</Text>
-      </Pressable> : tab === "home" ? <LogoMark size={28} color={brandColor} /> : null}
+      {top ? backButton : tab === "home" ? <LogoMark size={28} color={brandColor} /> : null}
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
-      <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}${profiles.incognito ? `, ${t("incognitoMode")}` : ""}`} onPress={() => setAccount(true)}
-        style={[styles.avatarRing, profiles.incognito && styles.incognitoRing]}>
-        <PhoneProfileAvatar api={api} profile={profiles.active} size={30} />
-      </Pressable>
+      {avatar}
     </View>
-    <View style={styles.body}>
-      {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, (top || key !== tab) && styles.gone]}>{tabScreen(key)}</View>)}
-      {stack.map((screen, index) => <View key={`${index}:${screen.kind}`} style={[styles.layer, index !== stack.length - 1 && styles.gone]}>{pushedScreen(screen)}</View>)}
-    </View>
+    {body}
     <View style={styles.tabBar}>
       {tabs.map((item) => {
         const selected = tab === item.key && !top;
@@ -149,10 +172,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
         </Pressable>;
       })}
     </View>
-    {account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
-      modeSwitch={onSwitchToMusic ? { music: false, onPress: onSwitchToMusic } : undefined}
-      onHistory={() => { setAccount(false); push({ kind: "feed", destination: "/history", title: t("navHistory") }); }}
-      onSettings={() => { setAccount(false); push({ kind: "settings" }); }} /> : null}
+    {accountSheet}
   </View>;
 }
 
@@ -168,6 +188,8 @@ const styles = StyleSheet.create({
   avatarRing: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
   incognitoRing: { borderColor: phoneColors.textMuted, borderStyle: "dashed" },
   body: { flex: 1 },
+  row: { flexDirection: "row" },
+  main: { flex: 1 },
   layer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   gone: { display: "none" },
   tabBar: { height: phoneMetrics.tabBar, flexDirection: "row", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: phoneColors.divider, backgroundColor: phoneColors.background },

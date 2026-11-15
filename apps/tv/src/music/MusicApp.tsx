@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import { BackHandler, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { landscapePlayerWidth, landscapeRailWidth, useLandscapeLayout } from "../landscapeLayout";
+import { PhoneSideRail } from "../phone/PhoneSideRail";
 import type { YtZeroApi } from "../api";
 import { SidebarIcon } from "../components/SidebarIcon";
 import type { Translate } from "../i18n";
@@ -30,6 +32,9 @@ type Props = {
  */
 export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo }: Props) {
   const state = useMusicSession(session);
+  // Landscape: tabs down the side and the player always beside the browse list, never over it.
+  const landscape = useLandscapeLayout();
+  const window = useWindowDimensions();
   const [tab, setTab] = useState<Tab>("home");
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["home"]));
   const [playerOpen, setPlayerOpen] = useState(false);
@@ -59,13 +64,13 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
       if (account) { setAccount(false); return true; }
-      if (playerOpen) { setPlayerOpen(false); return true; }
+      if (playerOpen && !landscape) { setPlayerOpen(false); return true; }
       if (pages.length) { closePage(); return true; }
       if (tab !== "home") { setTab("home"); return true; }
       return false;
     });
     return () => subscription.remove();
-  }, [account, closePage, pages.length, playerOpen, tab]);
+  }, [account, closePage, landscape, pages.length, playerOpen, tab]);
 
   const selectTab = (next: Tab) => {
     setTab(next);
@@ -92,22 +97,46 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     { key: "library", icon: "playlists", label: t("musicLibrary") },
   ];
 
+  const avatar = <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}${profiles.incognito ? `, ${t("incognitoMode")}` : ""}`} onPress={() => setAccount(true)}
+    style={[styles.avatar, profiles.incognito && styles.incognitoRing]}>
+    <PhoneProfileAvatar api={api} profile={profiles.active} size={30} />
+  </Pressable>;
+  const body = <View style={styles.body}>
+    {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, key !== tab && styles.gone]}>{screen(key)}</View>)}
+    {topPage ? <View key={`${pages.length}:${topPage.kind}:${topPage.id}`} style={styles.layer}>
+      {pageScreen(topPage)}
+    </View> : null}
+  </View>;
+  const noticeBar = notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null;
+  const accountSheet = account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
+    modeSwitch={{ music: true, onPress: onSwitchToVideo }} /> : null;
+
+  if (landscape) {
+    const paneWidth = landscapePlayerWidth(window.width - landscapeRailWidth);
+    return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={[styles.screen, styles.row]}>
+      <PhoneSideRail items={tabs} selected={tab} onSelect={selectTab} top={<MusicIcon name="note" color={phoneColors.accent} size={28} />} bottom={avatar} />
+      <View style={styles.main}>
+        <View style={styles.topBar}><Text numberOfLines={1} style={styles.title}>{title}</Text></View>
+        {body}
+        {noticeBar}
+        {/* Only while a station is starting: once a song plays, it is in the pane. */}
+        {!playingId ? <MusicMiniBar api={musicApi} session={session} state={state} t={t} onOpen={() => {}} /> : null}
+      </View>
+      {playingId ? <View style={[styles.pane, { width: paneWidth }]}>
+        <MusicNowPlaying api={musicApi} session={session} state={state} t={t} paneWidth={paneWidth} onClose={() => {}} />
+      </View> : null}
+      {accountSheet}
+    </View></MusicTrackMenuProvider>;
+  }
+
   return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={styles.screen}>
     <View style={styles.topBar}>
       <MusicIcon name="note" color={phoneColors.accent} size={26} />
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
-      <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}${profiles.incognito ? `, ${t("incognitoMode")}` : ""}`} onPress={() => setAccount(true)}
-        style={[styles.avatar, profiles.incognito && styles.incognitoRing]}>
-        <PhoneProfileAvatar api={api} profile={profiles.active} size={30} />
-      </Pressable>
+      {avatar}
     </View>
-    <View style={styles.body}>
-      {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, key !== tab && styles.gone]}>{screen(key)}</View>)}
-      {topPage ? <View key={`${pages.length}:${topPage.kind}:${topPage.id}`} style={styles.layer}>
-        {pageScreen(topPage)}
-      </View> : null}
-    </View>
-    {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}
+    {body}
+    {noticeBar}
     <MusicMiniBar api={musicApi} session={session} state={state} t={t} onOpen={() => setPlayerOpen(true)} />
     <View style={styles.tabBar}>
       {tabs.map((item) => {
@@ -122,8 +151,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     {playerOpen && playingId ? <View style={styles.overlay}>
       <MusicNowPlaying api={musicApi} session={session} state={state} t={t} onClose={() => setPlayerOpen(false)} />
     </View> : null}
-    {account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
-      modeSwitch={{ music: true, onPress: onSwitchToVideo }} /> : null}
+    {accountSheet}
   </View></MusicTrackMenuProvider>;
 }
 
@@ -135,6 +163,9 @@ const styles = StyleSheet.create({
   // Incognito is shown as a dashed ring around the avatar, as in video mode.
   incognitoRing: { borderColor: phoneColors.textMuted, borderStyle: "dashed" },
   body: { flex: 1 },
+  row: { flexDirection: "row" },
+  main: { flex: 1 },
+  pane: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: phoneColors.divider },
   layer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   gone: { display: "none" },
   notice: { ...phoneType.body, color: phoneColors.text, backgroundColor: phoneColors.surfaceRaised, textAlign: "center", paddingVertical: 10, paddingHorizontal: 16 },
