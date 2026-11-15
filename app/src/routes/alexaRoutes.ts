@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 import { alexaAudioLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
 import { speak, type AlexaResponse } from "../alexa/alexaPlayback";
+import { describeAlexaExchange } from "../alexa/alexaLogging";
 import { createAlexaSignatureVerifier, type AlexaSignatureVerifier } from "../alexa/alexaSignature";
 import { createAlexaSkill, envelopeSkillId, type AlexaEnvelope, type AlexaSkillDependencies } from "../alexa/alexaSkill";
 import {
@@ -127,30 +128,43 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
     const skill = kind === "music" ? musicSkillFor(settings) : videoSkillFor(settings);
-    return context.json(await skill.handle(userId, envelope));
+    const response = await skill.handle(userId, envelope);
+    log.info("alexa.request", describeAlexaExchange(kind, envelope, response));
+    return context.json(response);
   });
 
-  const serveAudio = (kind: AlexaAudioKind) => async (context: Context) => {
-    const settings = enabled();
-    if (!settings) return context.json({ error: "not found" }, 404);
-    const videoId = context.req.param("id") ?? "";
+  const audioResponse = async (kind: AlexaAudioKind, context: Context, settings: AlexaConfig, videoId: string): Promise<{ response: Response; reason?: string }> => {
     const userId = verifyAlexaAudioLink(settings.secret, videoId, new URL(context.req.url).searchParams, now(), kind);
-    if (!userId) return context.json({ error: "invalid link" }, 403);
-    if (await isChild(userId)) return context.json({ error: "not found" }, 404);
+    if (!userId) return { response: context.json({ error: "invalid link" }, 403), reason: "invalid or expired link" };
+    if (await isChild(userId)) return { response: context.json({ error: "not found" }, 404), reason: "child profile" };
     const allowed = kind === "music" ? Boolean(await musicTrack(videoId)) : await videoPlayable(userId, videoId);
-    if (!allowed) return context.json({ error: "not found" }, 404);
+    if (!allowed) return { response: context.json({ error: "not found" }, 404), reason: kind === "music" ? "song not in the catalog" : "video not playable" };
     const range = context.req.header("range") ?? null;
     if (!parseAudioRange(range)) {
-      return new Response(null, { status: 416, headers: { "Accept-Ranges": "bytes", "Cache-Control": "no-store" } });
+      return { response: new Response(null, { status: 416, headers: { "Accept-Ranges": "bytes", "Cache-Control": "no-store" } }), reason: "unsupported range" };
     }
     const { audio, ytdlpAvailable } = await audioService();
-    if (!await ytdlpAvailable()) return context.json({ error: "yt-dlp unavailable" }, 503);
+    if (!await ytdlpAvailable()) return { response: context.json({ error: "yt-dlp unavailable" }, 503), reason: "yt-dlp unavailable" };
     // The music audio service is the shared audio proxy plus a prefetched start,
     // and serves a video's audio track just the same.
     const response = context.req.method === "HEAD"
       ? await audio.head(userId, videoId, range, context.req.raw.signal)
       : await audio.audio(userId, videoId, range, context.req.raw.signal);
-    return response ?? context.json({ error: "audio unavailable" }, 502);
+    return response ? { response } : { response: context.json({ error: "audio unavailable" }, 502), reason: "audio unavailable from YouTube" };
+  };
+
+  const serveAudio = (kind: AlexaAudioKind) => async (context: Context) => {
+    const settings = enabled();
+    if (!settings) return context.json({ error: "not found" }, 404);
+    const videoId = context.req.param("id") ?? "";
+    const startedAt = now();
+    const { response, reason } = await audioResponse(kind, context, settings, videoId);
+    const range = context.req.header("range") ?? null;
+    const fields = { skill: kind, videoId, method: context.req.method, range, status: response.status, ms: now() - startedAt };
+    if (!response.ok) log.warn("alexa.audio_failed", { ...fields, reason });
+    // A song streams as many range requests; the first one (and how long it took) is what matters.
+    else if (!range || /^bytes=0-/i.test(range)) log.info("alexa.audio", fields);
+    return response;
   };
   router.get("/audio/:id", serveAudio("music"));
   router.get("/video-audio/:id", serveAudio("video"));

@@ -26,9 +26,12 @@ server.
 ## Requirements
 
 - YT Zero reachable from the internet over **HTTPS on port 443** with a
-  certificate from a public certificate authority (Let's Encrypt is fine). Amazon
-  fetches both the skill requests and the audio from its own cloud, not from
-  your Echo, so a LAN address or a self-signed certificate does not work.
+  certificate from a public certificate authority (Let's Encrypt is fine).
+  Amazon's cloud sends the skill requests, so a LAN address or a self-signed
+  certificate does not work. The Echo itself fetches the audio, so the same
+  address must also work from inside your network. If it resolves to your
+  public IP, your router has to loop that traffic back in (NAT loopback, or
+  hairpinning), or local DNS must point the name at the server.
 - The `/alexa` path must reach YT Zero without any login in front of it. If
   your reverse proxy adds its own authentication (Authelia, Authentik forward
   auth, basic auth), exempt `/alexa` and everything under it. YT Zero checks
@@ -165,12 +168,34 @@ settings or backups.
 At startup the server log says `alexa.enabled` with the profile, the endpoint
 and which skills are on. If any `YTZERO_ALEXA_*` variable is set but the
 configuration is incomplete, it says `alexa.disabled` with the reason instead.
-While running it records refused requests as `alexa.request_refused` with a
-reason, failed audio as `alexa.playback_failed`, and upstream errors as
-`alexa.request_failed`. No `alexa` lines at all after a skill request means the
-request never reached YT Zero's skill code: an image from before the skills, a
-configuration that's switched off, or a reverse proxy that doesn't pass
-`/alexa` through.
+While running, it logs:
+
+- `alexa.request` for every request a skill answers: which skill, the request
+  type, the intent and what was said (`query`), and what the skill did. That
+  includes what it replied (`said`), and whether it played or queued a song or
+  video (`action`, `videoId`, `title`) or stopped. AudioPlayer events also
+  carry the playback position and any device error.
+- `alexa.audio` when the Echo starts fetching a song's or video's audio, with
+  the status and how long YT Zero took to answer (`ms`). It logs only the first
+  request of each stream, not every later chunk.
+- `alexa.audio_failed` when an audio request is refused or fails, with the
+  status and a reason, such as `yt-dlp unavailable` or
+  `audio unavailable from YouTube`.
+- `alexa.request_refused` (with a reason), `alexa.profile_missing`,
+  `alexa.playback_failed` and `alexa.request_failed` for the other problems.
+
+Run `docker exec ytzero grep alexa /data/logs/ytzero.log | tail -30` right
+after trying something. What's missing tells you as much as what's there:
+
+- **No `alexa.request` line:** Alexa never sent the request to YT Zero. It
+  answered by itself (a reply that isn't one of the skill's own, such as
+  "I couldn't find that video on YouTube"), the skills are switched off, or the
+  proxy is in the way.
+- **`alexa.request` with `action: "play"` but no `alexa.audio`:** the Echo
+  never reached the audio link. Usually that's DNS or NAT loopback inside your
+  network; see Requirements.
+- **`alexa.audio` with a large `ms`:** the first byte took too long, and the
+  Echo may give up with `MEDIA_ERROR_SERVICE_UNAVAILABLE`.
 
 - *"There was a problem with the requested skill's response"*: send
   `curl -si -X POST https://<address>/alexa -d "{}"` from outside your
@@ -185,8 +210,15 @@ configuration that's switched off, or a reverse proxy that doesn't pass
   could not download or verify Amazon's certificate. Check that the container
   has outbound HTTPS access to `s3.amazonaws.com`.
 - `reason: "stale request"`: the server's clock is off by more than 150 seconds.
-- Speech works but nothing plays: the audio link has to be reachable from
-  Amazon's cloud. Check the proxy exemption for `/alexa/`, and that audio-only
-  playback works in the app (yt-dlp is working).
+- Speech works but nothing plays: the Echo has to reach the audio link from
+  inside your network. Check the proxy exemption for `/alexa/`, NAT loopback or
+  local DNS, and that audio-only playback works in the app (yt-dlp is working).
 - A skill isn't found on one Echo: that Echo's language has no model in the
   skill, or it's registered to a different Amazon account.
+- *"<name> is not supported on this device"*: the skill has an interface turned
+  on that the device lacks. In **Build → Interfaces**, leave only **Audio
+  Player** on. Video App, Alexa Presentation Language and Display Interface all
+  need a screen.
+- A reply that isn't one of the skill's own, such as "I couldn't find that video
+  on YouTube": Alexa took the request for one of its own features. Choose a
+  more distinctive invocation name, one without media words like "video".
