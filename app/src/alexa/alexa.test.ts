@@ -73,6 +73,16 @@ describe("alexa request signatures", () => {
     expect(await verifier().check(headers(signed(body)), body, new Date(NOW).toISOString())).toBeNull();
   });
 
+  // Amazon's chain ends with a trusted root cross-signed by a retired one that
+  // trust stores no longer carry; the chain is trusted at the trusted root.
+  test("accepts a chain ending in a cross-signed copy of a trusted root", async () => {
+    const chain = `${fixture("anchor-signing.pem")}\n${fixture("anchor-cross.pem")}`;
+    const timestamp = new Date(NOW).toISOString();
+    expect(await verifier(chain, [fixture("anchor-root.pem")]).check(headers(signed(body)), body, timestamp)).toBeNull();
+    expect(await verifier(chain, [fixture("old.pem"), fixture("root.pem")]).check(headers(signed(body)), body, timestamp)).toBeNull();
+    expect(await verifier(chain, [fixture("root.pem")]).check(headers(signed(body)), body, timestamp)).toBe("untrusted certificate");
+  });
+
   test("refuses altered, stale, wrongly hosted or untrusted requests", async () => {
     const timestamp = new Date(NOW).toISOString();
     expect(await verifier().check(headers(signed(body)), body.replace("Launch", "Intent"), timestamp)).toBe("invalid signature");
