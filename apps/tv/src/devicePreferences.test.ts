@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { loadMusicMode, loadOpenDetails, loadPhoneLayout, MUSIC_MODE_KEY, OPEN_DETAILS_KEY, saveMusicMode, PHONE_LAYOUT_KEY, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./devicePreferences";
+import { LANDSCAPE_LAYOUT_KEY, loadLandscapeLayout, saveLandscapeLayout, loadMusicMode,loadOpenDetails, loadPhoneLayout, MUSIC_MODE_KEY, OPEN_DETAILS_KEY, saveMusicMode, PHONE_LAYOUT_KEY, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./devicePreferences";
 
 describe("device thumbnail preference", () => {
   test("defaults to playback and persists the optional details choice only on this device", async () => {
@@ -61,5 +61,20 @@ describe("music mode", () => {
     await saveMusicMode(store, false);
     expect(await loadMusicMode(store)).toBe(false);
     expect([...values.keys()]).toEqual([MUSIC_MODE_KEY]);
+  });
+});
+
+describe("landscape layout", () => {
+  test("is off until chosen, and an invalid value reads as off", async () => {
+    const values = new Map<string, string>();
+    const store = { getItemAsync: async (key: string) => values.get(key) ?? null, setItemAsync: async (key: string, value: string) => { values.set(key, value); } };
+    expect(await loadLandscapeLayout(store)).toBe(false);
+    await saveLandscapeLayout(store, true);
+    expect(await loadLandscapeLayout(store)).toBe(true);
+    await saveLandscapeLayout(store, false);
+    expect(await loadLandscapeLayout(store)).toBe(false);
+    values.set(LANDSCAPE_LAYOUT_KEY, "sideways");
+    expect(await loadLandscapeLayout(store)).toBe(false);
+    expect([...values.keys()]).toEqual([LANDSCAPE_LAYOUT_KEY]);
   });
 });

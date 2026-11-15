@@ -15,6 +15,7 @@ export type PhoneSettings = {
   instanceUrl: string;
   openDetails: boolean; onOpenDetailsChange: (value: boolean) => Promise<void>;
   phoneLayout: boolean; onPhoneLayoutChange: (value: boolean) => Promise<void>;
+  landscapeLayout: boolean; onLandscapeLayoutChange: (value: boolean) => Promise<void>;
   onChangeInstance: () => Promise<void>; onSignOut: () => Promise<void>;
 };
 
@@ -41,6 +42,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneListRow title={t("qualityFast")} detail={t("qualityFastHint")} trailing={toggle(fastStart, changeFastStart)} />
     <PhoneBufferSetting t={t} onError={() => setFailed(true)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
+    <PhoneListRow title={t("landscapeLayout")} detail={t("landscapeLayoutHint")} trailing={toggle(settings.landscapeLayout, settings.onLandscapeLayoutChange)} />
     <PhoneDownloadSettings t={t} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />
