@@ -94,9 +94,14 @@ settings or backups.
 
 ## Troubleshooting
 
-The server log records refused requests as `alexa.request_refused` with a
-reason, failed songs as `alexa.playback_failed`, and upstream errors as
-`alexa.request_failed`.
+At startup the server log says `alexa.enabled` with the profile and endpoint,
+or `alexa.disabled` with the reason when some `YTZERO_ALEXA_*` variable is set
+but the configuration is incomplete. While running it records refused requests
+as `alexa.request_refused` with a reason, failed songs as
+`alexa.playback_failed`, and upstream errors as `alexa.request_failed`. No
+`alexa` lines at all after a skill request means the request never reached YT
+Zero's skill code: an image from before the skill, or a reverse proxy that
+doesn't pass `/alexa` through.
 
 - *"The requested skill's response was invalid"* or no response: check that
   `https://<address>/alexa` is reachable from outside your network, and that

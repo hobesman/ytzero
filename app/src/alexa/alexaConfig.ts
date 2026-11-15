@@ -34,6 +34,18 @@ export function alexaConfig(environment: Environment = process.env): AlexaConfig
   return { skillId, profile, secret, publicUrl: parsed.origin + parsed.pathname.replace(/\/+$/, "") };
 }
 
+/**
+ * What the log should say at startup: that the skill is on, or, once any
+ * YTZERO_ALEXA_* variable is set, why it is still off. A server with no Alexa
+ * configuration says nothing.
+ */
+export function alexaStartupStatus(environment: Environment = process.env): { event: "alexa.enabled"; fields: Record<string, string> } | { event: "alexa.disabled"; fields: Record<string, string> } | null {
+  const settings = alexaConfig(environment);
+  if (!("disabled" in settings)) return { event: "alexa.enabled", fields: { profile: settings.profile, endpoint: `${settings.publicUrl}/alexa` } };
+  const attempted = Object.keys(environment).some((key) => key.startsWith("YTZERO_ALEXA_") && environment[key]?.trim());
+  return attempted ? { event: "alexa.disabled", fields: { reason: settings.disabled } } : null;
+}
+
 /** The configured profile's ID, by ID or case-insensitive name. */
 export async function resolveAlexaProfile(profile: string): Promise<number | null> {
   if (/^\d+$/.test(profile)) {

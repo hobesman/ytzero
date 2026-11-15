@@ -7,7 +7,7 @@ import type { MusicPlay } from "../music/musicPlays";
 import type { StationSeed } from "../music/musicStation";
 import { createAlexaRouter } from "../routes/alexaRoutes";
 import { alexaAudioLink, ALEXA_AUDIO_LINK_TTL_MS, verifyAlexaAudioLink } from "./alexaAudioLinks";
-import { alexaConfig, type AlexaConfig } from "./alexaConfig";
+import { alexaConfig, alexaStartupStatus, type AlexaConfig } from "./alexaConfig";
 import { decodePlaybackToken, encodePlaybackToken, SERVED_HISTORY_LIMIT, SKIPPED_HISTORY_LIMIT } from "./alexaPlayback";
 import { createAlexaSignatureVerifier, validCertificateUrl } from "./alexaSignature";
 import { createAlexaSkill, type AlexaEnvelope } from "./alexaSkill";
@@ -41,6 +41,12 @@ describe("alexa config", () => {
     expect(alexaConfig({ ...complete, YTZERO_ALEXA_SECRET: "short" })).toHaveProperty("disabled");
     expect(alexaConfig({ ...complete, APP_URL: "http://yt.example.com" })).toHaveProperty("disabled");
     expect(alexaConfig({ ...complete, YTZERO_ALEXA_PUBLIC_URL: "https://alexa.example.com/yt" })).toMatchObject({ publicUrl: "https://alexa.example.com/yt" });
+  });
+
+  test("startup says whether the skill is on, and why not once it's half set up", () => {
+    expect(alexaStartupStatus(complete)).toEqual({ event: "alexa.enabled", fields: { profile: "Nick", endpoint: "https://yt.example.com/alexa" } });
+    expect(alexaStartupStatus({ ...complete, YTZERO_ALEXA_SECRET: "short" })).toEqual({ event: "alexa.disabled", fields: { reason: "YTZERO_ALEXA_SECRET must be at least 32 characters" } });
+    expect(alexaStartupStatus({ APP_URL: "https://yt.example.com" })).toBeNull();
   });
 });
 
