@@ -1,5 +1,5 @@
 diff --git a/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt b/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
-index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..393c122d1605e67ac8c260c3e003c2b32105bbca 100644
+index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..21f76e0cf1d7414a5efc39ca884e192ed3a41436 100644
 --- a/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
 +++ b/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
 @@ -83,6 +83,7 @@ class ExpoVideoPlaybackService : MediaSessionService() {
@@ -24,3 +24,11 @@ index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..393c122d1605e67ac8c260c3e003c2b3
    fun unregisterPlayer(player: ExoPlayer) {
      appContext.mainQueue.launch {
        hidePlayerNotification(player)
+@@ -188,6 +196,7 @@ class ExpoVideoPlaybackService : MediaSessionService() {
+       .setSmallIcon(androidx.media3.session.R.drawable.media3_icon_circular_play)
+       .setContentTitle(contentTitle)
+       .setStyle(MediaStyleNotificationHelper.MediaStyle(session))
++      .setContentIntent(session.sessionActivity ?: sessionActivity())
+       .build()
+ 
+     val notificationId = session.player.hashCode()
