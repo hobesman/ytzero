@@ -1,6 +1,7 @@
 import Svg, { Path, Rect } from "react-native-svg";
 
-export type MusicIconName = "play" | "pause" | "next" | "previous" | "like" | "liked" | "dislike" | "note" | "sleep" | "down" | "shuffle" | "back" | "save" | "saved" | "station";
+export type MusicIconName = "play" | "pause" | "next" | "previous" | "like" | "liked" | "dislike" | "note" | "sleep" | "down" | "shuffle" | "back" | "save" | "saved" | "station"
+  | "more" | "queueNext" | "queueAdd" | "remove" | "up";
 
 /** The music player's control glyphs. */
 export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; color: string; size?: number }) {
@@ -22,5 +23,10 @@ export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; col
     case "save": return svg(<Path d="M12 5v14M5 12h14" {...stroke} />);
     case "saved": return svg(<Path d="m5 12.5 4.5 4.5L19 7.5" {...stroke} />);
     case "station": return svg(<Path d="M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8" {...stroke} />);
+    case "more": return svg(<><Rect x="10.75" y="4" width="2.5" height="2.5" rx="1.25" fill={color} /><Rect x="10.75" y="10.75" width="2.5" height="2.5" rx="1.25" fill={color} /><Rect x="10.75" y="17.5" width="2.5" height="2.5" rx="1.25" fill={color} /></>);
+    case "queueNext": return svg(<Path d="M4 6h10M4 11h10M4 16h6M15 14v6l5-3z" {...stroke} />);
+    case "queueAdd": return svg(<Path d="M4 6h12M4 11h12M4 16h7M18 14v6M15 17h6" {...stroke} />);
+    case "remove": return svg(<Path d="M6 6l12 12M18 6 6 18" {...stroke} />);
+    case "up": return svg(<Path d="m6 15 6-6 6 6" {...stroke} />);
   }
 }

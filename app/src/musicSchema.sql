@@ -58,3 +58,35 @@ CREATE TABLE IF NOT EXISTS music_saved_albums (
   saved_at  TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, browse_id)
 );
+
+-- A profile's own playlists. Portable personal state; `id` is a UUID that
+-- also identifies the playlist in backups.
+CREATE TABLE IF NOT EXISTS music_playlists (
+  id         TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title      TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_music_playlists_user ON music_playlists(user_id, updated_at);
+
+-- The songs in a profile's playlist, in order. Portable personal state.
+CREATE TABLE IF NOT EXISTS music_playlist_tracks (
+  playlist_id TEXT NOT NULL REFERENCES music_playlists(id) ON DELETE CASCADE,
+  video_id    TEXT NOT NULL,
+  position    INTEGER NOT NULL DEFAULT 0,
+  added_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (playlist_id, video_id)
+);
+
+-- YouTube Music playlists a profile saved to its library, with the details
+-- shown there. Portable personal state.
+CREATE TABLE IF NOT EXISTS music_saved_playlists (
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  playlist_id TEXT NOT NULL,
+  title       TEXT NOT NULL DEFAULT '',
+  subtitle    TEXT NOT NULL DEFAULT '',
+  thumbnail   TEXT NOT NULL DEFAULT '',
+  saved_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, playlist_id)
+);

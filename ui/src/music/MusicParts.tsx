@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
-import { Heart, Music } from "lucide-react";
+import { ArrowLeft, Heart, Music, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { img } from "../img";
-import { useI18n } from "../i18n";
-import { Button, EmptyState, SectionHeader } from "../components/ui";
-import type { MusicAlbum, MusicArtist, MusicGenre, MusicPlaylist, MusicTrack } from "./musicApi";
+import { formatSongCount, useI18n } from "../i18n";
+import { Button, EmptyState, IconButton, SectionHeader } from "../components/ui";
+import type { MusicAlbum, MusicArtist, MusicGenre, MusicPlaylist, MusicTrack, MusicUserPlaylist } from "./musicApi";
 
 export function durationLabel(seconds: number | null | undefined): string {
   if (!seconds || seconds < 0 || !Number.isFinite(seconds)) return "";
@@ -103,3 +104,30 @@ export const MusicGenreTile = memo(function MusicGenreTile({ genre, onOpen }: { 
     {genre.title}
   </button>;
 });
+
+/** The heading of an album, artist, genre or playlist page. */
+export function MusicDetailHeader({ art, round, title, detail, children }: { art?: string | null; round?: boolean; title: string; detail?: string; children?: ReactNode }) {
+  const navigate = useNavigate();
+  const { t } = useI18n();
+  return <div className="music-detail">
+    <IconButton variant="ghost" className="music-detail__back" label={t("musicBack")} icon={<ArrowLeft />} onClick={() => navigate(-1)} />
+    {art !== undefined ? <MusicArtwork url={art} size={160} round={round} /> : null}
+    <div className="music-detail__copy">
+      <h2 className="music-detail__title">{title}</h2>
+      {detail ? <p className="music-detail__meta">{detail}</p> : null}
+      {children ? <div className="music-detail__actions">{children}</div> : null}
+    </div>
+  </div>;
+}
+
+/** One of the profile's own playlists in the library. */
+export const MusicUserPlaylistCard = memo(function MusicUserPlaylistCard({ playlist, onOpen }: { playlist: MusicUserPlaylist; onOpen: (playlist: MusicUserPlaylist) => void }) {
+  const { language } = useI18n();
+  return <Card art={<MusicArtwork url={playlist.thumbnail || null} />} title={playlist.title} detail={formatSongCount(playlist.trackCount, language)} onOpen={() => onOpen(playlist)} />;
+});
+
+/** The library's "New playlist" tile. */
+export function MusicNewPlaylistCard({ onCreate }: { onCreate: () => void }) {
+  const { t } = useI18n();
+  return <Card art={<span className="music-art music-art--empty" aria-hidden="true"><Plus /></span>} title={t("newPlaylist")} onOpen={onCreate} />;
+}

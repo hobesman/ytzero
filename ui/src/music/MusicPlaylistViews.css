@@ -1,0 +1,4 @@
+.music-playlist-edit { display: flex; flex-direction: column; }
+.music-playlist-edit__row { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+.music-playlist-edit__row:hover { background: var(--surface-2); }
+.music-playlist-edit__copy { display: flex; flex-direction: column; flex: 1; min-width: 0; }

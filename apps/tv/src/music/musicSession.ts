@@ -116,6 +116,29 @@ export class MusicSession {
     }
   }
 
+  /**
+   * Plays a list of songs the app already has, such as one of the profile's
+   * playlists, from `startAt` (the first song when absent); a station like the
+   * first song played follows.
+   */
+  async playTracks(tracks: MusicTrack[], options: { from: string; shuffle?: boolean; startAt?: string }) {
+    if (!tracks.length) return;
+    ++this.generation;
+    const ordered = options.shuffle ? shuffleTracks(tracks) : tracks;
+    const start = options.startAt ? Math.max(0, ordered.findIndex((track) => track.videoId === options.startAt)) : 0;
+    const list = ordered.slice(start);
+    try {
+      await this.recordReplaced();
+      const queue = createQueue({ kind: "track", videoId: list[0]!.videoId }, null, list, new Date(), options.from);
+      this.update({ queue, starting: false, error: null });
+      await musicPlayer.setQueue(queue.tracks.map((track) => this.api.playerTrack(track)), 0, true);
+      this.prepare(queue.tracks[1]?.videoId ?? null);
+      this.loadSkips(queue.tracks);
+    } catch (error) {
+      this.update({ starting: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
   private trackChanged(change: MusicTrackChange) {
     const queue = this.state.queue;
     if (!queue) return;
