@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { alexaAudioLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
+import { followChannelForAlexa, searchChannelsForAlexa, unfollowChannelForAlexa } from "../alexa/alexaChannelFollow";
 import { findGenrePlaylist } from "../alexa/alexaGenreMatch";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
 import { speak, type AlexaResponse } from "../alexa/alexaPlayback";
@@ -92,6 +93,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       recordStarted: given.recordStarted ?? recordVideoStarted,
       recordProgress: given.recordProgress ?? recordVideoProgress,
       recordFinished: given.recordFinished ?? recordVideoFinished,
+      channels: given.channels ?? { searchChannels: searchChannelsForAlexa, followedChannels, follow: followChannelForAlexa, unfollow: unfollowChannelForAlexa },
     });
   };
 

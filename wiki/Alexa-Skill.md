@@ -142,6 +142,26 @@ repeats until all of them have played. "Play a random video from *channel*"
 picks the same way but plays only one. All three need a channel the profile
 follows.
 
+## Following channels
+
+The video skill can follow and unfollow channels for its profile, and it
+always asks first:
+
+- "Alexa, ask Hoban Tube to find the channel This Old House" (or "…follow This
+  Old House") searches YouTube and offers the matches one at a time, with their
+  subscriber counts: "The first match is This Old House, with 2.1 million
+  subscribers. Follow it?" Say **yes** to follow it, or **no** to hear the next
+  one, up to ten. A match the profile already follows is named as such, and
+  yes moves on past it.
+- While a video plays (or is paused), "…follow this channel" offers to follow
+  that video's channel.
+- "…unfollow This Old House" offers the followed channels that match, and
+  "…unfollow this channel" the playing video's channel. Unfollowing keeps the
+  profile's settings for the channel, as the app's Unfollow button does.
+
+Nothing changes without a yes. The question waits about eight seconds for an
+answer; after that, nothing is changed.
+
 ## Finding a genre
 
 "Play *genre* music" goes through YouTube Music's **Moods & genres**, the same
@@ -218,6 +238,8 @@ While running, it logs:
 - `alexa.audio_failed` when an audio request is refused or fails, with the
   status and a reason, such as `yt-dlp unavailable` or
   `audio unavailable from YouTube`.
+- `alexa.channel_followed` and `alexa.channel_unfollowed` when a yes follows or
+  unfollows a channel.
 - `alexa.request_refused` (with a reason), `alexa.profile_missing`,
   `alexa.playback_failed` and `alexa.request_failed` for the other problems.
 

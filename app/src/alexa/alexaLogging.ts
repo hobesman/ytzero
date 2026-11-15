@@ -18,6 +18,8 @@ export function describeAlexaExchange(skill: "music" | "video", envelope: AlexaE
     fields.position = Math.round(request.offsetInMilliseconds / 1000);
   }
   if (request?.error?.type) fields.error = request.error.type;
+  const offer = (response.sessionAttributes as { channelOffer?: { action?: string; index?: number; candidates?: { title?: string }[] } } | undefined)?.channelOffer;
+  if (offer) fields.offer = `${offer.action}: ${offer.candidates?.[offer.index ?? 0]?.title ?? ""}`;
 
   const body = response.response as {
     outputSpeech?: { text?: string };

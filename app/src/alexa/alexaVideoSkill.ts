@@ -1,5 +1,6 @@
 import { log } from "../logger";
 import type { SearchResult } from "../youtube";
+import { createChannelDialog, type ChannelDialogDependencies } from "./alexaChannelDialog";
 import { playDirective, playResponse, silent, speak, stopDirective, type AlexaResponse } from "./alexaPlayback";
 import type { AlexaEnvelope } from "./alexaSkill";
 import type { AlexaChannel, AlexaVideo } from "./alexaVideoCatalog";
@@ -27,6 +28,8 @@ export interface AlexaVideoSkillDependencies {
   recordStarted: (userId: number, videoId: string) => Promise<void>;
   recordProgress: (userId: number, videoId: string, position: number, duration: number | null) => Promise<void>;
   recordFinished: (userId: number, videoId: string) => Promise<void>;
+  /** Following and unfollowing by voice; left out, those intents say they aren't available. */
+  channels?: ChannelDialogDependencies;
 }
 
 const TOKEN_PREFIX = "yv1.";
@@ -34,7 +37,7 @@ const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const DEFAULT_SKIP_SECONDS = 30;
 const STARTED_LIMIT = 256;
 const ASK = "Which video would you like to hear?";
-const HELP = "You can say play, then a video's name from a channel you follow, like play how to fix a leaky faucet from This Old House. You can also say play the latest from a channel, or shuffle a channel.";
+const HELP = "You can say play, then a video's name from a channel you follow, like play how to fix a leaky faucet from This Old House. You can also say play the latest from a channel, shuffle a channel, or find the channel, then a name, to follow it.";
 const UNREACHABLE = "Sorry, I couldn't reach YouTube right now. Please try again in a moment.";
 
 const STOP_INTENTS = new Set(["AMAZON.PauseIntent", "AMAZON.StopIntent", "AMAZON.CancelIntent"]);
@@ -60,6 +63,26 @@ const channelPhrase = (spoken: string) => spoken.replace(/^(the\s+)?channel\s+/i
 export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies) {
   // Tokens whose start was already recorded, so a pause and resume is one watch.
   const started = new Set<string>();
+  const dialog = dependencies.channels ? createChannelDialog(dependencies.channels) : null;
+
+  /** The channel of the video Alexa is playing (or paused on). */
+  async function playingChannel(userId: number, envelope: AlexaEnvelope) {
+    const videoId = decodeVideoToken(envelope.context?.AudioPlayer?.token);
+    const video = videoId ? await dependencies.findVideo(userId, videoId) : null;
+    return video ? { channelId: video.channelId, title: video.channelTitle } : null;
+  }
+
+  async function channelIntent(userId: number, envelope: AlexaEnvelope, name: string, query: string): Promise<AlexaResponse | null> {
+    if (!dialog) return null;
+    // "Follow this channel" can be heard as a search for "this channel".
+    const current = !query || /^(this|the|that)( channel| one)?$/i.test(query) || /^this (channel|video)/i.test(query);
+    if (name === "FindChannelIntent") return current ? dialog.followChannel(userId, await playingChannel(userId, envelope)) : dialog.find(userId, query);
+    if (name === "FollowCurrentIntent") return dialog.followChannel(userId, await playingChannel(userId, envelope));
+    if (name === "UnfollowChannelIntent") return current ? dialog.unfollowChannel(userId, await playingChannel(userId, envelope)) : dialog.unfollow(userId, query);
+    if (name === "UnfollowCurrentIntent") return dialog.unfollowChannel(userId, await playingChannel(userId, envelope));
+    if (name === "AMAZON.YesIntent" || name === "AMAZON.NoIntent") return dialog.answer(userId, envelope.session?.attributes, name === "AMAZON.YesIntent");
+    return null;
+  }
 
   async function fromSearch(userId: number, query: string, channelId?: string): Promise<AlexaVideo | null> {
     const results = await dependencies.search(userId, query);
@@ -205,6 +228,9 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     if (name === "ShuffleChannelIntent" || name === "RandomVideoIntent") {
       return query ? start(userId, await randomFrom(userId, query, name === "ShuffleChannelIntent")) : speak("Which channel?", ASK);
     }
+    const channelAnswer = await channelIntent(userId, envelope, name, query);
+    if (channelAnswer) return channelAnswer;
+    if (name === "AMAZON.NoIntent") return speak("Okay.");
     if (name === "SkipForwardIntent") return seek(userId, envelope, skipAmount(envelope), true);
     if (name === "SkipBackIntent") return seek(userId, envelope, -skipAmount(envelope), true);
     if (STOP_INTENTS.has(name)) return silent([stopDirective]);

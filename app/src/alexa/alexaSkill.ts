@@ -14,7 +14,7 @@ export interface AlexaEnvelope {
     System?: { application?: { applicationId?: string } };
     AudioPlayer?: { token?: string; offsetInMilliseconds?: number; playerActivity?: string };
   };
-  session?: { application?: { applicationId?: string } };
+  session?: { application?: { applicationId?: string }; attributes?: Record<string, unknown> };
   request?: {
     type?: string;
     timestamp?: string;

@@ -56,6 +56,56 @@
           ]
         },
         {
+          "name": "FindChannelIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "find the channel {query}",
+            "find channel {query}",
+            "search for the channel {query}",
+            "look for the channel {query}",
+            "follow the channel {query}",
+            "follow {query}",
+            "subscribe to the channel {query}",
+            "subscribe to {query}"
+          ]
+        },
+        {
+          "name": "FollowCurrentIntent",
+          "slots": [],
+          "samples": [
+            "follow this channel",
+            "subscribe to this channel",
+            "follow this",
+            "subscribe to this",
+            "follow this video's channel",
+            "subscribe to this video's channel",
+            "follow the channel",
+            "subscribe"
+          ]
+        },
+        {
+          "name": "UnfollowChannelIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "unfollow {query}",
+            "unfollow the channel {query}",
+            "unsubscribe from {query}",
+            "unsubscribe from the channel {query}",
+            "stop following {query}"
+          ]
+        },
+        {
+          "name": "UnfollowCurrentIntent",
+          "slots": [],
+          "samples": [
+            "unfollow this channel",
+            "unsubscribe from this channel",
+            "unfollow this",
+            "unsubscribe from this",
+            "stop following this channel"
+          ]
+        },
+        {
           "name": "SkipForwardIntent",
           "slots": [{ "name": "duration", "type": "AMAZON.DURATION" }],
           "samples": [
@@ -82,6 +132,8 @@
             "rewind"
           ]
         },
+        { "name": "AMAZON.YesIntent", "samples": [] },
+        { "name": "AMAZON.NoIntent", "samples": [] },
         { "name": "AMAZON.PauseIntent", "samples": [] },
         { "name": "AMAZON.ResumeIntent", "samples": [] },
         { "name": "AMAZON.NextIntent", "samples": [] },
