@@ -1,0 +1,65 @@
+import { http } from "../apiHttp";
+
+/** A song as the server's music routes return it. */
+export type MusicTrack = {
+  videoId: string;
+  title: string;
+  artist: string;
+  artistId: string | null;
+  album: string | null;
+  duration: number | null;
+  thumbnail: string | null;
+  isTopic: boolean;
+  rating: 1 | -1 | null;
+};
+
+export type MusicAlbum = {
+  browseId: string; title: string; artist: string; artistId: string | null; year: string | null; thumbnail: string | null; kind: "album" | "single";
+};
+export type MusicArtist = { channelId: string; name: string; thumbnail: string | null };
+export type MusicAlbumPage = MusicAlbum & { tracks: MusicTrack[]; saved: boolean };
+export type MusicArtistPage = MusicArtist & { topSongs: MusicTrack[]; albums: MusicAlbum[]; singles: MusicAlbum[] };
+/** A Moods & genres category; its name comes from YouTube Music, already translated. */
+export type MusicGenre = { id: string; title: string; group: "mood" | "genre"; color: string | null };
+export type MusicPlaylist = { playlistId: string; title: string; subtitle: string; thumbnail: string | null };
+export type MusicGenrePage = { id: string; title: string; shelves: { title: string; playlists: MusicPlaylist[] }[] };
+export type MusicPlaylistPage = MusicPlaylist & { tracks: MusicTrack[] };
+export type MusicSearchResults = { tracks: MusicTrack[]; albums: MusicAlbum[]; artists: MusicArtist[] };
+export type MusicLibrary = { liked: MusicTrack[]; recent: MusicTrack[]; albums: MusicAlbum[] };
+
+export type MusicSeed =
+  | { kind: "track"; videoId: string }
+  | { kind: "liked" }
+  | { kind: "mix" }
+  | { kind: "album"; browseId: string; startAt?: string }
+  | { kind: "artist"; artistId: string }
+  | { kind: "playlist"; playlistId: string };
+
+export type MusicEndReason = "completed" | "skipped" | "stopped";
+export type MusicPlay = {
+  videoId: string; startedAt: string; listenedSeconds: number; duration: number | null; endReason: MusicEndReason; stationSeed: string | null;
+};
+
+const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+const id = encodeURIComponent;
+
+/**
+ * Music mode's whole conversation with the server. It uses only `/api/music/*`,
+ * so listening never touches video history, progress or subscriptions.
+ */
+export const musicApi = {
+  search: (q: string) => http<MusicSearchResults>(`/music/search?q=${id(q.trim())}`),
+  library: () => http<MusicLibrary>("/music/library"),
+  album: (browseId: string) => http<MusicAlbumPage>(`/music/albums/${id(browseId)}`),
+  artist: (channelId: string) => http<MusicArtistPage>(`/music/artists/${id(channelId)}`),
+  genres: async () => (await http<{ genres: MusicGenre[] }>("/music/genres")).genres,
+  genre: (genreId: string) => http<MusicGenrePage>(`/music/genres/${id(genreId)}`),
+  playlist: (playlistId: string) => http<MusicPlaylistPage>(`/music/playlists/${id(playlistId)}`),
+  setAlbumSaved: (browseId: string, saved: boolean) =>
+    http<{ ok: true; saved: boolean }>(`/music/albums/${id(browseId)}/saved`, { method: saved ? "PUT" : "DELETE" }),
+  station: (seed: MusicSeed, served: string[], skipped: string[], count = 10) =>
+    http<{ seed: string; tracks: MusicTrack[] }>("/music/station", json({ seed, served, skipped, count })),
+  recordPlay: (play: MusicPlay) => http<{ ok: true }>("/music/plays", json(play)),
+  rate: (videoId: string, rating: 1 | 0 | -1) => http<{ ok: true }>(`/music/tracks/${id(videoId)}/rating`, { method: "PUT", body: JSON.stringify({ rating }) }),
+  audioUrl: (videoId: string) => `/api/music/tracks/${id(videoId)}/audio`,
+};

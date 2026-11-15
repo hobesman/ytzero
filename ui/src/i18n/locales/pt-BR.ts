@@ -5,6 +5,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 
 export const ptBR: Locale = {
@@ -13,7 +14,7 @@ export const ptBR: Locale = {
     ...feedBuilderMessages["pt-BR"],
     ...clusterMessages["pt-BR"],
     ...notificationMessages["pt-BR"],
-    ...tvPairingMessages["pt-BR"], ...playbackSpeedMemoryMessages["pt-BR"],
+    ...tvPairingMessages["pt-BR"], ...musicMessages["pt-BR"], ...playbackSpeedMemoryMessages["pt-BR"],
     "navToday": "Principal",
     "navSocial": "Social",
     "navDiscovery": "Descoberta",

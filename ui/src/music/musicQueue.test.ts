@@ -1,0 +1,60 @@
+import { describe, expect, test } from "bun:test";
+import type { MusicTrack } from "./musicApi";
+import {
+  appendTracks, createQueue, current, endReason, fromTitle, moveTo, needsMore, playRecord, rateTrack, removeUpcoming, served, shuffleTracks,
+} from "./musicQueue";
+
+const track = (videoId: string, duration = 200): MusicTrack => ({
+  videoId, title: videoId, artist: "Artist", artistId: null, album: null, duration, thumbnail: null, isTopic: true, rating: null,
+});
+const tracks = (...ids: string[]) => ids.map((id) => track(id));
+
+describe("music queue", () => {
+  test("drops repeated songs and starts at the first", () => {
+    const queue = createQueue({ kind: "mix" }, "mix", tracks("a", "b", "a", "c"));
+    expect(queue.tracks.map((t) => t.videoId)).toEqual(["a", "b", "c"]);
+    expect(current(queue)?.videoId).toBe("a");
+  });
+
+  test("asks for more with fewer than three songs left, and appends only new ones", () => {
+    let queue = createQueue({ kind: "mix" }, "mix", tracks("a", "b", "c", "d"));
+    expect(needsMore(queue)).toBe(false);
+    queue = moveTo(queue, 1, false);
+    expect(needsMore(queue)).toBe(true);
+    queue = appendTracks(queue, tracks("c", "e"));
+    expect(queue.tracks.map((t) => t.videoId)).toEqual(["a", "b", "c", "d", "e"]);
+    expect(served(queue)).toEqual(["a", "b"]);
+  });
+
+  test("remembers skips, and drops a disliked song from what's to come", () => {
+    let queue = moveTo(createQueue({ kind: "mix" }, "mix", tracks("a", "b", "c")), 1, true);
+    expect(queue.skipped).toEqual(["a"]);
+    queue = removeUpcoming(rateTrack(queue, "c", -1), "c");
+    expect(queue.tracks.map((t) => t.videoId)).toEqual(["a", "b"]);
+    queue = removeUpcoming(queue, "a");
+    expect(queue.tracks.map((t) => t.videoId)).toEqual(["a", "b"]);
+  });
+
+  test("labels an album's own songs, not the station after them", () => {
+    let queue = createQueue({ kind: "album", browseId: "MPRE1" }, "album:MPRE1", tracks("a", "b"), "Album");
+    expect(fromTitle(queue)).toBe("Album");
+    queue = moveTo(appendTracks(queue, tracks("c")), 2, false);
+    expect(fromTitle(queue)).toBe(null);
+  });
+
+  test("shuffles every song exactly once", () => {
+    const values = [0.9, 0.1, 0.5, 0.3];
+    let call = 0;
+    const shuffled = shuffleTracks(["a", "b", "c", "d", "e"], () => values[call++ % values.length]);
+    expect([...shuffled].sort()).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  test("records a listen with its reason, capped at the song's length", () => {
+    const queue = createQueue({ kind: "mix" }, "mix", tracks("a"));
+    expect(endReason(199, 200, false, true)).toBe("completed");
+    expect(endReason(20, 200, false, true)).toBe("skipped");
+    expect(endReason(20, 200, false, false)).toBe("stopped");
+    const record = playRecord(queue, track("a"), new Date("2026-01-01T00:00:00Z"), 250.4, "completed");
+    expect(record).toEqual({ videoId: "a", startedAt: "2026-01-01T00:00:00.000Z", listenedSeconds: 200, duration: 200, endReason: "completed", stationSeed: "mix" });
+  });
+});

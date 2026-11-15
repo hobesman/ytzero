@@ -18,6 +18,7 @@ const ImportPage = lazy(() => import("./pages/ImportPage"));
 const InsightsPage = lazy(() => import("./pages/InsightsPage"));
 const LikedPage = lazy(() => import("./pages/LikedPage"));
 const LivePage = lazy(() => import("./pages/LivePage"));
+const MusicPage = lazy(() => import("./pages/MusicPage"));
 const RecommendationsPage = lazy(() => import("./pages/RecommendationsPage"));
 const RestorePage = lazy(() => import("./pages/RestorePage"));
 const SearchPage = lazy(() => import("./pages/SearchPage"));
@@ -76,6 +77,7 @@ export default function AppRoutes({
         <Route path="/shorts" element={shortsEnabled ? <ShortsPage /> : <Navigate to="/" replace />} />
         <Route path="/shorts/:videoId" element={shortsEnabled ? <ShortsPage /> : <Navigate to="/" replace />} />
         <Route path="/live" element={<LivePage onPlay={onPlay} />} />
+        <Route path="/music/*" element={childStatus?.is_child ? <Navigate to="/" replace /> : <MusicPage />} />
         <Route path="/watch/:id" element={<WatchPage />} />
         <Route path="/watch/:id/playlist/:playlistId" element={<WatchPage />} />
         <Route path="/channel/:id" element={<ChannelPage onPlay={onPlay} shortsEnabled={shortsEnabled} channelOpenSync={channelOpenSync} />} />

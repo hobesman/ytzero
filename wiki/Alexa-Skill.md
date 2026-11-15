@@ -159,8 +159,8 @@ always asks first:
   "…unfollow this channel" the playing video's channel. Unfollowing keeps the
   profile's settings for the channel, as the app's Unfollow button does.
 
-Nothing changes without a yes. The question waits about eight seconds for an
-answer; after that, nothing is changed.
+Nothing changes without a yes. If you don't answer, Alexa asks once more; if
+there's still no answer, nothing is changed.
 
 ## Finding a genre
 

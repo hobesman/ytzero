@@ -51,7 +51,7 @@ export default function AppShell({ isAdmin }: { isAdmin: boolean }) {
   const childRouteVisible = (path: string) =>
     !(profile.childStatus?.hide_shorts && path === "/shorts")
     && !(profile.childStatus?.hide_live && path === "/live")
-    && !(profile.childStatus?.is_child && (path === "/downloads" || path === "/insights"));
+    && !(profile.childStatus?.is_child && (path === "/downloads" || path === "/insights" || path === "/music"));
   const shortsRouteVisible = (path: string) => shortsEnabled || path !== "/shorts";
   const navItems = allNavItems.filter((item) => pluginRouteVisible(item.to) && childRouteVisible(item.to) && shortsRouteVisible(item.to));
   const hiddenNavItems = allHiddenNavItems.filter((item) => pluginRouteVisible(item.to) && childRouteVisible(item.to) && shortsRouteVisible(item.to));
