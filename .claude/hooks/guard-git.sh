@@ -62,14 +62,34 @@ case "$cmd" in
 esac
 
 # --- pushing to main --------------------------------------------------------
+# Judge only the git push itself: split the command at ; && || | & and new
+# lines, and in each part that pushes, look for a word that names main as the
+# destination. A 'gh pr create --base main' or a '| grep -v main' joined to the
+# push is not a push to main.
+pushes_main() {   # pushes_main <command text> -> status 0 when a push names main
+  local parts=$1 part word
+  parts=${parts//'&&'/$'\n'}
+  parts=${parts//'||'/$'\n'}
+  parts=${parts//[;|&]/$'\n'}
+  while IFS= read -r part; do
+    [[ $part == *"git push"* ]] || continue
+    read -ra words <<< "$part"
+    for word in "${words[@]}"; do
+      word=${word#+}
+      case $word in
+        main|refs/heads/main|*:main|*:refs/heads/main|main:*) return 0 ;;
+      esac
+    done
+  done <<< "$parts"
+  return 1
+}
+
 case "$cmd" in
   *"git push"*)
     branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-    hits_main=no
-    case "$cmd" in *" main"*|*":main"*|*"main:"*) hits_main=yes ;; esac
-    [ "$branch" = "main" ] && hits_main=yes
-    [ "$hits_main" = yes ] && \
+    if [ "$branch" = "main" ] || pushes_main "$cmd"; then
       decide ask "This pushes to main. The rule in this repo is to commit on the working branch and merge or push to main only when the user says so, per change."
+    fi
     ;;
 esac
 
