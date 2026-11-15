@@ -36,6 +36,9 @@ import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
 import { MusicApp } from "./src/music/MusicApp";
 import { useMusicMode } from "./src/music/useMusicMode";
+import { MusicApi } from "./src/music/musicApi";
+import { MusicOfflineApp, MusicOfflineButton } from "./src/music/MusicOfflineApp";
+import { musicDownloads } from "./src/music/useMusicDownloads";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { PhoneShortsContext } from "./src/phone/PhoneShorts";
 import { PhoneShortsPlayer } from "./src/phone/PhoneShortsPlayer";
@@ -61,8 +64,8 @@ import { TvGlassVisibility } from "./src/components/TvGlassSurface";
 import type { OpenVideo, PlaybackQueueContext } from "./src/playbackQueue";
 import { useLocalProgressSync } from "./src/useLocalProgressSync";
 
-// "offline": a phone's downloads, while the server can't be reached.
-type Screen = "profile-selection" | "boot" | "instance" | "pair" | "channel" | "playlist" | "detail" | "offline" | TvDestination;
+// "offline": a phone's downloads, while the server can't be reached; "offline-music": its downloaded music.
+type Screen = "profile-selection" | "boot" | "instance" | "pair" | "channel" | "playlist" | "detail" | "offline" | "offline-music" | TvDestination;
 type DetailReturnScreen = "channel" | "playlist" | "offline" | TvBrowseDestination;
 
 type VideoActionRequest = { video: Video; onChange: (updated: Video) => void; options?: VideoActionOptions };
@@ -213,6 +216,12 @@ function TvApp() {
     void phoneDownloads.connect(api && accessToken && activeProfileId !== undefined
       ? { owner: downloadOwner(instanceUrl, activeProfileId), instanceUrl, accessToken, api } : null);
   }, [accessToken, activeProfileId, api, instanceUrl]);
+  // Music saved on the phone follows the signed-in profile too (a child profile has none, and none of anyone else's).
+  useEffect(() => {
+    if (!musicDownloads.available) return;
+    void musicDownloads.connect(instanceUrl && accessToken && activeProfileId !== undefined
+      ? { owner: downloadOwner(instanceUrl, activeProfileId), accessToken, api: new MusicApi(instanceUrl, accessToken) } : null);
+  }, [accessToken, activeProfileId, instanceUrl]);
   const browsingScreen = screen === "detail" ? detailReturnScreen : screen;
   const shellDestination: TvDestination | null = browsingScreen === "playlist" ? "/followed-playlists" : browsingScreen === "channel" ? returnDestination : browsingScreen === "/settings" || isTvBrowseDestination(browsingScreen) ? browsingScreen : null;
   const hasShell = Boolean(api) && shellDestination !== null;
@@ -590,6 +599,8 @@ function TvApp() {
 
   const signOut = useCallback(async () => {
     try { await api?.logout(); } catch { /* Local cleanup still signs this television out. */ }
+    // The signed-out profile's downloaded music no longer opens from the offline screen.
+    await musicDownloads.signedOut().catch(() => {});
     await clearAccessToken();
     await systemProfilesNative.writePreference(null);
     setLinkedProfile(null);
@@ -812,6 +823,7 @@ function TvApp() {
       ? <TvSetupLayout title={t("appleProfilesLoadError")} description={[t("appleProfilesLoadErrorHint"), instanceUrl ? `${t("addressLabel")}: ${instanceUrl}` : ""].filter(Boolean).join("\n\n")} t={t}>
           <TvButton deferPress label={t("refresh")} preferredFocus onPress={() => setBootAttempt((value) => value + 1)} />
           {phoneMode && api ? <OfflineDownloadsButton t={t} onPress={() => setScreen("offline")} /> : null}
+          {phoneMode && api && instanceUrl ? <MusicOfflineButton instanceUrl={instanceUrl} t={t} onPress={() => setScreen("offline-music")} /> : null}
           <TvButton deferPress label={t("changeInstance")} variant="ghost" onPress={() => setScreen("instance")} />
         </TvSetupLayout>
       : <View style={styles.boot}><TvLoadingMark accessibilityLabel={t("booting")} size={64} /></View>;
@@ -934,7 +946,10 @@ function TvApp() {
     <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
-      {phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
+      {phoneMode && api && instanceUrl && screen === "offline-music"
+        ? <MusicOfflineApp api={api} instanceUrl={instanceUrl} t={t} incognito={incognito} onIncognitoChange={setIncognito}
+          onExit={() => { setSelected(null); setBootAttempt((value) => value + 1); }} />
+      : phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
         ? <MusicApp key={profileState.active.id} api={api} musicApi={musicMode.musicApi} session={musicMode.session} t={t} profiles={phoneProfiles(profileState)}
           onSwitchToVideo={() => musicMode.setMusic(false)} />
       : phoneMode && hasShell && api && profileState ? <PhoneShortsContext.Provider value={openShorts}><PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail" || Boolean(shorts)}

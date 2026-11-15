@@ -3,8 +3,9 @@ import { Linking } from "react-native";
 import { loadMusicMode, saveMusicMode } from "../devicePreferences";
 import { deviceStore } from "../deviceStore";
 import { musicPlayer } from "../musicPlayer";
-import { MusicApi } from "./musicApi";
+import { OfflineMusicApi } from "./musicOfflineApi";
 import { MusicSession } from "./musicSession";
+import { musicDownloads } from "./useMusicDownloads";
 
 /** The app-icon shortcut and the music notification open the app with this link. */
 export const MUSIC_LINK = "ytzero://music";
@@ -41,7 +42,8 @@ export function useMusicMode({ available, instanceUrl, accessToken, profileId, i
     return () => { active = false; subscription.remove(); };
   }, [available]);
 
-  const musicApi = useMemo(() => allowed ? new MusicApi(instanceUrl, accessToken) : null, [accessToken, allowed, instanceUrl]);
+  // Downloaded songs play from the phone, and the downloads stand in when the server can't be reached.
+  const musicApi = useMemo(() => allowed ? new OfflineMusicApi(instanceUrl, accessToken, musicDownloads) : null, [accessToken, allowed, instanceUrl]);
   const [session, setSession] = useState<MusicSession | null>(null);
   useEffect(() => {
     if (!musicApi || !music) { setSession(null); return; }
