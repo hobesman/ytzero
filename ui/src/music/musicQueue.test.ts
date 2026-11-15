@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { MusicTrack } from "./musicApi";
 import {
-  appendTracks, createQueue, current, endReason, fromTitle, moveTo, needsMore, playRecord, rateTrack, removeUpcoming, served, shuffleTracks,
+  appendTracks, createQueue, current, endReason, fromTitle, moveTo, moveUpcoming, needsMore, playRecord, queueTrack, rateTrack, removeUpcoming, served,
+  shuffleTracks, type MusicQueue,
 } from "./musicQueue";
 
 const track = (videoId: string, duration = 200): MusicTrack => ({
@@ -56,5 +57,47 @@ describe("music queue", () => {
     expect(endReason(20, 200, false, false)).toBe("stopped");
     const record = playRecord(queue, track("a"), new Date("2026-01-01T00:00:00Z"), 250.4, "completed");
     expect(record).toEqual({ videoId: "a", startedAt: "2026-01-01T00:00:00.000Z", listenedSeconds: 200, duration: 200, endReason: "completed", stationSeed: "mix" });
+  });
+
+  describe("editing the queue", () => {
+    const ids = (queue: MusicQueue) => queue.tracks.map((entry) => entry.videoId);
+    const playing = (...videoIds: string[]) => createQueue({ kind: "mix" }, "mix", tracks(...videoIds));
+
+    test("play next goes right after the playing song; add to queue after other added songs", () => {
+      let queue = queueTrack(playing("a", "s1", "s2"), track("x"), "last");
+      queue = queueTrack(queue, track("y"), "last");
+      expect(ids(queue)).toEqual(["a", "x", "y", "s1", "s2"]);
+      queue = queueTrack(queue, track("z"), "next");
+      expect(ids(queue)).toEqual(["a", "z", "x", "y", "s1", "s2"]);
+      expect(queue.queued).toEqual(["x", "y", "z"]);
+    });
+
+    test("the station's refill lands after songs added by hand", () => {
+      const queue = appendTracks(queueTrack(playing("a", "s1"), track("x"), "last"), tracks("s2"));
+      expect(ids(queue)).toEqual(["a", "x", "s1", "s2"]);
+      // And playing through the added song keeps the order.
+      expect(current(moveTo(queue, 1, false))?.videoId).toBe("x");
+    });
+
+    test("moves a song already in the queue instead of repeating it", () => {
+      expect(ids(queueTrack(playing("a", "s1", "s2"), track("s2"), "next"))).toEqual(["a", "s2", "s1"]);
+      const onB = moveTo(playing("a", "b", "c"), 1, false);
+      const again = queueTrack(onB, track("a"), "next");
+      expect(ids(again)).toEqual(["b", "a", "c"]);
+      expect(current(again)?.videoId).toBe("b");
+      expect(queueTrack(onB, track("b"), "last")).toBe(onB);
+    });
+
+    test("reorders only what is still to come", () => {
+      const queue = moveTo(playing("a", "b", "c", "d"), 1, false);
+      expect(ids(moveUpcoming(queue, 3, 2))).toEqual(["a", "b", "d", "c"]);
+      expect(ids(moveUpcoming(queue, 3, 0))).toEqual(["a", "b", "d", "c"]);
+      expect(moveUpcoming(queue, 0, 2)).toBe(queue);
+    });
+
+    test("removing an added song forgets it was added", () => {
+      const queue = queueTrack(playing("a", "s1"), track("x"), "next");
+      expect(removeUpcoming(queue, "x").queued).toEqual([]);
+    });
   });
 });

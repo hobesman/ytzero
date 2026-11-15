@@ -14,6 +14,7 @@ import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
 import { MusicGenreScreen, MusicPlaylistScreen } from "./MusicGenreScreens";
 import { MusicAlbumScreen, MusicArtistScreen, type MusicPage } from "./MusicPages";
+import { MusicTrackMenuProvider } from "./MusicTrackMenu";
 import { current } from "./musicQueue";
 import { useMusicSession, type MusicSession } from "./musicSession";
 
@@ -112,7 +113,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
 
   if (landscape) {
     const paneWidth = landscapePlayerWidth(window.width - landscapeRailWidth);
-    return <View style={[styles.screen, styles.row]}>
+    return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={[styles.screen, styles.row]}>
       <PhoneSideRail items={tabs} selected={tab} onSelect={selectTab} top={<MusicIcon name="note" color={phoneColors.accent} size={28} />} bottom={avatar} />
       <View style={styles.main}>
         <View style={styles.topBar}><Text numberOfLines={1} style={styles.title}>{title}</Text></View>
@@ -125,10 +126,10 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
         <MusicNowPlaying api={musicApi} session={session} state={state} t={t} paneWidth={paneWidth} onClose={() => {}} />
       </View> : null}
       {accountSheet}
-    </View>;
+    </View></MusicTrackMenuProvider>;
   }
 
-  return <View style={styles.screen}>
+  return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={styles.screen}>
     <View style={styles.topBar}>
       <MusicIcon name="note" color={phoneColors.accent} size={26} />
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
@@ -151,7 +152,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
       <MusicNowPlaying api={musicApi} session={session} state={state} t={t} onClose={() => setPlayerOpen(false)} />
     </View> : null}
     {accountSheet}
-  </View>;
+  </View></MusicTrackMenuProvider>;
 }
 
 const styles = StyleSheet.create({

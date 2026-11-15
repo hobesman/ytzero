@@ -4,7 +4,8 @@ import { onSleepTimerChange, setSleepTimer, sleepTimer } from "../sleepTimer";
 import type { MusicApi, MusicPlay, MusicSeed, MusicTrack } from "./musicApi";
 import { nonMusicSegments } from "./musicNonMusic";
 import {
-  appendTracks, applyTrackChange, createQueue, current, endReason, needsMore, playFor, rateTrack, removeTrack, served, shuffleTracks,
+  appendTracks, applyTrackChange, createQueue, current, endReason, moveUpcoming, needsMore, playFor, queueTrack, rateTrack, removeTrack, served,
+  shuffleTracks, type QueueEdit,
   type MusicQueue,
 } from "./musicQueue";
 
@@ -173,6 +174,43 @@ export class MusicSession {
   skipTo(videoId: string) {
     const index = this.state.queue?.tracks.findIndex((track) => track.videoId === videoId) ?? -1;
     if (index >= 0) void musicPlayer.skipTo(index);
+  }
+
+  /** "Play next" / "Add to queue". With nothing playing, the song starts its own station. */
+  async enqueue(track: MusicTrack, placement: "next" | "last") {
+    const queue = this.state.queue;
+    if (!queue) { await this.start({ kind: "track", videoId: track.videoId }); return; }
+    await this.applyEdit(queueTrack(queue, track, placement));
+  }
+
+  /** A song dragged in Up next, by queue index. */
+  async moveUpcoming(from: number, to: number) {
+    const queue = this.state.queue;
+    if (queue) await this.applyEdit(moveUpcoming(queue, from, to));
+  }
+
+  /** A song taken out of Up next, by queue index. */
+  async removeUpcoming(index: number) {
+    const queue = this.state.queue;
+    if (!queue || index <= queue.index || index >= queue.tracks.length) return;
+    const next = removeTrack(queue, index);
+    this.update({ queue: next });
+    await musicPlayer.removeAt(index);
+    if (index === queue.index + 1) this.prepare(next.tracks[next.index + 1]?.videoId ?? null);
+    if (needsMore(next)) void this.refill();
+  }
+
+  private async applyEdit({ queue, change }: QueueEdit) {
+    const before = this.state.queue;
+    this.update({ queue });
+    if (!change) return;
+    if (change.kind === "insert") {
+      await musicPlayer.insertAt(change.index, [this.api.playerTrack(change.track)]);
+      this.loadSkips([change.track]);
+    } else await musicPlayer.move(change.from, change.to);
+    // The song after the playing one may have changed; have the server ready it.
+    const after = queue.tracks[queue.index + 1]?.videoId ?? null;
+    if (after && after !== before?.tracks[(before?.index ?? 0) + 1]?.videoId) this.prepare(after);
   }
 
   async like(track: MusicTrack, liked: boolean) {

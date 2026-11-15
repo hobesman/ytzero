@@ -1,0 +1,11 @@
+.music-track-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.music-track-row > .music-track { flex: 1; }
+.music-track-menu { flex: none; }
+
+.music-up-next { width: min(380px, calc(100vw - 40px)); }
+.music-up-next__scroll { max-height: min(56vh, 420px); }
+.music-up-next__row { border-radius: 8px; cursor: pointer; padding: 6px; }
+.music-up-next__row:hover { background: var(--surface-3); }
+.music-up-next__row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.music-up-next__row .ui-list-row__title, .music-up-next__row .ui-list-row__description { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.music-up-next__actions { display: flex; gap: 0; }
