@@ -20,6 +20,8 @@ export interface AlexaVideo {
   /** Audio can't be served for live, upcoming, private, unavailable or members-only videos. */
   playable: boolean;
   isShort: boolean;
+  /** Whether the profile has watched it to the end. */
+  watched?: boolean;
 }
 
 type VideoRow = {
@@ -51,6 +53,7 @@ function toVideo(row: VideoRow): AlexaVideo {
     resumeAt: resumable ? Math.floor(position) : null,
     playable: row.is_private !== 1 && row.is_unavailable !== 1 && row.members_only !== 1 && !["live", "upcoming"].includes(row.live_status),
     isShort: row.is_short === 1,
+    watched: row.watched === 1,
   };
 }
 

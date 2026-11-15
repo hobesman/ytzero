@@ -28,6 +28,34 @@
           ]
         },
         {
+          "name": "ShuffleChannelIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "shuffle {query}",
+            "shuffle videos from {query}",
+            "shuffle the channel {query}",
+            "play videos from {query}",
+            "play videos from the channel {query}",
+            "play random videos from {query}",
+            "play some videos from {query}",
+            "play all videos from {query}",
+            "play everything from {query}"
+          ]
+        },
+        {
+          "name": "RandomVideoIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play a random video from {query}",
+            "play a random video by {query}",
+            "play a video from {query}",
+            "play a video from the channel {query}",
+            "play any video from {query}",
+            "play something from {query}",
+            "play one of {query} videos"
+          ]
+        },
+        {
           "name": "SkipForwardIntent",
           "slots": [{ "name": "duration", "type": "AMAZON.DURATION" }],
           "samples": [
