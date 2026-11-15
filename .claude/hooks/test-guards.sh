@@ -102,6 +102,26 @@ check_ps none "stash tagged with a here-string" $'git stash push -u -m @\'\nmy-t
 check_ps none "list, then tagged push" "git stash list; git stash push -u -m \"ps-tag\""
 check_ps none "git status" "git status"
 
+echo "--- a push from a feature branch asks only when the push itself names main"
+# The main checkout sits on main, where every push asks, so these run in a
+# throwaway repo on another branch.
+feature=$(mktemp -d)
+git -C "$feature" init -q -b worktree-main-thing
+check_in() {   # check_in <expected> <label> <command>  -- a Bash tool call from $feature
+  report "$1" "$(decision guard-git.sh "{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$(jenc "$3")\"},\"cwd\":\"$(jenc "$feature")\"}")" "feature branch: $2"
+}
+check_in none "push, then gh pr create --base main, joined by ;" "git push -u origin worktree-main-thing; gh pr create --base main --fill"
+check_in none "push, then gh pr create --base main, joined by &&" "git push -u origin worktree-main-thing && gh pr create --base main --fill"
+check_in none "push output piped to grep -v main" "git push -u origin worktree-main-thing 2>&1 | grep -v main"
+check_in none "branch named worktree-main-thing" "git push origin worktree-main-thing"
+check_in ask  "git push origin main" "git push origin main"
+check_in ask  "HEAD:main" "git push origin HEAD:main"
+check_in ask  "+main" "git push origin +main"
+check_in ask  "main:main" "git push origin main:main"
+check_in ask  "x:refs/heads/main" "git push origin x:refs/heads/main"
+check_in ask  "push to main after a harmless command" "git status && git push origin HEAD:main"
+rm -rf "$feature"
+
 echo "--- guard-worktree reads decoded Windows paths"
 check_edit ask  "edit in the main checkout" "$repo\\CLAUDE.md"
 check_edit none "edit outside any repo" "C:\\Users\\NickhaleHoban\\Downloads\\x.txt"
