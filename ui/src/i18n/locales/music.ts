@@ -46,6 +46,17 @@ const en = {
   musicBack: "Back",
   musicPosition: "Position in the song",
   musicNotAvailable: "Music isn't available on this profile.",
+  musicPlayNext: "Play next",
+  musicAddToQueue: "Add to queue",
+  musicQueuedNext: "Playing next",
+  musicQueuedLast: "Added to queue",
+  musicRemoveFromQueue: "Remove from queue",
+  musicMoveUp: "Move up",
+  musicMoveDown: "Move down",
+  musicEditQueue: "Edit",
+  musicDoneEditing: "Done",
+  musicMoreOptions: "More options",
+  musicUpNextEmpty: "Nothing queued yet.",
   musicYourPlaylists: "Your playlists",
   musicSavedPlaylists: "Saved playlists",
   musicRenamePlaylist: "Rename",
@@ -53,7 +64,6 @@ const en = {
   musicPlaylistEmpty: "No songs yet. Add them with Add to playlist in any song's menu.",
   musicRemoveFromPlaylist: "Remove from playlist",
   musicActionFailed: "Something went wrong. Try again.",
-  musicDoneEditing: "Done",
   musicAddToPlaylist: "Add to playlist",
   musicAddedToPlaylist: "Added to {name}",
   musicAlreadyInPlaylist: "Already in {name}",
@@ -77,7 +87,9 @@ const pl: MusicMessages = {
   musicNext: "Następny utwór", musicPrevious: "Poprzedni utwór", musicLike: "Polub", musicUnlike: "Usuń polubienie", musicNotThis: "Nie ten",
   musicFrom: "Z: {title}", musicUpNext: "Następne", musicStop: "Zatrzymaj", musicBack: "Wstecz", musicPosition: "Pozycja w utworze",
   musicNotAvailable: "Muzyka nie jest dostępna w tym profilu.",
-  musicYourPlaylists: "Twoje playlisty", musicSavedPlaylists: "Zapisane playlisty", musicRenamePlaylist: "Zmień nazwę", musicDeletePlaylistConfirm: "Usunąć „{name}”? Utwory zostaną tam, gdzie są poza nią.", musicPlaylistEmpty: "Brak utworów. Dodaj je opcją Dodaj do playlisty w menu dowolnego utworu.", musicRemoveFromPlaylist: "Usuń z playlisty", musicActionFailed: "Coś poszło nie tak. Spróbuj ponownie.", musicDoneEditing: "Gotowe", musicAddToPlaylist: "Dodaj do playlisty", musicAddedToPlaylist: "Dodano do: {name}", musicAlreadyInPlaylist: "Już jest w: {name}",
+  musicPlayNext: "Odtwórz jako następny", musicAddToQueue: "Dodaj do kolejki", musicQueuedNext: "Zagra jako następny", musicQueuedLast: "Dodano do kolejki", musicRemoveFromQueue: "Usuń z kolejki", musicMoveUp: "Przesuń w górę", musicMoveDown: "Przesuń w dół", musicEditQueue: "Edytuj", musicDoneEditing: "Gotowe", musicMoreOptions: "Więcej opcji",
+  musicUpNextEmpty: "Kolejka jest pusta.",
+  musicYourPlaylists: "Twoje playlisty", musicSavedPlaylists: "Zapisane playlisty", musicRenamePlaylist: "Zmień nazwę", musicDeletePlaylistConfirm: "Usunąć „{name}”? Utwory zostaną tam, gdzie są poza nią.", musicPlaylistEmpty: "Brak utworów. Dodaj je opcją Dodaj do playlisty w menu dowolnego utworu.", musicRemoveFromPlaylist: "Usuń z playlisty", musicActionFailed: "Coś poszło nie tak. Spróbuj ponownie.", musicAddToPlaylist: "Dodaj do playlisty", musicAddedToPlaylist: "Dodano do: {name}", musicAlreadyInPlaylist: "Już jest w: {name}",
 };
 
 const de: MusicMessages = {
@@ -96,7 +108,9 @@ const de: MusicMessages = {
   musicNext: "Nächster Song", musicPrevious: "Vorheriger Song", musicLike: "Gefällt mir", musicUnlike: "Gefällt mir entfernen", musicNotThis: "Nicht diesen",
   musicFrom: "Aus {title}", musicUpNext: "Als Nächstes", musicStop: "Stoppen", musicBack: "Zurück", musicPosition: "Position im Song",
   musicNotAvailable: "Musik ist in diesem Profil nicht verfügbar.",
-  musicYourPlaylists: "Deine Playlists", musicSavedPlaylists: "Gespeicherte Playlists", musicRenamePlaylist: "Umbenennen", musicDeletePlaylistConfirm: "„{name}“ löschen? Die Songs bleiben überall sonst erhalten.", musicPlaylistEmpty: "Noch keine Songs. Füge sie im Menü eines Songs mit „Zur Playlist hinzufügen“ hinzu.", musicRemoveFromPlaylist: "Aus Playlist entfernen", musicActionFailed: "Etwas ist schiefgelaufen. Versuche es erneut.", musicDoneEditing: "Fertig", musicAddToPlaylist: "Zur Playlist hinzufügen", musicAddedToPlaylist: "Zu {name} hinzugefügt", musicAlreadyInPlaylist: "Bereits in {name}",
+  musicPlayNext: "Als Nächstes spielen", musicAddToQueue: "Zur Warteschlange hinzufügen", musicQueuedNext: "Wird als Nächstes gespielt", musicQueuedLast: "Zur Warteschlange hinzugefügt", musicRemoveFromQueue: "Aus der Warteschlange entfernen", musicMoveUp: "Nach oben", musicMoveDown: "Nach unten", musicEditQueue: "Bearbeiten", musicDoneEditing: "Fertig", musicMoreOptions: "Weitere Optionen",
+  musicUpNextEmpty: "Noch nichts in der Warteschlange.",
+  musicYourPlaylists: "Deine Playlists", musicSavedPlaylists: "Gespeicherte Playlists", musicRenamePlaylist: "Umbenennen", musicDeletePlaylistConfirm: "„{name}“ löschen? Die Songs bleiben überall sonst erhalten.", musicPlaylistEmpty: "Noch keine Songs. Füge sie im Menü eines Songs mit „Zur Playlist hinzufügen“ hinzu.", musicRemoveFromPlaylist: "Aus Playlist entfernen", musicActionFailed: "Etwas ist schiefgelaufen. Versuche es erneut.", musicAddToPlaylist: "Zur Playlist hinzufügen", musicAddedToPlaylist: "Zu {name} hinzugefügt", musicAlreadyInPlaylist: "Bereits in {name}",
 };
 
 const fr: MusicMessages = {
@@ -115,7 +129,9 @@ const fr: MusicMessages = {
   musicNext: "Titre suivant", musicPrevious: "Titre précédent", musicLike: "J’aime", musicUnlike: "Retirer le J’aime", musicNotThis: "Pas celui-ci",
   musicFrom: "Extrait de {title}", musicUpNext: "À suivre", musicStop: "Arrêter", musicBack: "Retour", musicPosition: "Position dans le titre",
   musicNotAvailable: "La musique n’est pas disponible sur ce profil.",
-  musicYourPlaylists: "Vos playlists", musicSavedPlaylists: "Playlists enregistrées", musicRenamePlaylist: "Renommer", musicDeletePlaylistConfirm: "Supprimer « {name} » ? Les titres restent ailleurs là où ils sont.", musicPlaylistEmpty: "Aucun titre pour l’instant. Ajoutez-en avec Ajouter à une playlist dans le menu d’un titre.", musicRemoveFromPlaylist: "Retirer de la playlist", musicActionFailed: "Un problème est survenu. Réessayez.", musicDoneEditing: "Terminé", musicAddToPlaylist: "Ajouter à une playlist", musicAddedToPlaylist: "Ajouté à {name}", musicAlreadyInPlaylist: "Déjà dans {name}",
+  musicPlayNext: "Lire ensuite", musicAddToQueue: "Ajouter à la file d'attente", musicQueuedNext: "Sera lu ensuite", musicQueuedLast: "Ajouté à la file d'attente", musicRemoveFromQueue: "Retirer de la file d'attente", musicMoveUp: "Monter", musicMoveDown: "Descendre", musicEditQueue: "Modifier", musicDoneEditing: "Terminé", musicMoreOptions: "Plus d'options",
+  musicUpNextEmpty: "La file d’attente est vide.",
+  musicYourPlaylists: "Vos playlists", musicSavedPlaylists: "Playlists enregistrées", musicRenamePlaylist: "Renommer", musicDeletePlaylistConfirm: "Supprimer « {name} » ? Les titres restent ailleurs là où ils sont.", musicPlaylistEmpty: "Aucun titre pour l’instant. Ajoutez-en avec Ajouter à une playlist dans le menu d’un titre.", musicRemoveFromPlaylist: "Retirer de la playlist", musicActionFailed: "Un problème est survenu. Réessayez.", musicAddToPlaylist: "Ajouter à une playlist", musicAddedToPlaylist: "Ajouté à {name}", musicAlreadyInPlaylist: "Déjà dans {name}",
 };
 
 const es: MusicMessages = {
@@ -134,7 +150,9 @@ const es: MusicMessages = {
   musicNext: "Siguiente canción", musicPrevious: "Canción anterior", musicLike: "Me gusta", musicUnlike: "Quitar me gusta", musicNotThis: "Esta no",
   musicFrom: "De {title}", musicUpNext: "A continuación", musicStop: "Detener", musicBack: "Atrás", musicPosition: "Posición en la canción",
   musicNotAvailable: "La música no está disponible en este perfil.",
-  musicYourPlaylists: "Tus listas", musicSavedPlaylists: "Listas guardadas", musicRenamePlaylist: "Cambiar nombre", musicDeletePlaylistConfirm: "¿Eliminar «{name}»? Las canciones siguen donde estén fuera de ella.", musicPlaylistEmpty: "Aún no hay canciones. Añádelas con Añadir a una lista en el menú de cualquier canción.", musicRemoveFromPlaylist: "Quitar de la lista", musicActionFailed: "Algo salió mal. Inténtalo de nuevo.", musicDoneEditing: "Listo", musicAddToPlaylist: "Añadir a una lista", musicAddedToPlaylist: "Añadida a {name}", musicAlreadyInPlaylist: "Ya está en {name}",
+  musicPlayNext: "Reproducir a continuación", musicAddToQueue: "Añadir a la cola", musicQueuedNext: "Sonará a continuación", musicQueuedLast: "Añadida a la cola", musicRemoveFromQueue: "Quitar de la cola", musicMoveUp: "Subir", musicMoveDown: "Bajar", musicEditQueue: "Editar", musicDoneEditing: "Listo", musicMoreOptions: "Más opciones",
+  musicUpNextEmpty: "Aún no hay nada en la cola.",
+  musicYourPlaylists: "Tus listas", musicSavedPlaylists: "Listas guardadas", musicRenamePlaylist: "Cambiar nombre", musicDeletePlaylistConfirm: "¿Eliminar «{name}»? Las canciones siguen donde estén fuera de ella.", musicPlaylistEmpty: "Aún no hay canciones. Añádelas con Añadir a una lista en el menú de cualquier canción.", musicRemoveFromPlaylist: "Quitar de la lista", musicActionFailed: "Algo salió mal. Inténtalo de nuevo.", musicAddToPlaylist: "Añadir a una lista", musicAddedToPlaylist: "Añadida a {name}", musicAlreadyInPlaylist: "Ya está en {name}",
 };
 
 const ptBR: MusicMessages = {
@@ -153,7 +171,9 @@ const ptBR: MusicMessages = {
   musicNext: "Próxima música", musicPrevious: "Música anterior", musicLike: "Curtir", musicUnlike: "Descurtir", musicNotThis: "Esta não",
   musicFrom: "De {title}", musicUpNext: "A seguir", musicStop: "Parar", musicBack: "Voltar", musicPosition: "Posição na música",
   musicNotAvailable: "A música não está disponível neste perfil.",
-  musicYourPlaylists: "Suas playlists", musicSavedPlaylists: "Playlists salvas", musicRenamePlaylist: "Renomear", musicDeletePlaylistConfirm: "Excluir “{name}”? As músicas continuam onde mais estiverem.", musicPlaylistEmpty: "Nenhuma música ainda. Adicione com Adicionar à playlist no menu de qualquer música.", musicRemoveFromPlaylist: "Remover da playlist", musicActionFailed: "Algo deu errado. Tente de novo.", musicDoneEditing: "Concluído", musicAddToPlaylist: "Adicionar à playlist", musicAddedToPlaylist: "Adicionada a {name}", musicAlreadyInPlaylist: "Já está em {name}",
+  musicPlayNext: "Tocar a seguir", musicAddToQueue: "Adicionar à fila", musicQueuedNext: "Vai tocar a seguir", musicQueuedLast: "Adicionada à fila", musicRemoveFromQueue: "Remover da fila", musicMoveUp: "Mover para cima", musicMoveDown: "Mover para baixo", musicEditQueue: "Editar", musicDoneEditing: "Concluído", musicMoreOptions: "Mais opções",
+  musicUpNextEmpty: "Nada na fila ainda.",
+  musicYourPlaylists: "Suas playlists", musicSavedPlaylists: "Playlists salvas", musicRenamePlaylist: "Renomear", musicDeletePlaylistConfirm: "Excluir “{name}”? As músicas continuam onde mais estiverem.", musicPlaylistEmpty: "Nenhuma música ainda. Adicione com Adicionar à playlist no menu de qualquer música.", musicRemoveFromPlaylist: "Remover da playlist", musicActionFailed: "Algo deu errado. Tente de novo.", musicAddToPlaylist: "Adicionar à playlist", musicAddedToPlaylist: "Adicionada a {name}", musicAlreadyInPlaylist: "Já está em {name}",
 };
 
 const ru: MusicMessages = {
@@ -172,7 +192,9 @@ const ru: MusicMessages = {
   musicNext: "Следующий трек", musicPrevious: "Предыдущий трек", musicLike: "Нравится", musicUnlike: "Убрать отметку", musicNotThis: "Не этот",
   musicFrom: "Из «{title}»", musicUpNext: "Далее", musicStop: "Остановить", musicBack: "Назад", musicPosition: "Позиция в треке",
   musicNotAvailable: "Музыка недоступна в этом профиле.",
-  musicYourPlaylists: "Ваши плейлисты", musicSavedPlaylists: "Сохранённые плейлисты", musicRenamePlaylist: "Переименовать", musicDeletePlaylistConfirm: "Удалить «{name}»? Треки останутся там, где они есть ещё.", musicPlaylistEmpty: "Пока пусто. Добавляйте треки через «Добавить в плейлист» в меню любого трека.", musicRemoveFromPlaylist: "Убрать из плейлиста", musicActionFailed: "Что-то пошло не так. Попробуйте ещё раз.", musicDoneEditing: "Готово", musicAddToPlaylist: "Добавить в плейлист", musicAddedToPlaylist: "Добавлено в «{name}»", musicAlreadyInPlaylist: "Уже есть в «{name}»",
+  musicPlayNext: "Воспроизвести следующим", musicAddToQueue: "Добавить в очередь", musicQueuedNext: "Прозвучит следующим", musicQueuedLast: "Добавлено в очередь", musicRemoveFromQueue: "Убрать из очереди", musicMoveUp: "Переместить вверх", musicMoveDown: "Переместить вниз", musicEditQueue: "Изменить", musicDoneEditing: "Готово", musicMoreOptions: "Другие действия",
+  musicUpNextEmpty: "В очереди пока пусто.",
+  musicYourPlaylists: "Ваши плейлисты", musicSavedPlaylists: "Сохранённые плейлисты", musicRenamePlaylist: "Переименовать", musicDeletePlaylistConfirm: "Удалить «{name}»? Треки останутся там, где они есть ещё.", musicPlaylistEmpty: "Пока пусто. Добавляйте треки через «Добавить в плейлист» в меню любого трека.", musicRemoveFromPlaylist: "Убрать из плейлиста", musicActionFailed: "Что-то пошло не так. Попробуйте ещё раз.", musicAddToPlaylist: "Добавить в плейлист", musicAddedToPlaylist: "Добавлено в «{name}»", musicAlreadyInPlaylist: "Уже есть в «{name}»",
 };
 
 const ja: MusicMessages = {
@@ -191,7 +213,9 @@ const ja: MusicMessages = {
   musicNext: "次の曲", musicPrevious: "前の曲", musicLike: "高く評価", musicUnlike: "評価を取り消す", musicNotThis: "この曲は不要",
   musicFrom: "{title} から", musicUpNext: "次に再生", musicStop: "停止", musicBack: "戻る", musicPosition: "曲内の位置",
   musicNotAvailable: "このプロフィールでは音楽を利用できません。",
-  musicYourPlaylists: "あなたのプレイリスト", musicSavedPlaylists: "保存したプレイリスト", musicRenamePlaylist: "名前を変更", musicDeletePlaylistConfirm: "「{name}」を削除しますか？曲はほかの場所に残ります。", musicPlaylistEmpty: "まだ曲がありません。曲のメニューの「プレイリストに追加」から追加できます。", musicRemoveFromPlaylist: "プレイリストから削除", musicActionFailed: "問題が発生しました。もう一度お試しください。", musicDoneEditing: "完了", musicAddToPlaylist: "プレイリストに追加", musicAddedToPlaylist: "{name} に追加しました", musicAlreadyInPlaylist: "すでに {name} にあります",
+  musicPlayNext: "次に再生", musicAddToQueue: "キューに追加", musicQueuedNext: "次に再生します", musicQueuedLast: "キューに追加しました", musicRemoveFromQueue: "キューから削除", musicMoveUp: "上へ移動", musicMoveDown: "下へ移動", musicEditQueue: "編集", musicDoneEditing: "完了", musicMoreOptions: "その他のオプション",
+  musicUpNextEmpty: "キューはまだ空です。",
+  musicYourPlaylists: "あなたのプレイリスト", musicSavedPlaylists: "保存したプレイリスト", musicRenamePlaylist: "名前を変更", musicDeletePlaylistConfirm: "「{name}」を削除しますか？曲はほかの場所に残ります。", musicPlaylistEmpty: "まだ曲がありません。曲のメニューの「プレイリストに追加」から追加できます。", musicRemoveFromPlaylist: "プレイリストから削除", musicActionFailed: "問題が発生しました。もう一度お試しください。", musicAddToPlaylist: "プレイリストに追加", musicAddedToPlaylist: "{name} に追加しました", musicAlreadyInPlaylist: "すでに {name} にあります",
 };
 
 const hu: MusicMessages = {
@@ -210,7 +234,9 @@ const hu: MusicMessages = {
   musicNext: "Következő dal", musicPrevious: "Előző dal", musicLike: "Tetszik", musicUnlike: "Kedvelés visszavonása", musicNotThis: "Ezt ne",
   musicFrom: "Innen: {title}", musicUpNext: "Következik", musicStop: "Leállítás", musicBack: "Vissza", musicPosition: "Pozíció a dalban",
   musicNotAvailable: "A zene nem érhető el ebben a profilban.",
-  musicYourPlaylists: "Saját lejátszási listák", musicSavedPlaylists: "Mentett lejátszási listák", musicRenamePlaylist: "Átnevezés", musicDeletePlaylistConfirm: "Törlöd: „{name}”? A dalok máshol megmaradnak.", musicPlaylistEmpty: "Még nincs dal. Bármelyik dal menüjében a Hozzáadás lejátszási listához paranccsal adhatsz hozzá.", musicRemoveFromPlaylist: "Eltávolítás a listából", musicActionFailed: "Hiba történt. Próbáld újra.", musicDoneEditing: "Kész", musicAddToPlaylist: "Hozzáadás lejátszási listához", musicAddedToPlaylist: "Hozzáadva: {name}", musicAlreadyInPlaylist: "Már benne van: {name}",
+  musicPlayNext: "Lejátszás következőként", musicAddToQueue: "Hozzáadás a lejátszási sorhoz", musicQueuedNext: "Következőként szól", musicQueuedLast: "Hozzáadva a lejátszási sorhoz", musicRemoveFromQueue: "Eltávolítás a lejátszási sorból", musicMoveUp: "Mozgatás felfelé", musicMoveDown: "Mozgatás lefelé", musicEditQueue: "Szerkesztés", musicDoneEditing: "Kész", musicMoreOptions: "További lehetőségek",
+  musicUpNextEmpty: "A lejátszási sor még üres.",
+  musicYourPlaylists: "Saját lejátszási listák", musicSavedPlaylists: "Mentett lejátszási listák", musicRenamePlaylist: "Átnevezés", musicDeletePlaylistConfirm: "Törlöd: „{name}”? A dalok máshol megmaradnak.", musicPlaylistEmpty: "Még nincs dal. Bármelyik dal menüjében a Hozzáadás lejátszási listához paranccsal adhatsz hozzá.", musicRemoveFromPlaylist: "Eltávolítás a listából", musicActionFailed: "Hiba történt. Próbáld újra.", musicAddToPlaylist: "Hozzáadás lejátszási listához", musicAddedToPlaylist: "Hozzáadva: {name}", musicAlreadyInPlaylist: "Már benne van: {name}",
 };
 
 export const musicMessages = { en, pl, de, fr, es, "pt-BR": ptBR, ru, ja, hu };

@@ -5,6 +5,7 @@ import { MusicArtwork, durationLabel } from "./MusicParts";
 import { musicPlayer, useMusicPlayer } from "./musicPlayer";
 import { current, fromTitle } from "./musicQueue";
 import { MusicAddToPlaylistButton } from "./MusicPlaylistViews";
+import { MusicUpNext } from "./MusicQueueParts";
 
 /** The music now playing, with its controls; shown under music mode's pages. */
 export default function MusicPlayerBar() {
@@ -40,6 +41,7 @@ export default function MusicPlayerBar() {
         onClick={() => void musicPlayer.rate(track, liked ? 0 : 1).catch(() => {})} />
       <IconButton variant="ghost" label={t("musicNotThis")} icon={<ThumbsDown />} onClick={() => void musicPlayer.dislike(track).catch(() => {})} />
       <MusicAddToPlaylistButton track={track} />
+      <MusicUpNext />
       <IconButton variant="ghost" label={t("musicStop")} icon={<Square />} onClick={() => musicPlayer.stop()} />
     </div>
   </div>;
