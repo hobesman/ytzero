@@ -569,8 +569,9 @@ archive with no such capability restores with public sharing denied.
   A play's `station_seed` names the station it came from (`track:<id>`,
   `album:<id>`, `artist:<id>`, `playlist:<id>`, `liked` or `mix`), up to 80
   characters. In-memory radio results, album, artist and playlist pages, the
-  Moods & genres list and its category pages, and prepared audio prefixes are
-  transient.
+  Moods & genres list and its category pages, prepared audio prefixes, and
+  song lyrics (looked up from LRCLIB and YouTube Music, kept in memory for a
+  day and fetched again after a restart) are transient.
 - minimal channel/video metadata for objects referenced by the selected state.
   This is a rehydration seed, not the entire cached feed/library.
 

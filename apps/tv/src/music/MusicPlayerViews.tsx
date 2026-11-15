@@ -7,6 +7,7 @@ import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { onSleepTimerChange, setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, sleepTimerRemaining, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
 import type { MusicApi } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
+import { MusicLyricsView } from "./MusicLyricsView";
 import { current, playingFrom, upNext } from "./musicQueue";
 import type { MusicSession, MusicSessionState } from "./musicSession";
 import { durationLabel, MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
@@ -77,6 +78,7 @@ export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: 
   const width = paneWidth ?? window.width;
   const height = window.height;
   const [sleepSheet, setSleepSheet] = useState(false);
+  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [barWidth, setBarWidth] = useState(1);
   const sleep = useSleepTimerState();
   const track = current(state.queue);
@@ -91,7 +93,8 @@ export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: 
   const art = Math.min(width - 64, height * (embedded ? 0.32 : 0.38));
   const sleepLabel = sleep.remaining !== null ? sleepCountdownLabel(sleep.remaining) : sleep.timer.kind === "end" ? t("musicSleepEndOfSong") : null;
   const header = <View style={styles.player}>
-    <MusicArtwork api={api} url={track.thumbnail} size={art} radius={12} />
+    {lyricsOpen ? <MusicLyricsView api={api} session={session} t={t} track={track} height={art} />
+      : <Pressable accessibilityRole="button" accessibilityLabel={t("musicLyrics")} onPress={() => setLyricsOpen(true)}><MusicArtwork api={api} url={track.thumbnail} size={art} radius={12} /></Pressable>}
     <View style={styles.copy}>
       <Text numberOfLines={2} style={styles.title}>{track.title}</Text>
       <Text numberOfLines={1} style={styles.artist}>{[track.artist, track.album].filter(Boolean).join(" · ")}</Text>
@@ -116,10 +119,16 @@ export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: 
         <MusicIcon name={liked ? "liked" : "like"} color={liked ? phoneColors.accent : phoneColors.text} />
       </Control>
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
-      <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
-      <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
-    </Pressable>
+    <View style={styles.extras}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
+        <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
+        <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityState={{ selected: lyricsOpen }} accessibilityLabel={t("musicLyrics")} onPress={() => setLyricsOpen(!lyricsOpen)} style={styles.sleep}>
+        <MusicIcon name="lyrics" color={lyricsOpen ? phoneColors.accent : phoneColors.textMuted} size={18} />
+        <Text style={[styles.sleepLabel, lyricsOpen ? styles.sleepOn : null]}>{t("musicLyrics")}</Text>
+      </Pressable>
+    </View>
     {next.length ? <Text style={styles.section}>{t("musicUpNext")}</Text> : null}
   </View>;
   // The app root already keeps clear of the system bars.
@@ -168,7 +177,8 @@ const styles = StyleSheet.create({
   times: { alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between" },
   time: { ...phoneType.caption, color: phoneColors.textMuted },
   controls: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
-  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, marginTop: 12 },
+  extras: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 12 },
+  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10 },
   sleepLabel: { ...phoneType.caption, color: phoneColors.textMuted },
   sleepOn: { color: phoneColors.accent },
   section: { ...phoneType.caption, alignSelf: "stretch", fontWeight: "700", color: phoneColors.textMuted, textTransform: "uppercase", letterSpacing: 0.6, paddingTop: 24, paddingBottom: 6 },

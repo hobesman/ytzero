@@ -86,13 +86,13 @@ describe("HTTP route manifest", () => {
     for (const route of nativePlaybackRoutes) expect(routes).toContain(route);
     expect(routes).toContain("PUT /channel-playlists/:id/sort");
     const musicRoutes = [
-      "GET /music/search", "POST /music/station", "GET /music/tracks/:id/audio", "POST /music/tracks/:id/prepare",
+      "GET /music/search", "POST /music/station", "GET /music/tracks/:id/audio", "POST /music/tracks/:id/prepare", "GET /music/tracks/:id/lyrics",
       "POST /music/plays", "PUT /music/tracks/:id/rating", "GET /music/library",
       "GET /music/albums/:id", "GET /music/artists/:id", "PUT /music/albums/:id/saved", "DELETE /music/albums/:id/saved",
       "GET /music/genres", "GET /music/genres/:id", "GET /music/playlists/:id",
     ];
     for (const route of musicRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(295);
+    expect(routes).toHaveLength(296);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);

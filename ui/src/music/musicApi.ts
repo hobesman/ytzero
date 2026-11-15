@@ -40,6 +40,11 @@ export type MusicPlay = {
   videoId: string; startedAt: string; listenedSeconds: number; duration: number | null; endReason: MusicEndReason; stationSeed: string | null;
 };
 
+/** A song's lyrics: time-synced lines when known, else plain text. `source` is who to credit. */
+export type MusicLyrics = {
+  videoId: string; synced: { time: number; text: string }[] | null; plain: string | null; instrumental: boolean; source: string | null;
+};
+
 const json = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
 const id = encodeURIComponent;
 
@@ -61,5 +66,6 @@ export const musicApi = {
     http<{ seed: string; tracks: MusicTrack[] }>("/music/station", json({ seed, served, skipped, count })),
   recordPlay: (play: MusicPlay) => http<{ ok: true }>("/music/plays", json(play)),
   rate: (videoId: string, rating: 1 | 0 | -1) => http<{ ok: true }>(`/music/tracks/${id(videoId)}/rating`, { method: "PUT", body: JSON.stringify({ rating }) }),
+  lyrics: (videoId: string) => http<MusicLyrics>(`/music/tracks/${id(videoId)}/lyrics`),
   audioUrl: (videoId: string) => `/api/music/tracks/${id(videoId)}/audio`,
 };

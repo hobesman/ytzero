@@ -1,0 +1,38 @@
+{
+ "contents": {
+  "sectionListRenderer": {
+   "contents": [
+    {
+     "musicDescriptionShelfRenderer": {
+      "description": {
+       "runs": [
+        {
+         "text": "First line of a made-up verse\r\nSecond line, still made up\n\nA chorus nobody wrote\nSung twice for the test"
+        }
+       ]
+      },
+      "trackingParams": "CAIQ2fQEGAAiEwin5tzihouYAxXjzOcDHTy4D7o=",
+      "maxCollapsedLines": 0,
+      "maxExpandedLines": 0,
+      "onShowCommands": [
+       {
+        "clickTrackingParams": "CAIQ2fQEGAAiEwin5tzihouYAxXjzOcDHTy4D7rKAQRyUJyF",
+        "logLyricEventCommand": {
+         "serializedLyricInfo": "Eg10X3dVYmlNTmJhRTZPGAIiCTEzMjU5NjU3OA=="
+        }
+       }
+      ],
+      "footer": {
+       "runs": [
+        {
+         "text": "Source: Musixmatch"
+        }
+       ]
+      }
+     }
+    }
+   ],
+   "trackingParams": "CAEQui8iEwin5tzihouYAxXjzOcDHTy4D7o="
+  }
+ }
+}

@@ -112,6 +112,16 @@ describe("music mode", () => {
     expect(result.childGenresStatus).toBe(403);
   });
 
+  test("looks up a known song's lyrics by its details alone, and never for a child profile", () => {
+    expect(result.childLyricsStatus).toBe(403);
+    expect(result.unknownLyricsStatus).toBe(404);
+    expect(result.lyrics).toEqual({ videoId: "seedSong001", synced: [{ time: 1, text: "A line" }, { time: 4.5, text: "Another" }], plain: null, instrumental: false, source: "LRCLIB" });
+    expect(result.lrclibUrls).toHaveLength(1);
+    const params = Object.fromEntries(new URL(result.lrclibUrls[0]).searchParams);
+    expect(Object.keys(params).sort()).toEqual(expect.arrayContaining(["artist_name", "track_name"]));
+    for (const key of Object.keys(params)) expect(["artist_name", "track_name", "album_name", "duration"]).toContain(key);
+  });
+
   test("saves albums per profile and unsaves them", () => {
     expect(result.saveStatus).toBe(200);
     expect(result.savedFlag).toBe(true);

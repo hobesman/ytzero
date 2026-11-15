@@ -46,6 +46,7 @@ const en = {
   musicBack: "Back",
   musicPosition: "Position in the song",
   musicNotAvailable: "Music isn't available on this profile.",
+  musicLyrics: "Lyrics", musicLyricsFrom: "Lyrics from {source}", musicLyricsFailed: "Couldn't load the lyrics", musicLyricsNone: "No lyrics found for this song", musicLyricsInstrumental: "This song is instrumental",
 };
 
 type MusicMessages = typeof en;
@@ -66,6 +67,7 @@ const pl: MusicMessages = {
   musicNext: "Następny utwór", musicPrevious: "Poprzedni utwór", musicLike: "Polub", musicUnlike: "Usuń polubienie", musicNotThis: "Nie ten",
   musicFrom: "Z: {title}", musicUpNext: "Następne", musicStop: "Zatrzymaj", musicBack: "Wstecz", musicPosition: "Pozycja w utworze",
   musicNotAvailable: "Muzyka nie jest dostępna w tym profilu.",
+  musicLyrics: "Tekst", musicLyricsFrom: "Tekst z {source}", musicLyricsFailed: "Nie udało się wczytać tekstu", musicLyricsNone: "Nie znaleziono tekstu tego utworu", musicLyricsInstrumental: "To utwór instrumentalny",
 };
 
 const de: MusicMessages = {
@@ -84,6 +86,7 @@ const de: MusicMessages = {
   musicNext: "Nächster Song", musicPrevious: "Vorheriger Song", musicLike: "Gefällt mir", musicUnlike: "Gefällt mir entfernen", musicNotThis: "Nicht diesen",
   musicFrom: "Aus {title}", musicUpNext: "Als Nächstes", musicStop: "Stoppen", musicBack: "Zurück", musicPosition: "Position im Song",
   musicNotAvailable: "Musik ist in diesem Profil nicht verfügbar.",
+  musicLyrics: "Songtext", musicLyricsFrom: "Songtext von {source}", musicLyricsFailed: "Der Songtext konnte nicht geladen werden", musicLyricsNone: "Kein Songtext für diesen Song gefunden", musicLyricsInstrumental: "Dieser Song ist instrumental",
 };
 
 const fr: MusicMessages = {
@@ -102,6 +105,7 @@ const fr: MusicMessages = {
   musicNext: "Titre suivant", musicPrevious: "Titre précédent", musicLike: "J’aime", musicUnlike: "Retirer le J’aime", musicNotThis: "Pas celui-ci",
   musicFrom: "Extrait de {title}", musicUpNext: "À suivre", musicStop: "Arrêter", musicBack: "Retour", musicPosition: "Position dans le titre",
   musicNotAvailable: "La musique n’est pas disponible sur ce profil.",
+  musicLyrics: "Paroles", musicLyricsFrom: "Paroles fournies par {source}", musicLyricsFailed: "Impossible de charger les paroles", musicLyricsNone: "Aucune parole trouvée pour ce titre", musicLyricsInstrumental: "Ce titre est instrumental",
 };
 
 const es: MusicMessages = {
@@ -120,6 +124,7 @@ const es: MusicMessages = {
   musicNext: "Siguiente canción", musicPrevious: "Canción anterior", musicLike: "Me gusta", musicUnlike: "Quitar me gusta", musicNotThis: "Esta no",
   musicFrom: "De {title}", musicUpNext: "A continuación", musicStop: "Detener", musicBack: "Atrás", musicPosition: "Posición en la canción",
   musicNotAvailable: "La música no está disponible en este perfil.",
+  musicLyrics: "Letra", musicLyricsFrom: "Letra de {source}", musicLyricsFailed: "No se pudo cargar la letra", musicLyricsNone: "No se encontró la letra de esta canción", musicLyricsInstrumental: "Esta canción es instrumental",
 };
 
 const ptBR: MusicMessages = {
@@ -138,6 +143,7 @@ const ptBR: MusicMessages = {
   musicNext: "Próxima música", musicPrevious: "Música anterior", musicLike: "Curtir", musicUnlike: "Descurtir", musicNotThis: "Esta não",
   musicFrom: "De {title}", musicUpNext: "A seguir", musicStop: "Parar", musicBack: "Voltar", musicPosition: "Posição na música",
   musicNotAvailable: "A música não está disponível neste perfil.",
+  musicLyrics: "Letra", musicLyricsFrom: "Letra de {source}", musicLyricsFailed: "Não foi possível carregar a letra", musicLyricsNone: "Nenhuma letra encontrada para esta música", musicLyricsInstrumental: "Esta música é instrumental",
 };
 
 const ru: MusicMessages = {
@@ -156,6 +162,7 @@ const ru: MusicMessages = {
   musicNext: "Следующий трек", musicPrevious: "Предыдущий трек", musicLike: "Нравится", musicUnlike: "Убрать отметку", musicNotThis: "Не этот",
   musicFrom: "Из «{title}»", musicUpNext: "Далее", musicStop: "Остановить", musicBack: "Назад", musicPosition: "Позиция в треке",
   musicNotAvailable: "Музыка недоступна в этом профиле.",
+  musicLyrics: "Текст", musicLyricsFrom: "Текст: {source}", musicLyricsFailed: "Не удалось загрузить текст", musicLyricsNone: "Текст этого трека не найден", musicLyricsInstrumental: "Это инструментальный трек",
 };
 
 const ja: MusicMessages = {
@@ -174,6 +181,7 @@ const ja: MusicMessages = {
   musicNext: "次の曲", musicPrevious: "前の曲", musicLike: "高く評価", musicUnlike: "評価を取り消す", musicNotThis: "この曲は不要",
   musicFrom: "{title} から", musicUpNext: "次に再生", musicStop: "停止", musicBack: "戻る", musicPosition: "曲内の位置",
   musicNotAvailable: "このプロフィールでは音楽を利用できません。",
+  musicLyrics: "歌詞", musicLyricsFrom: "歌詞提供: {source}", musicLyricsFailed: "歌詞を読み込めませんでした", musicLyricsNone: "この曲の歌詞は見つかりませんでした", musicLyricsInstrumental: "この曲はインストゥルメンタルです",
 };
 
 const hu: MusicMessages = {
@@ -192,6 +200,7 @@ const hu: MusicMessages = {
   musicNext: "Következő dal", musicPrevious: "Előző dal", musicLike: "Tetszik", musicUnlike: "Kedvelés visszavonása", musicNotThis: "Ezt ne",
   musicFrom: "Innen: {title}", musicUpNext: "Következik", musicStop: "Leállítás", musicBack: "Vissza", musicPosition: "Pozíció a dalban",
   musicNotAvailable: "A zene nem érhető el ebben a profilban.",
+  musicLyrics: "Dalszöveg", musicLyricsFrom: "Dalszöveg forrása: {source}", musicLyricsFailed: "Nem sikerült betölteni a dalszöveget", musicLyricsNone: "Ehhez a dalhoz nincs dalszöveg", musicLyricsInstrumental: "Ez a dal instrumentális",
 };
 
 export const musicMessages = { en, pl, de, fr, es, "pt-BR": ptBR, ru, ja, hu };

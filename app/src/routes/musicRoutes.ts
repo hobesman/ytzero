@@ -13,6 +13,8 @@ import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey
 import { createYouTubeMusicClient, type YouTubeMusicClient } from "../music/youtubeMusicClient";
 import { registerMusicAlbumRoutes } from "./musicAlbumRoutes";
 import { registerMusicGenreRoutes } from "./musicGenreRoutes";
+import { registerMusicLyricsRoutes } from "./musicLyricsRoutes";
+import { createMusicLyrics, type MusicLyricsService } from "../music/musicLyrics";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type Api = Hono<ApiEnvironment>;
@@ -25,6 +27,7 @@ export interface MusicRouteDependencies {
   currentUserId: (context: ApiContext) => number;
   client?: YouTubeMusicClient;
   audio?: MusicAudio;
+  lyrics?: MusicLyricsService;
   ytdlpAvailable?: () => Promise<boolean>;
 }
 
@@ -187,4 +190,5 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
 
   registerMusicAlbumRoutes(api, { currentUserId, pages });
   registerMusicGenreRoutes(api, { currentUserId, pages });
+  registerMusicLyricsRoutes(api, { currentUserId, lyrics: dependencies.lyrics ?? createMusicLyrics({ client }) });
 }

@@ -1,6 +1,6 @@
 import Svg, { Path, Rect } from "react-native-svg";
 
-export type MusicIconName = "play" | "pause" | "next" | "previous" | "like" | "liked" | "dislike" | "note" | "sleep" | "down" | "shuffle" | "back" | "save" | "saved" | "station";
+export type MusicIconName = "play" | "pause" | "next" | "previous" | "like" | "liked" | "dislike" | "note" | "sleep" | "down" | "shuffle" | "back" | "save" | "saved" | "station" | "lyrics";
 
 /** The music player's control glyphs. */
 export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; color: string; size?: number }) {
@@ -22,5 +22,6 @@ export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; col
     case "save": return svg(<Path d="M12 5v14M5 12h14" {...stroke} />);
     case "saved": return svg(<Path d="m5 12.5 4.5 4.5L19 7.5" {...stroke} />);
     case "station": return svg(<Path d="M12 13.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8" {...stroke} />);
+    case "lyrics": return svg(<Path d="M4 6h10M4 11h7M4 16h5M17 17.5V5l4 1.5M17 17.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z" {...stroke} />);
   }
 }

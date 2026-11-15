@@ -35,6 +35,11 @@ export type MusicPlaylistPage = MusicPlaylist & { tracks: MusicTrack[] };
 export type MusicSearchResults = { tracks: MusicTrack[]; albums: MusicAlbum[]; artists: MusicArtist[] };
 export type MusicLibrary = { liked: MusicTrack[]; recent: MusicTrack[]; albums: MusicAlbum[] };
 
+/** A song's lyrics: time-synced lines when known, else plain text. `source` is who to credit. */
+export type MusicLyrics = {
+  videoId: string; synced: { time: number; text: string }[] | null; plain: string | null; instrumental: boolean; source: string | null;
+};
+
 export type MusicSeed =
   | { kind: "track"; videoId: string }
   | { kind: "liked" }
@@ -139,6 +144,10 @@ export class MusicApi {
   async library(): Promise<MusicLibrary> {
     const result = await this.request<Partial<MusicLibrary>>("/library");
     return { liked: result.liked ?? [], recent: result.recent ?? [], albums: result.albums ?? [] };
+  }
+
+  lyrics(videoId: string): Promise<MusicLyrics> {
+    return this.request(`/tracks/${encodeURIComponent(videoId)}/lyrics`, {}, 30000);
   }
 
   audioUrl(videoId: string): string {

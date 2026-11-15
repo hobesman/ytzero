@@ -1,6 +1,7 @@
 import { Heart, Pause, Play, SkipBack, SkipForward, Square, ThumbsDown } from "lucide-react";
 import { useI18n } from "../i18n";
 import { IconButton, Slider } from "../components/ui";
+import { MusicLyricsButton } from "./MusicLyricsParts";
 import { MusicArtwork, durationLabel } from "./MusicParts";
 import { musicPlayer, useMusicPlayer } from "./musicPlayer";
 import { current, fromTitle } from "./musicQueue";
@@ -35,6 +36,7 @@ export default function MusicPlayerBar() {
       <span className="music-bar__time">{durationLabel(duration)}</span>
     </div>
     <div className="music-bar__actions">
+      <MusicLyricsButton track={track} />
       <IconButton variant="ghost" label={liked ? t("musicUnlike") : t("musicLike")} icon={<Heart fill={liked ? "currentColor" : "none"} />}
         onClick={() => void musicPlayer.rate(track, liked ? 0 : 1).catch(() => {})} />
       <IconButton variant="ghost" label={t("musicNotThis")} icon={<ThumbsDown />} onClick={() => void musicPlayer.dislike(track).catch(() => {})} />

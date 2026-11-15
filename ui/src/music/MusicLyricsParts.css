@@ -1,0 +1,15 @@
+.music-lyrics { width: min(420px, calc(100vw - 40px)); }
+.music-lyrics__scroll { max-height: min(60vh, 480px); }
+.music-lyrics__lines { list-style: none; margin: 0; padding: 4px 0; }
+.music-lyrics__line {
+  display: block; width: 100%; padding: 4px 6px; border: 0; border-radius: 6px; background: none; color: var(--text-3);
+  font: inherit; font-size: 16px; font-weight: 600; line-height: 1.4; text-align: start; cursor: pointer;
+  transition: color 160ms ease;
+}
+.music-lyrics__line:hover { background: var(--surface-3); }
+.music-lyrics__line:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.music-lyrics__line[data-past] { color: var(--text-2); }
+.music-lyrics__line[aria-current="true"] { color: var(--text); }
+.music-lyrics__plain { margin: 0; padding: 4px 6px; white-space: pre-line; line-height: 1.5; }
+.music-lyrics__source { margin-top: 8px; color: var(--text-3); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .music-lyrics__line { transition: none; } }
