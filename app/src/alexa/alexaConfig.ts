@@ -5,8 +5,10 @@ import { database } from "../database";
  * variables: nothing here lives in the database, settings or backups.
  */
 export interface AlexaConfig {
-  /** The skill's application ID; requests from any other skill are refused. */
-  skillId: string;
+  /** The music skill's application ID, when there is one. */
+  musicSkillId: string | null;
+  /** The video skill's application ID, when there is one. Requests from any other skill are refused. */
+  videoSkillId: string | null;
   /** The profile the skill plays as: its numeric ID or its name. */
   profile: string;
   /** Signs the audio links handed to Alexa. */
@@ -21,8 +23,13 @@ export const ALEXA_SECRET_MIN_LENGTH = 32;
 
 /** The configuration, or why the skill is off. */
 export function alexaConfig(environment: Environment = process.env): AlexaConfig | { disabled: string } {
-  const skillId = environment.YTZERO_ALEXA_SKILL_ID?.trim() ?? "";
-  if (!skillId) return { disabled: "YTZERO_ALEXA_SKILL_ID is not set" };
+  // A list-form compose entry (- KEY="value") keeps the quotes as part of the value.
+  const quoted = ALEXA_VARIABLES.find((key) => /^\s*(["']).*\1\s*$/.test(environment[key] ?? ""));
+  if (quoted) return { disabled: `${quoted} is wrapped in quote marks; remove them` };
+  const musicSkillId = environment.YTZERO_ALEXA_SKILL_ID?.trim() || null;
+  const videoSkillId = environment.YTZERO_ALEXA_VIDEO_SKILL_ID?.trim() || null;
+  if (!musicSkillId && !videoSkillId) return { disabled: "neither YTZERO_ALEXA_SKILL_ID nor YTZERO_ALEXA_VIDEO_SKILL_ID is set" };
+  if (musicSkillId === videoSkillId) return { disabled: "YTZERO_ALEXA_SKILL_ID and YTZERO_ALEXA_VIDEO_SKILL_ID must be different skills" };
   const profile = environment.YTZERO_ALEXA_PROFILE?.trim() ?? "";
   if (!profile) return { disabled: "YTZERO_ALEXA_PROFILE is not set" };
   const secret = environment.YTZERO_ALEXA_SECRET?.trim() ?? "";
@@ -31,8 +38,13 @@ export function alexaConfig(environment: Environment = process.env): AlexaConfig
   let parsed: URL | null = null;
   try { parsed = publicUrl ? new URL(publicUrl) : null; } catch { parsed = null; }
   if (!parsed || parsed.protocol !== "https:") return { disabled: "APP_URL (or YTZERO_ALEXA_PUBLIC_URL) must be the server's public https:// address" };
-  return { skillId, profile, secret, publicUrl: parsed.origin + parsed.pathname.replace(/\/+$/, "") };
+  return { musicSkillId, videoSkillId, profile, secret, publicUrl: parsed.origin + parsed.pathname.replace(/\/+$/, "") };
 }
+
+const ALEXA_VARIABLES = [
+  "YTZERO_ALEXA_SKILL_ID", "YTZERO_ALEXA_VIDEO_SKILL_ID", "YTZERO_ALEXA_PROFILE", "YTZERO_ALEXA_SECRET",
+  "YTZERO_ALEXA_PUBLIC_URL", "APP_URL",
+];
 
 /**
  * What the log should say at startup: that the skill is on, or, once any
@@ -41,7 +53,10 @@ export function alexaConfig(environment: Environment = process.env): AlexaConfig
  */
 export function alexaStartupStatus(environment: Environment = process.env): { event: "alexa.enabled"; fields: Record<string, string> } | { event: "alexa.disabled"; fields: Record<string, string> } | null {
   const settings = alexaConfig(environment);
-  if (!("disabled" in settings)) return { event: "alexa.enabled", fields: { profile: settings.profile, endpoint: `${settings.publicUrl}/alexa` } };
+  if (!("disabled" in settings)) {
+    const skills = [settings.musicSkillId && "music", settings.videoSkillId && "video"].filter(Boolean).join(", ");
+    return { event: "alexa.enabled", fields: { profile: settings.profile, endpoint: `${settings.publicUrl}/alexa`, skills } };
+  }
   const attempted = Object.keys(environment).some((key) => key.startsWith("YTZERO_ALEXA_") && environment[key]?.trim());
   return attempted ? { event: "alexa.disabled", fields: { reason: settings.disabled } } : null;
 }

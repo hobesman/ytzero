@@ -733,13 +733,16 @@ archive with no such capability restores with public sharing denied.
 - environment-owned authentication overrides and the `YTZERO_AUTH_PASSWORD`
   secret; they are machine-bound runtime configuration and are never persisted,
   exported, or restored
-- the Alexa skill's `YTZERO_ALEXA_SKILL_ID`, `YTZERO_ALEXA_PROFILE`,
-  `YTZERO_ALEXA_PUBLIC_URL` and `YTZERO_ALEXA_SECRET` environment variables;
-  they are machine-bound runtime configuration and are never persisted,
-  exported, or restored. The skill stores no state of its own: the station
-  travels in Alexa's stream token, signed audio links are stateless, and the
-  in-memory map of when each stream began playing is transient. Plays it
-  records are ordinary `music_plays` rows of the configured profile
+- the Alexa skills' `YTZERO_ALEXA_SKILL_ID`, `YTZERO_ALEXA_VIDEO_SKILL_ID`,
+  `YTZERO_ALEXA_PROFILE`, `YTZERO_ALEXA_PUBLIC_URL` and `YTZERO_ALEXA_SECRET`
+  environment variables; they are machine-bound runtime configuration and are
+  never persisted, exported, or restored. The skills store no state of their
+  own: the station or video travels in Alexa's stream token, signed audio links
+  are stateless, and the in-memory maps of which streams began playing, and
+  when, are transient. What they record is ordinary profile state of the
+  configured profile, already classified above: `music_plays` rows for the
+  music skill, and `user_videos` progress and watched state plus `history`
+  rows for the video skill, written the same way the app's player writes them
 - OIDC client secret and active authentication configuration, including the
   instance-local choice to hide other profile names in the authenticated
   profile picker

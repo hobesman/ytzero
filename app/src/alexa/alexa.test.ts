@@ -35,16 +35,23 @@ describe("alexa config", () => {
   const complete = { YTZERO_ALEXA_SKILL_ID: "amzn1.ask.skill.test", YTZERO_ALEXA_PROFILE: "Nick", YTZERO_ALEXA_SECRET: SECRET, APP_URL: "https://yt.example.com/" };
 
   test("is on only when every part is set and the address is https", () => {
-    expect(alexaConfig(complete)).toEqual({ skillId: "amzn1.ask.skill.test", profile: "Nick", secret: SECRET, publicUrl: "https://yt.example.com" });
+    expect(alexaConfig(complete)).toEqual({ musicSkillId: "amzn1.ask.skill.test", videoSkillId: null, profile: "Nick", secret: SECRET, publicUrl: "https://yt.example.com" });
     expect(alexaConfig({ ...complete, YTZERO_ALEXA_SKILL_ID: "" })).toHaveProperty("disabled");
+    expect(alexaConfig({ ...complete, YTZERO_ALEXA_SKILL_ID: "", YTZERO_ALEXA_VIDEO_SKILL_ID: "amzn1.ask.skill.video" }))
+      .toMatchObject({ musicSkillId: null, videoSkillId: "amzn1.ask.skill.video" });
+    expect(alexaConfig({ ...complete, YTZERO_ALEXA_VIDEO_SKILL_ID: "amzn1.ask.skill.test" })).toHaveProperty("disabled");
     expect(alexaConfig({ ...complete, YTZERO_ALEXA_PROFILE: undefined })).toHaveProperty("disabled");
     expect(alexaConfig({ ...complete, YTZERO_ALEXA_SECRET: "short" })).toHaveProperty("disabled");
     expect(alexaConfig({ ...complete, APP_URL: "http://yt.example.com" })).toHaveProperty("disabled");
     expect(alexaConfig({ ...complete, YTZERO_ALEXA_PUBLIC_URL: "https://alexa.example.com/yt" })).toMatchObject({ publicUrl: "https://alexa.example.com/yt" });
   });
 
+  test("names a value kept in quote marks instead of calling it invalid", () => {
+    expect(alexaConfig({ ...complete, APP_URL: "\"https://yt.example.com\"" })).toEqual({ disabled: "APP_URL is wrapped in quote marks; remove them" });
+  });
+
   test("startup says whether the skill is on, and why not once it's half set up", () => {
-    expect(alexaStartupStatus(complete)).toEqual({ event: "alexa.enabled", fields: { profile: "Nick", endpoint: "https://yt.example.com/alexa" } });
+    expect(alexaStartupStatus(complete)).toEqual({ event: "alexa.enabled", fields: { profile: "Nick", endpoint: "https://yt.example.com/alexa", skills: "music" } });
     expect(alexaStartupStatus({ ...complete, YTZERO_ALEXA_SECRET: "short" })).toEqual({ event: "alexa.disabled", fields: { reason: "YTZERO_ALEXA_SECRET must be at least 32 characters" } });
     expect(alexaStartupStatus({ APP_URL: "https://yt.example.com" })).toBeNull();
   });
@@ -232,7 +239,7 @@ describe("alexa skill", () => {
 });
 
 describe("alexa routes", () => {
-  const settings: AlexaConfig = { skillId: "amzn1.ask.skill.test", profile: "1", secret: SECRET, publicUrl: "https://yt.example.com" };
+  const settings: AlexaConfig = { musicSkillId: "amzn1.ask.skill.test", videoSkillId: "amzn1.ask.skill.video", profile: "1", secret: SECRET, publicUrl: "https://yt.example.com" };
   const launch = (skillId: string) => JSON.stringify({ context: { System: { application: { applicationId: skillId } } }, request: { type: "LaunchRequest" } });
   const router = (reason: string | null = null) => createAlexaRouter({
     config: () => settings,
@@ -242,11 +249,26 @@ describe("alexa routes", () => {
   });
 
   test("answers only signed requests for its own skill", async () => {
-    const ok = await router().request("/", { method: "POST", body: launch(settings.skillId) });
+    const ok = await router().request("/", { method: "POST", body: launch(settings.musicSkillId!) });
     expect(ok.status).toBe(200);
     expect((await ok.json()).response.outputSpeech.text).toBe("What would you like to hear?");
     expect((await router().request("/", { method: "POST", body: launch("amzn1.ask.skill.other") })).status).toBe(400);
-    expect((await router("invalid signature").request("/", { method: "POST", body: launch(settings.skillId) })).status).toBe(400);
+    expect((await router("invalid signature").request("/", { method: "POST", body: launch(settings.musicSkillId!) })).status).toBe(400);
+  });
+
+  test("sends each skill's requests to that skill", async () => {
+    const video = await router().request("/", { method: "POST", body: launch(settings.videoSkillId!) });
+    expect((await video.json()).response.outputSpeech.text).toBe("Which video would you like to hear?");
+  });
+
+  test("a song link never opens a video, nor the other way round", async () => {
+    const songLink = new URL(alexaAudioLink(settings.publicUrl, SECRET, id(1), 1, Date.now(), "music"));
+    const videoLink = new URL(alexaAudioLink(settings.publicUrl, SECRET, id(1), 1, Date.now(), "video"));
+    expect(videoLink.pathname).toBe(`/alexa/video-audio/${id(1)}`);
+    expect((await router().request(`/video-audio/${id(1)}${songLink.search}`)).status).toBe(403);
+    expect((await router().request(`/audio/${id(1)}${videoLink.search}`)).status).toBe(403);
+    const unplayable = createAlexaRouter({ config: () => settings, isChild: async () => false, videoPlayable: async () => false });
+    expect((await unplayable.request(`/video-audio/${id(1)}${videoLink.search}`)).status).toBe(404);
   });
 
   test("is invisible when not configured", async () => {
