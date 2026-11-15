@@ -1,8 +1,9 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
+import { useMusicTrackMenu, type MusicTrackMenuExtras } from "./musicTrackMenuContext";
 
 export function durationLabel(seconds: number | null | undefined) {
   if (!seconds || seconds < 0) return "";
@@ -18,13 +19,18 @@ export function MusicArtwork({ api, url, size, radius = 6 }: { api: MusicApi; ur
   return <Image source={source} style={[box, styles.art]} resizeMode="cover" />;
 }
 
-/** One song in a list: artwork, title, artist and length. */
-export const MusicTrackRow = memo(function MusicTrackRow({ api, track, active, onPress, onLongPress }: {
-  api: MusicApi; track: MusicTrack; active?: boolean; onPress: (track: MusicTrack) => void; onLongPress?: (track: MusicTrack) => void;
+/**
+ * One song in a list: artwork, title, artist and length. In music mode a
+ * long press or the ⋮ button opens the song's menu; `trailing` replaces the
+ * button, for Up next while it is being edited.
+ */
+export const MusicTrackRow = memo(function MusicTrackRow({ api, track, active, onPress, menuExtras, trailing }: {
+  api: MusicApi; track: MusicTrack; active?: boolean; onPress: (track: MusicTrack) => void; menuExtras?: MusicTrackMenuExtras; trailing?: ReactNode;
 }) {
+  const menu = useMusicTrackMenu();
   const detail = [track.artist, track.album].filter(Boolean).join(" · ");
   return <Pressable accessibilityRole="button" accessibilityLabel={`${track.title}, ${track.artist}`}
-    onPress={() => onPress(track)} onLongPress={onLongPress ? () => onLongPress(track) : undefined}
+    onPress={() => onPress(track)} onLongPress={menu && !trailing ? () => menu.open(track, menuExtras) : undefined}
     style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
     <MusicArtwork api={api} url={track.thumbnail} size={48} />
     <View style={styles.copy}>
@@ -33,8 +39,18 @@ export const MusicTrackRow = memo(function MusicTrackRow({ api, track, active, o
     </View>
     {track.rating === 1 ? <MusicIcon name="liked" color={phoneColors.textMuted} size={16} /> : null}
     <Text style={styles.duration}>{durationLabel(track.duration)}</Text>
+    {trailing ?? (menu ? <MusicTrackMenuButton track={track} extras={menuExtras} /> : null)}
   </Pressable>;
 });
+
+/** The ⋮ that opens a song's menu. */
+export function MusicTrackMenuButton({ track, extras }: { track: MusicTrack; extras?: MusicTrackMenuExtras }) {
+  const menu = useMusicTrackMenu();
+  if (!menu) return null;
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${track.title}: ${menu.label}`} hitSlop={8} onPress={() => menu.open(track, extras)} style={styles.more}>
+    <MusicIcon name="more" color={phoneColors.textMuted} size={20} />
+  </Pressable>;
+}
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 16, paddingVertical: 8 },
@@ -46,4 +62,5 @@ const styles = StyleSheet.create({
   active: { color: phoneColors.accent },
   detail: { ...phoneType.caption, color: phoneColors.textMuted },
   duration: { ...phoneType.caption, color: phoneColors.textMuted, minWidth: 34, textAlign: "right" },
+  more: { width: 28, height: 36, alignItems: "center", justifyContent: "center", marginRight: -8 },
 });

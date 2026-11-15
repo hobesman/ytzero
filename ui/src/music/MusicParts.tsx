@@ -1,8 +1,11 @@
 import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
-import { Heart, Music } from "lucide-react";
+import { EllipsisVertical, Heart, ListEnd, ListStart, Music, ThumbsDown, X } from "lucide-react";
+import { emitToast } from "../events";
 import { img } from "../img";
 import { useI18n } from "../i18n";
-import { Button, EmptyState, SectionHeader } from "../components/ui";
+import { Button, EmptyState, IconButton, Menu, MenuItem, Popover, SectionHeader } from "../components/ui";
+import { musicPlayer } from "./musicPlayer";
+import "./MusicQueueParts.css";
 import type { MusicAlbum, MusicArtist, MusicGenre, MusicPlaylist, MusicTrack } from "./musicApi";
 
 export function durationLabel(seconds: number | null | undefined): string {
@@ -38,12 +41,12 @@ export function MusicNote({ text, onRetry }: { text: string; onRetry?: () => voi
   return <EmptyState compact icon={<Music />} title={text} action={onRetry ? <Button size="sm" onClick={onRetry}>{t("musicRetry")}</Button> : undefined} />;
 }
 
-/** One song in a list: artwork (or its number on an album), title, artist and length. */
+/** One song in a list: artwork (or its number on an album), title, artist and length, and its ⋮ menu. */
 export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number, hideArtist, onPlay }: {
   track: MusicTrack; active: boolean; number?: number; hideArtist?: boolean; onPlay: (track: MusicTrack) => void;
 }) {
   const detail = [hideArtist ? null : track.artist, number == null ? track.album : null].filter(Boolean).join(" · ");
-  return <button type="button" className={`music-track${active ? " music-track--active" : ""}`} onClick={() => onPlay(track)}>
+  return <div className="music-track-row"><button type="button" className={`music-track${active ? " music-track--active" : ""}`} onClick={() => onPlay(track)}>
     {number == null ? <MusicArtwork url={track.thumbnail} size={44} /> : <span className="music-track__number">{number}</span>}
     <span className="music-track__copy">
       <span className="music-track__title">{track.title}</span>
@@ -51,7 +54,7 @@ export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number
     </span>
     {track.rating === 1 ? <Heart className="music-track__liked" aria-hidden="true" /> : null}
     <span className="music-track__time">{durationLabel(track.duration)}</span>
-  </button>;
+  </button><MusicTrackMenu track={track} /></div>;
 });
 
 export function MusicTrackList({ tracks, playingId, numbered, albumArtist, onPlay }: {
@@ -103,3 +106,24 @@ export const MusicGenreTile = memo(function MusicGenreTile({ genre, onOpen }: { 
     {genre.title}
   </button>;
 });
+/** A song's ⋮ menu: Play next, Add to queue, Not this one, and Remove when it is in Up next. */
+export function MusicTrackMenu({ track, onRemove }: { track: MusicTrack; onRemove?: () => void }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const run = (action: () => void) => () => { setOpen(false); action(); };
+  const queue = (placement: "next" | "last") => run(() => {
+    // With nothing playing the song simply starts, so there is nothing to announce.
+    if (musicPlayer.snapshot().queue) emitToast(placement === "next" ? t("musicQueuedNext") : t("musicQueuedLast"));
+    musicPlayer.enqueue(track, placement);
+  });
+  return <Popover align="end" placement="auto" surface="menu" open={open} onOpenChange={setOpen} rootClassName="music-track-menu"
+    trigger={<IconButton size="sm" variant="ghost" label={t("musicMoreOptions")} icon={<EllipsisVertical />} />}>
+    <Menu>
+      <MenuItem icon={<ListStart />} onClick={queue("next")}>{t("musicPlayNext")}</MenuItem>
+      <MenuItem icon={<ListEnd />} onClick={queue("last")}>{t("musicAddToQueue")}</MenuItem>
+      {onRemove ? <MenuItem icon={<X />} onClick={run(onRemove)}>{t("musicRemoveFromQueue")}</MenuItem> : null}
+      <MenuItem icon={<ThumbsDown />} onClick={run(() => void musicPlayer.dislike(track).catch(() => {}))}>{t("musicNotThis")}</MenuItem>
+    </Menu>
+  </Popover>;
+}
+

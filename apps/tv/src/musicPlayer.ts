@@ -11,6 +11,8 @@ export const musicPlayer: MusicPlayer = {
   setAuthorization: noop,
   setQueue: noop,
   append: noop,
+  insertAt: noop,
+  move: noop,
   removeAt: noop,
   skipTo: noop,
   play: noop,

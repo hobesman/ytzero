@@ -21,12 +21,14 @@ export type MusicQueue = {
   skipped: string[];
   /** The album this queue opened with, and how many of its first songs are the album's. Null for a station. */
   from: { title: string; count: number } | null;
+  /** Songs the listener queued by hand; they stay ahead of the station's refill. */
+  queued: string[];
 };
 
 export function createQueue(seed: MusicSeed, seedKey: string | null, tracks: MusicTrack[], now: Date, fromTitle: string | null = null): MusicQueue {
   const queued = unique([], tracks);
   const from = fromTitle ? { title: fromTitle, count: queued.length } : null;
-  return { seed, seedKey, tracks: queued, index: 0, startedAt: queued.length ? now.toISOString() : null, skipped: [], from };
+  return { seed, seedKey, tracks: queued, index: 0, startedAt: queued.length ? now.toISOString() : null, skipped: [], from, queued: [] };
 }
 
 /** The tracks in a random order (Fisher–Yates), for playing an album shuffled. */
@@ -124,9 +126,64 @@ export function applyTrackChange(queue: MusicQueue, change: MusicTrackChange, no
 export function removeTrack(queue: MusicQueue, index: number): MusicQueue {
   if (index <= queue.index || index >= queue.tracks.length) return queue;
   const from = queue.from && index < queue.from.count ? { ...queue.from, count: queue.from.count - 1 } : queue.from;
-  return { ...queue, tracks: queue.tracks.filter((_, at) => at !== index), from };
+  const videoId = queue.tracks[index]!.videoId;
+  return { ...queue, tracks: queue.tracks.filter((_, at) => at !== index), from, queued: queue.queued.filter((id) => id !== videoId) };
 }
 
 export function rateTrack(queue: MusicQueue, videoId: string, rating: 1 | -1 | null): MusicQueue {
   return { ...queue, tracks: queue.tracks.map((track) => track.videoId === videoId ? { ...track, rating } : track) };
+}
+
+/** What the native player must do to match an edited queue. */
+export type QueueChange = { kind: "insert"; index: number; track: MusicTrack } | { kind: "move"; from: number; to: number };
+export type QueueEdit = { queue: MusicQueue; change: QueueChange | null };
+
+/** Where "Add to queue" goes: after the last song queued by hand that is still to come, so they play in the order added. */
+export function handQueuedEnd(queue: MusicQueue): number {
+  const hand = new Set(queue.queued);
+  for (let at = queue.tracks.length - 1; at > queue.index; at--) if (hand.has(queue.tracks[at]!.videoId)) return at + 1;
+  return queue.index + 1;
+}
+
+/** The song at `from` moved so it ends up at `to`; the playing song keeps playing. */
+function moveItem(queue: MusicQueue, from: number, to: number): MusicQueue {
+  const tracks = [...queue.tracks];
+  const [item] = tracks.splice(from, 1);
+  tracks.splice(to, 0, item!);
+  let index = queue.index;
+  if (from === index) index = to;
+  else {
+    if (from < index) index--;
+    if (to <= index) index++;
+  }
+  return { ...queue, tracks, index };
+}
+
+/**
+ * "Play next" or "Add to queue". A song already queued moves rather than
+ * appearing twice; the one playing stays where it is.
+ */
+export function queueTrack(queue: MusicQueue, track: MusicTrack, placement: "next" | "last"): QueueEdit {
+  const from = queue.tracks.findIndex((entry) => entry.videoId === track.videoId);
+  if (from === queue.index) return { queue, change: null };
+  const insertAt = placement === "next" ? queue.index + 1 : handQueuedEnd(queue);
+  const queued = [...queue.queued.filter((id) => id !== track.videoId), track.videoId].slice(-200);
+  if (from < 0) {
+    const tracks = [...queue.tracks];
+    tracks.splice(insertAt, 0, track);
+    const album = queue.from && insertAt < queue.from.count ? { ...queue.from, count: queue.from.count + 1 } : queue.from;
+    return { queue: { ...queue, tracks, queued, from: album }, change: { kind: "insert", index: insertAt, track } };
+  }
+  const to = from < insertAt ? insertAt - 1 : insertAt;
+  if (to === from) return { queue: { ...queue, queued }, change: null };
+  return { queue: { ...moveItem(queue, from, to), queued }, change: { kind: "move", from, to } };
+}
+
+/** The listener dragged a song in Up next. Only songs still to come move. */
+export function moveUpcoming(queue: MusicQueue, from: number, to: number): QueueEdit {
+  const last = queue.tracks.length - 1;
+  if (from <= queue.index || from > last || from === to) return { queue, change: null };
+  const target = Math.max(queue.index + 1, Math.min(to, last));
+  if (target === from) return { queue, change: null };
+  return { queue: moveItem(queue, from, target), change: { kind: "move", from, to: target } };
 }

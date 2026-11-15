@@ -12,6 +12,7 @@ import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
 import { MusicGenreScreen, MusicPlaylistScreen } from "./MusicGenreScreens";
 import { MusicAlbumScreen, MusicArtistScreen, type MusicPage } from "./MusicPages";
+import { MusicTrackMenuProvider } from "./MusicTrackMenu";
 import { current } from "./musicQueue";
 import { useMusicSession, type MusicSession } from "./musicSession";
 
@@ -91,7 +92,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     { key: "library", icon: "playlists", label: t("musicLibrary") },
   ];
 
-  return <View style={styles.screen}>
+  return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={styles.screen}>
     <View style={styles.topBar}>
       <MusicIcon name="note" color={phoneColors.accent} size={26} />
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
@@ -123,7 +124,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     </View> : null}
     {account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
       modeSwitch={{ music: true, onPress: onSwitchToVideo }} /> : null}
-  </View>;
+  </View></MusicTrackMenuProvider>;
 }
 
 const styles = StyleSheet.create({

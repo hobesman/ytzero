@@ -46,6 +46,17 @@ const en = {
   musicBack: "Back",
   musicPosition: "Position in the song",
   musicNotAvailable: "Music isn't available on this profile.",
+  musicPlayNext: "Play next",
+  musicAddToQueue: "Add to queue",
+  musicQueuedNext: "Playing next",
+  musicQueuedLast: "Added to queue",
+  musicRemoveFromQueue: "Remove from queue",
+  musicMoveUp: "Move up",
+  musicMoveDown: "Move down",
+  musicEditQueue: "Edit",
+  musicDoneEditing: "Done",
+  musicMoreOptions: "More options",
+  musicUpNextEmpty: "Nothing queued yet.",
 };
 
 type MusicMessages = typeof en;
@@ -66,6 +77,8 @@ const pl: MusicMessages = {
   musicNext: "Następny utwór", musicPrevious: "Poprzedni utwór", musicLike: "Polub", musicUnlike: "Usuń polubienie", musicNotThis: "Nie ten",
   musicFrom: "Z: {title}", musicUpNext: "Następne", musicStop: "Zatrzymaj", musicBack: "Wstecz", musicPosition: "Pozycja w utworze",
   musicNotAvailable: "Muzyka nie jest dostępna w tym profilu.",
+  musicPlayNext: "Odtwórz jako następny", musicAddToQueue: "Dodaj do kolejki", musicQueuedNext: "Zagra jako następny", musicQueuedLast: "Dodano do kolejki", musicRemoveFromQueue: "Usuń z kolejki", musicMoveUp: "Przesuń w górę", musicMoveDown: "Przesuń w dół", musicEditQueue: "Edytuj", musicDoneEditing: "Gotowe", musicMoreOptions: "Więcej opcji",
+  musicUpNextEmpty: "Kolejka jest pusta.",
 };
 
 const de: MusicMessages = {
@@ -84,6 +97,8 @@ const de: MusicMessages = {
   musicNext: "Nächster Song", musicPrevious: "Vorheriger Song", musicLike: "Gefällt mir", musicUnlike: "Gefällt mir entfernen", musicNotThis: "Nicht diesen",
   musicFrom: "Aus {title}", musicUpNext: "Als Nächstes", musicStop: "Stoppen", musicBack: "Zurück", musicPosition: "Position im Song",
   musicNotAvailable: "Musik ist in diesem Profil nicht verfügbar.",
+  musicPlayNext: "Als Nächstes spielen", musicAddToQueue: "Zur Warteschlange hinzufügen", musicQueuedNext: "Wird als Nächstes gespielt", musicQueuedLast: "Zur Warteschlange hinzugefügt", musicRemoveFromQueue: "Aus der Warteschlange entfernen", musicMoveUp: "Nach oben", musicMoveDown: "Nach unten", musicEditQueue: "Bearbeiten", musicDoneEditing: "Fertig", musicMoreOptions: "Weitere Optionen",
+  musicUpNextEmpty: "Noch nichts in der Warteschlange.",
 };
 
 const fr: MusicMessages = {
@@ -102,6 +117,8 @@ const fr: MusicMessages = {
   musicNext: "Titre suivant", musicPrevious: "Titre précédent", musicLike: "J’aime", musicUnlike: "Retirer le J’aime", musicNotThis: "Pas celui-ci",
   musicFrom: "Extrait de {title}", musicUpNext: "À suivre", musicStop: "Arrêter", musicBack: "Retour", musicPosition: "Position dans le titre",
   musicNotAvailable: "La musique n’est pas disponible sur ce profil.",
+  musicPlayNext: "Lire ensuite", musicAddToQueue: "Ajouter à la file d'attente", musicQueuedNext: "Sera lu ensuite", musicQueuedLast: "Ajouté à la file d'attente", musicRemoveFromQueue: "Retirer de la file d'attente", musicMoveUp: "Monter", musicMoveDown: "Descendre", musicEditQueue: "Modifier", musicDoneEditing: "Terminé", musicMoreOptions: "Plus d'options",
+  musicUpNextEmpty: "La file d’attente est vide.",
 };
 
 const es: MusicMessages = {
@@ -120,6 +137,8 @@ const es: MusicMessages = {
   musicNext: "Siguiente canción", musicPrevious: "Canción anterior", musicLike: "Me gusta", musicUnlike: "Quitar me gusta", musicNotThis: "Esta no",
   musicFrom: "De {title}", musicUpNext: "A continuación", musicStop: "Detener", musicBack: "Atrás", musicPosition: "Posición en la canción",
   musicNotAvailable: "La música no está disponible en este perfil.",
+  musicPlayNext: "Reproducir a continuación", musicAddToQueue: "Añadir a la cola", musicQueuedNext: "Sonará a continuación", musicQueuedLast: "Añadida a la cola", musicRemoveFromQueue: "Quitar de la cola", musicMoveUp: "Subir", musicMoveDown: "Bajar", musicEditQueue: "Editar", musicDoneEditing: "Listo", musicMoreOptions: "Más opciones",
+  musicUpNextEmpty: "Aún no hay nada en la cola.",
 };
 
 const ptBR: MusicMessages = {
@@ -138,6 +157,8 @@ const ptBR: MusicMessages = {
   musicNext: "Próxima música", musicPrevious: "Música anterior", musicLike: "Curtir", musicUnlike: "Descurtir", musicNotThis: "Esta não",
   musicFrom: "De {title}", musicUpNext: "A seguir", musicStop: "Parar", musicBack: "Voltar", musicPosition: "Posição na música",
   musicNotAvailable: "A música não está disponível neste perfil.",
+  musicPlayNext: "Tocar a seguir", musicAddToQueue: "Adicionar à fila", musicQueuedNext: "Vai tocar a seguir", musicQueuedLast: "Adicionada à fila", musicRemoveFromQueue: "Remover da fila", musicMoveUp: "Mover para cima", musicMoveDown: "Mover para baixo", musicEditQueue: "Editar", musicDoneEditing: "Concluído", musicMoreOptions: "Mais opções",
+  musicUpNextEmpty: "Nada na fila ainda.",
 };
 
 const ru: MusicMessages = {
@@ -156,6 +177,8 @@ const ru: MusicMessages = {
   musicNext: "Следующий трек", musicPrevious: "Предыдущий трек", musicLike: "Нравится", musicUnlike: "Убрать отметку", musicNotThis: "Не этот",
   musicFrom: "Из «{title}»", musicUpNext: "Далее", musicStop: "Остановить", musicBack: "Назад", musicPosition: "Позиция в треке",
   musicNotAvailable: "Музыка недоступна в этом профиле.",
+  musicPlayNext: "Воспроизвести следующим", musicAddToQueue: "Добавить в очередь", musicQueuedNext: "Прозвучит следующим", musicQueuedLast: "Добавлено в очередь", musicRemoveFromQueue: "Убрать из очереди", musicMoveUp: "Переместить вверх", musicMoveDown: "Переместить вниз", musicEditQueue: "Изменить", musicDoneEditing: "Готово", musicMoreOptions: "Другие действия",
+  musicUpNextEmpty: "В очереди пока пусто.",
 };
 
 const ja: MusicMessages = {
@@ -174,6 +197,8 @@ const ja: MusicMessages = {
   musicNext: "次の曲", musicPrevious: "前の曲", musicLike: "高く評価", musicUnlike: "評価を取り消す", musicNotThis: "この曲は不要",
   musicFrom: "{title} から", musicUpNext: "次に再生", musicStop: "停止", musicBack: "戻る", musicPosition: "曲内の位置",
   musicNotAvailable: "このプロフィールでは音楽を利用できません。",
+  musicPlayNext: "次に再生", musicAddToQueue: "キューに追加", musicQueuedNext: "次に再生します", musicQueuedLast: "キューに追加しました", musicRemoveFromQueue: "キューから削除", musicMoveUp: "上へ移動", musicMoveDown: "下へ移動", musicEditQueue: "編集", musicDoneEditing: "完了", musicMoreOptions: "その他のオプション",
+  musicUpNextEmpty: "キューはまだ空です。",
 };
 
 const hu: MusicMessages = {
@@ -192,6 +217,8 @@ const hu: MusicMessages = {
   musicNext: "Következő dal", musicPrevious: "Előző dal", musicLike: "Tetszik", musicUnlike: "Kedvelés visszavonása", musicNotThis: "Ezt ne",
   musicFrom: "Innen: {title}", musicUpNext: "Következik", musicStop: "Leállítás", musicBack: "Vissza", musicPosition: "Pozíció a dalban",
   musicNotAvailable: "A zene nem érhető el ebben a profilban.",
+  musicPlayNext: "Lejátszás következőként", musicAddToQueue: "Hozzáadás a lejátszási sorhoz", musicQueuedNext: "Következőként szól", musicQueuedLast: "Hozzáadva a lejátszási sorhoz", musicRemoveFromQueue: "Eltávolítás a lejátszási sorból", musicMoveUp: "Mozgatás felfelé", musicMoveDown: "Mozgatás lefelé", musicEditQueue: "Szerkesztés", musicDoneEditing: "Kész", musicMoreOptions: "További lehetőségek",
+  musicUpNextEmpty: "A lejátszási sor még üres.",
 };
 
 export const musicMessages = { en, pl, de, fr, es, "pt-BR": ptBR, ru, ja, hu };

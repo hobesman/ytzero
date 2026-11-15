@@ -97,7 +97,7 @@ export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: 
   </View> : null;
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicPlaylistFailed")} loading={!playlist} onRetry={retry}>
     {playlist ? <FlatList data={playlist.tracks} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
-      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={startSong} onLongPress={(track) => void session.dislike(track)} />} /> : null}
+      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={startSong} />} /> : null}
   </PageFrame>;
 }
 
