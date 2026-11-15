@@ -39,12 +39,18 @@ const radioIds = ["seedSong001", ...Array.from({ length: 12 }, (_, index) => `ra
 const youtubeRequests: string[] = [];
 // Album, artist and mixed-search answers are real (trimmed) YouTube Music responses.
 const fixture = async (name: string) => JSON.parse(await Bun.file(new URL(`../src/music/fixtures/ytm-${name}.json`, import.meta.url)).text());
-const [albumFixture, artistFixture, searchFixture] = await Promise.all([fixture("album"), fixture("artist"), fixture("search")]);
+const [albumFixture, artistFixture, searchFixture, moodsFixture, decadesFixture, playlistFixture] = await Promise.all(
+  ["album", "artist", "search", "moods", "genre-decades", "playlist"].map(fixture),
+);
+const browseFixture = (browseId: string) => browseId === "FEmusic_moods_and_genres" ? moodsFixture
+  : browseId === "FEmusic_moods_and_genres_category" ? decadesFixture
+  : browseId.startsWith("VL") ? playlistFixture
+  : browseId.startsWith("MPREb_") ? albumFixture : artistFixture;
 const fakeFetch = async (url: string, init?: RequestInit) => {
   youtubeRequests.push(url);
   if (init?.method !== "POST") return new Response('<script>{"INNERTUBE_CLIENT_VERSION":"1.2026"}</script>');
   const request = JSON.parse(String(init.body ?? "{}"));
-  if (url.includes("/browse")) return Response.json(String(request.browseId).startsWith("MPREb_") ? albumFixture : artistFixture);
+  if (url.includes("/browse")) return Response.json(browseFixture(String(request.browseId)));
   if (url.includes("/search") && !request.params) return Response.json(searchFixture);
   if (url.includes("/search")) {
     return Response.json({ contents: [{ musicResponsiveListItemRenderer: {
@@ -140,6 +146,16 @@ const artistStation = await (await call("/music/station", "POST", { seed: { kind
 const badAlbumStatus = (await call("/music/albums/nope")).status;
 const childAlbumStatus = (await call(`/music/albums/${ALBUM}`, "GET", undefined, child.id)).status;
 const mixedSearch = await (await call("/music/search?q=abbey")).json() as any;
+const genreList = (await (await call("/music/genres")).json() as any).genres;
+const decades = genreList.find((genre: any) => genre.title === "Decades");
+const decadesPage = await (await call(`/music/genres/${decades.id}`)).json() as any;
+const PLAYLIST = decadesPage.shelves[3].playlists[0].playlistId;
+const playlistPage = await (await call(`/music/playlists/${PLAYLIST}`)).json() as any;
+const playlistIds: string[] = playlistPage.tracks.map((track: any) => track.videoId);
+const playlistStart = await (await call("/music/station", "POST", { seed: { kind: "playlist", playlistId: PLAYLIST }, count: 3 })).json() as any;
+const playlistAfter = await (await call("/music/station", "POST", { seed: { kind: "playlist", playlistId: PLAYLIST }, served: playlistIds, count: 3 })).json() as any;
+const badPlaylistStatus = (await call("/music/playlists/nope")).status;
+const childGenresStatus = (await call("/music/genres", "GET", undefined, child.id)).status;
 
 const after = counts();
 
@@ -218,6 +234,15 @@ console.log("RESULT " + JSON.stringify({
   mixedAlbums: mixedSearch.albums.map((item: any) => item.browseId),
   mixedArtists: mixedSearch.artists.length,
   mixedTracks: mixedSearch.tracks.length,
+  genreCount: genreList.length,
+  decadesShelves: decadesPage.shelves.map((shelf: any) => shelf.title),
+  playlistTitle: playlistPage.title,
+  playlistIds,
+  playlistStartIds: playlistStart.tracks.map((track: any) => track.videoId),
+  playlistStartSeed: playlistStart.seed,
+  playlistAfterIds: playlistAfter.tracks.map((track: any) => track.videoId),
+  badPlaylistStatus,
+  childGenresStatus,
 }));
 
 db.close();

@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "y. t. music",
+      "invocationName": "hoban music",
       "intents": [
         {
           "name": "PlaySongIntent",
@@ -35,6 +35,26 @@
             "play the album {query}",
             "play album {query}",
             "play the record {query}"
+          ]
+        },
+        {
+          "name": "PlayGenreIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play {query} music",
+            "play some {query} music",
+            "play the latest {query} music",
+            "play new {query} music",
+            "play the latest {query}",
+            "play new {query}",
+            "play {query} hits",
+            "play the best {query} hits",
+            "play the genre {query}",
+            "play a {query} playlist",
+            "play music for {query}",
+            "play something {query}",
+            "play some {query}",
+            "put on some {query} music"
           ]
         },
         {

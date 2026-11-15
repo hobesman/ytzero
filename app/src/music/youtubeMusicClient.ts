@@ -3,14 +3,20 @@ import { readYouTubeResponse, youtubeRefusalGate, isYouTubeRefusalError } from "
 import { resolveYouTubeLanguage, youtubeRequestHeaders } from "../youtubeRequestLanguage";
 import { parseRadioResponse, parseSearchResponse, type MusicTrack } from "./youtubeMusicParsers";
 import { ALBUM_ID, ARTIST_ID, parseAlbumPage, parseArtistPage, parseSearchShelves, type MusicAlbum, type MusicAlbumPage, type MusicArtist, type MusicArtistPage } from "./youtubeMusicBrowseParsers";
+import {
+  GENRE_ID, PLAYLIST_ID, parseGenrePage, parseMoodsAndGenres, parsePlaylistPage, parsePlaylistSearch,
+  type MusicGenre, type MusicGenrePage, type MusicPlaylist, type MusicPlaylistPage,
+} from "./youtubeMusicGenreParsers";
 
-export type { MusicTrack, MusicAlbum, MusicAlbumPage, MusicArtist, MusicArtistPage };
+export type { MusicTrack, MusicAlbum, MusicAlbumPage, MusicArtist, MusicArtistPage, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage };
 
 const MUSIC_ORIGIN = "https://music.youtube.com";
 const FALLBACK_MUSIC_CLIENT_VERSION = "1.20241106.01.00";
 const CLIENT_VERSION_TTL_MS = 12 * 3_600_000;
 // YouTube Music's "Songs" search filter.
 const SONGS_FILTER = "EgWKAQIIAWoKEAkQBRAKEAMQBA==";
+// YouTube Music's "Featured playlists" search filter: playlists YouTube Music made.
+const FEATURED_PLAYLISTS_FILTER = "EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ=";
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 
 let clientVersion: { value: string; at: number } | null = null;
@@ -109,7 +115,27 @@ export function createYouTubeMusicClient(options: YouTubeMusicClientOptions = {}
     return parseArtistPage(channelId, await remix(userId, "browse", { browseId: channelId }));
   }
 
-  return { searchSongs, searchAll, radio, album, artist };
+  /** The categories on YouTube Music's Moods & genres page. */
+  async function genres(userId: number): Promise<MusicGenre[]> {
+    return parseMoodsAndGenres(await remix(userId, "browse", { browseId: "FEmusic_moods_and_genres" }));
+  }
+
+  async function genre(userId: number, id: string): Promise<MusicGenrePage | null> {
+    if (!GENRE_ID.test(id)) return null;
+    return parseGenrePage(id, await remix(userId, "browse", { browseId: "FEmusic_moods_and_genres_category", params: id }));
+  }
+
+  async function playlist(userId: number, playlistId: string): Promise<MusicPlaylistPage | null> {
+    if (!PLAYLIST_ID.test(playlistId)) return null;
+    return parsePlaylistPage(playlistId, await remix(userId, "browse", { browseId: `VL${playlistId}` }));
+  }
+
+  /** Playlists YouTube Music made that match a query, the top result first. */
+  async function searchPlaylists(userId: number, query: string): Promise<MusicPlaylist[]> {
+    return parsePlaylistSearch(await remix(userId, "search", { query, params: FEATURED_PLAYLISTS_FILTER }));
+  }
+
+  return { searchSongs, searchAll, radio, album, artist, genres, genre, playlist, searchPlaylists };
 }
 
 export type YouTubeMusicClient = ReturnType<typeof createYouTubeMusicClient>;

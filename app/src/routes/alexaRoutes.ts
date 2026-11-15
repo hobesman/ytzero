@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import { alexaAudioLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
+import { findGenrePlaylist } from "../alexa/alexaGenreMatch";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
 import { speak, type AlexaResponse } from "../alexa/alexaPlayback";
 import { describeAlexaExchange } from "../alexa/alexaLogging";
@@ -63,14 +64,16 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const musicSkillFor = (settings: AlexaConfig): Handler => {
     if (musicSkill) return musicSkill;
     const client = dependencies.skill?.client as ReturnType<typeof createYouTubeMusicClient> | undefined ?? createYouTubeMusicClient();
+    const pages = createMusicPages(client);
     return musicSkill = createAlexaSkill({
       client,
-      stations: dependencies.skill?.stations ?? createMusicStations(client, createMusicPages(client)),
+      stations: dependencies.skill?.stations ?? createMusicStations(client, pages),
       prepare: dependencies.skill?.prepare ?? prepare,
       audioLink: dependencies.skill?.audioLink ?? ((videoId, userId) => alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "music")),
       recordPlay: dependencies.skill?.recordPlay ?? recordMusicPlay,
       findTrack: dependencies.skill?.findTrack,
       saveTracks: dependencies.skill?.saveTracks,
+      findGenre: dependencies.skill?.findGenre ?? ((userId, spoken) => findGenrePlaylist({ genres: pages.genres, genre: pages.genre, searchPlaylists: client.searchPlaylists }, userId, spoken)),
     });
   };
 

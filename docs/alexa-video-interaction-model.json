@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "y. t. video",
+      "invocationName": "hoban tube",
       "intents": [
         {
           "name": "PlayVideoIntent",

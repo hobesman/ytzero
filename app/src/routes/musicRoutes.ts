@@ -12,6 +12,7 @@ import { savedAlbums } from "../music/musicSavedAlbums";
 import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey, type MusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient, type YouTubeMusicClient } from "../music/youtubeMusicClient";
 import { registerMusicAlbumRoutes } from "./musicAlbumRoutes";
+import { registerMusicGenreRoutes } from "./musicGenreRoutes";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type Api = Hono<ApiEnvironment>;
@@ -185,4 +186,5 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
   });
 
   registerMusicAlbumRoutes(api, { currentUserId, pages });
+  registerMusicGenreRoutes(api, { currentUserId, pages });
 }

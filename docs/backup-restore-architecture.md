@@ -566,8 +566,11 @@ archive with no such capability restores with public sharing denied.
   plays idempotently by profile, video and start time, and keeps an album
   already saved by the profile; replace clears the mapped profile's ratings,
   plays and saved albums first. Malformed rows are skipped and counted.
-  In-memory radio results, album and artist pages, and prepared audio
-  prefixes are transient.
+  A play's `station_seed` names the station it came from (`track:<id>`,
+  `album:<id>`, `artist:<id>`, `playlist:<id>`, `liked` or `mix`), up to 80
+  characters. In-memory radio results, album, artist and playlist pages, the
+  Moods & genres list and its category pages, and prepared audio prefixes are
+  transient.
 - minimal channel/video metadata for objects referenced by the selected state.
   This is a rehydration seed, not the entire cached feed/library.
 

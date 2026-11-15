@@ -98,6 +98,20 @@ describe("music mode", () => {
     for (const id of result.albumNextIds) expect(result.albumIds.slice(2)).not.toContain(id);
   });
 
+  test("browses Moods & genres and plays a playlist shuffled, then a station after it", () => {
+    expect(result.genreCount).toBe(40);
+    expect(result.decadesShelves).toContain("1980s");
+    expect(result.playlistTitle).toBe("The Hits: '80s");
+    expect(result.playlistIds).toHaveLength(5);
+    expect(result.playlistStartSeed).toBe("playlist:RDCLAK5uy_lMzHW51iFg1Kx0d_2EHpzbOgCrwtu8cgI");
+    expect(result.playlistStartIds).toHaveLength(3);
+    for (const id of result.playlistStartIds) expect(result.playlistIds).toContain(id);
+    expect(result.playlistAfterIds.length).toBeGreaterThan(0);
+    for (const id of result.playlistAfterIds) expect(result.playlistIds).not.toContain(id);
+    expect(result.badPlaylistStatus).toBe(404);
+    expect(result.childGenresStatus).toBe(403);
+  });
+
   test("saves albums per profile and unsaves them", () => {
     expect(result.saveStatus).toBe(200);
     expect(result.savedFlag).toBe(true);
