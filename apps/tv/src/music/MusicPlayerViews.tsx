@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { onSleepTimerChange, setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, sleepTimerRemaining, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
-import type { MusicApi } from "./musicApi";
+import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
 import { current, playingFrom, upNext } from "./musicQueue";
 import type { MusicSession, MusicSessionState } from "./musicSession";
@@ -71,7 +71,9 @@ export function MusicMiniBar({ api, session, state, t, onOpen }: { api: MusicApi
  * The full player: artwork, progress, controls, like / not this one, and what plays next.
  * `paneWidth` draws it in a pane beside the browse list (the landscape layout), with no close button.
  */
-export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: { api: MusicApi; session: MusicSession; state: MusicSessionState; t: Translate; onClose: () => void; paneWidth?: number }) {
+export function MusicNowPlaying({ api, session, state, t, onClose, onAddToPlaylist, paneWidth }: {
+  api: MusicApi; session: MusicSession; state: MusicSessionState; t: Translate; onClose: () => void; onAddToPlaylist: (track: MusicTrack) => void; paneWidth?: number;
+}) {
   const window = useWindowDimensions();
   const embedded = paneWidth !== undefined;
   const width = paneWidth ?? window.width;
@@ -118,10 +120,16 @@ export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: 
         <MusicIcon name={liked ? "liked" : "like"} color={liked ? phoneColors.accent : phoneColors.text} />
       </Control>
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
-      <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
-      <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
-    </Pressable>
+    <View style={styles.extras}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
+        <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
+        <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("musicAddToPlaylist")} onPress={() => onAddToPlaylist(track)} style={styles.sleep}>
+        <MusicIcon name="queueAdd" color={phoneColors.textMuted} size={18} />
+        <Text style={styles.sleepLabel}>{t("musicAddToPlaylist")}</Text>
+      </Pressable>
+    </View>
     {next.length ? <View style={styles.sectionRow}>
       <Text style={styles.section}>{t("musicUpNext")}</Text>
       <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setEditing(!editing)}>
@@ -196,7 +204,8 @@ const styles = StyleSheet.create({
   times: { alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between" },
   time: { ...phoneType.caption, color: phoneColors.textMuted },
   controls: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
-  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, marginTop: 12 },
+  extras: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 12 },
+  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10 },
   sleepLabel: { ...phoneType.caption, color: phoneColors.textMuted },
   sleepOn: { color: phoneColors.accent },
   sectionRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingTop: 24, paddingBottom: 6 },

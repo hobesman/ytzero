@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Heart, Music, Play, Search, Shuffle, Sparkles } from "lucide-react";
+import { Heart, Music, Play, Search, Shuffle, Sparkles } from "lucide-react";
 import { ApiError } from "../apiHttp";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
-import { Button, IconButton, Input, InputGroup, PageHeader, SectionHeader, Tabs } from "../components/ui";
-import { musicApi, type MusicAlbum, type MusicArtist, type MusicGenre, type MusicPlaylist, type MusicSeed, type MusicTrack } from "../music/musicApi";
+import { Button, Input, InputGroup, PageHeader, SectionHeader, Tabs } from "../components/ui";
+import {
+  musicApi, type MusicAlbum, type MusicArtist, type MusicGenre, type MusicPlaylist, type MusicSeed, type MusicTrack, type MusicUserPlaylist,
+} from "../music/musicApi";
+import { MusicUserPlaylistView, useCreateMusicPlaylist } from "../music/MusicPlaylistViews";
 import { musicPlayer, useMusicPlayer } from "../music/musicPlayer";
 import { current } from "../music/musicQueue";
 import MusicPlayerBar from "../music/MusicPlayerBar";
 import {
-  MusicAlbumCard, MusicArtistCard, MusicArtwork, MusicGenreTile, MusicNote, MusicPlaylistCard, MusicShelf, MusicTrackList, albumDetail, useMusicData,
+  MusicAlbumCard, MusicArtistCard, MusicDetailHeader, MusicGenreTile, MusicNewPlaylistCard, MusicNote, MusicPlaylistCard, MusicShelf, MusicTrackList, MusicUserPlaylistCard,
+  albumDetail, useMusicData,
 } from "../music/MusicParts";
 import "./MusicPage.css";
 
@@ -115,12 +119,25 @@ function SearchView() {
 function LibraryView() {
   const actions = useMusicActions();
   const { t } = actions;
+  const navigate = useNavigate();
   const library = useMusicData(musicApi.library);
+  const openMine = useCallback((playlist: MusicUserPlaylist) => navigate(`/music/mine/${encodeURIComponent(playlist.id)}`), [navigate]);
+  const create = useCreateMusicPlaylist(openMine);
   if (library.failed && !library.data) return <MusicNote text={t("musicLoadFailed")} onRetry={library.retry} />;
   if (!library.data) return null;
-  const { liked, albums } = library.data;
-  if (!liked.length && !albums.length) return <MusicNote text={t("musicLibraryEmpty")} />;
+  const { liked, albums, playlists, savedPlaylists } = library.data;
   return <>
+    <section className="music-shelf">
+      <SectionHeader title={t("musicYourPlaylists")} level={2} />
+      <div className="music-shelf__row">
+        <MusicNewPlaylistCard onCreate={create.open} />
+        {playlists.map((playlist) => <MusicUserPlaylistCard key={playlist.id} playlist={playlist} onOpen={openMine} />)}
+      </div>
+    </section>
+    {create.dialog}
+    <MusicShelf title={t("musicSavedPlaylists")} count={savedPlaylists.length}>
+      {savedPlaylists.map((playlist) => <MusicPlaylistCard key={playlist.playlistId} playlist={playlist} onOpen={actions.openPlaylist} />)}
+    </MusicShelf>
     <MusicShelf title={t("musicSavedAlbums")} count={albums.length}>
       {albums.map((album) => <MusicAlbumCard key={album.browseId} album={album} withArtist onOpen={actions.openAlbum} />)}
     </MusicShelf>
@@ -129,22 +146,8 @@ function LibraryView() {
         actions={<Button size="sm" leadingIcon={<Play />} onClick={() => actions.play({ kind: "liked" })}>{t("musicPlayStation")}</Button>} />
       <MusicTrackList tracks={liked} playingId={actions.playingId} onPlay={actions.playTrack} />
     </section> : null}
+    {!liked.length && !albums.length && !savedPlaylists.length ? <MusicNote text={t("musicLibraryEmpty")} /> : null}
   </>;
-}
-
-/** The heading of an album, artist, genre or playlist page. */
-function DetailHeader({ art, round, title, detail, children }: { art?: string | null; round?: boolean; title: string; detail?: string; children?: ReactNode }) {
-  const navigate = useNavigate();
-  const { t } = useI18n();
-  return <div className="music-detail">
-    <IconButton variant="ghost" className="music-detail__back" label={t("musicBack")} icon={<ArrowLeft />} onClick={() => navigate(-1)} />
-    {art !== undefined ? <MusicArtwork url={art} size={160} round={round} /> : null}
-    <div className="music-detail__copy">
-      <h2 className="music-detail__title">{title}</h2>
-      {detail ? <p className="music-detail__meta">{detail}</p> : null}
-      {children ? <div className="music-detail__actions">{children}</div> : null}
-    </div>
-  </div>;
 }
 
 function useParamData<T>(load: (id: string) => Promise<T>) {
@@ -166,11 +169,11 @@ function AlbumView() {
   };
   const seed = (startAt?: string): MusicSeed => ({ kind: "album", browseId: album.browseId, startAt });
   return <>
-    <DetailHeader art={album.thumbnail} title={album.title} detail={[album.artist, albumDetail(album, t, false)].filter(Boolean).join(" · ")}>
+    <MusicDetailHeader art={album.thumbnail} title={album.title} detail={[album.artist, albumDetail(album, t, false)].filter(Boolean).join(" · ")}>
       <Button variant="primary" leadingIcon={<Play />} onClick={() => actions.play(seed(), { from: album.title })}>{t("musicPlay")}</Button>
       <Button leadingIcon={<Shuffle />} onClick={() => actions.play(seed(), { shuffle: true, from: album.title })}>{t("musicShuffle")}</Button>
       <Button leadingIcon={<Heart fill={album.saved ? "currentColor" : "none"} />} onClick={toggleSaved}>{album.saved ? t("musicSaved") : t("musicSave")}</Button>
-    </DetailHeader>
+    </MusicDetailHeader>
     {actions.failed ? <p className="music-error" role="alert">{t("musicStartFailed")}</p> : null}
     <MusicTrackList tracks={album.tracks} numbered albumArtist={album.artist} playingId={actions.playingId}
       onPlay={(track) => actions.play(seed(track.videoId), { from: album.title })} />
@@ -185,9 +188,9 @@ function ArtistView() {
   if (page.failed && !artist) return <MusicNote text={t("musicPageFailed")} onRetry={page.retry} />;
   if (!artist) return null;
   return <>
-    <DetailHeader art={artist.thumbnail} round title={artist.name}>
+    <MusicDetailHeader art={artist.thumbnail} round title={artist.name}>
       <Button variant="primary" leadingIcon={<Play />} onClick={() => actions.play({ kind: "artist", artistId: artist.channelId })}>{t("musicPlayStation")}</Button>
-    </DetailHeader>
+    </MusicDetailHeader>
     {actions.failed ? <p className="music-error" role="alert">{t("musicStartFailed")}</p> : null}
     {artist.topSongs.length ? <section className="music-shelf">
       <SectionHeader title={t("musicTopSongs")} level={2} />
@@ -209,7 +212,7 @@ function GenreView() {
   if (page.failed && !genre) return <MusicNote text={actions.t("musicPageFailed")} onRetry={page.retry} />;
   if (!genre) return null;
   return <>
-    <DetailHeader title={genre.title} />
+    <MusicDetailHeader title={genre.title} />
     {genre.shelves.map((shelf) => <MusicShelf key={shelf.title} title={shelf.title} count={shelf.playlists.length}>
       {shelf.playlists.map((playlist) => <MusicPlaylistCard key={playlist.playlistId} playlist={playlist} onOpen={actions.openPlaylist} />)}
     </MusicShelf>)}
@@ -224,10 +227,16 @@ function PlaylistView() {
   if (page.failed && !playlist) return <MusicNote text={t("musicPageFailed")} onRetry={page.retry} />;
   if (!playlist) return null;
   const seed: MusicSeed = { kind: "playlist", playlistId: playlist.playlistId };
+  const toggleSaved = () => {
+    const saved = !playlist.saved;
+    page.setData({ ...playlist, saved });
+    void musicApi.setPlaylistSaved(playlist.playlistId, saved).catch(() => page.setData({ ...playlist }));
+  };
   return <>
-    <DetailHeader art={playlist.thumbnail} title={playlist.title} detail={playlist.subtitle}>
+    <MusicDetailHeader art={playlist.thumbnail} title={playlist.title} detail={playlist.subtitle}>
       <Button variant="primary" leadingIcon={<Shuffle />} onClick={() => actions.play(seed, { from: playlist.title })}>{t("musicShuffle")}</Button>
-    </DetailHeader>
+      <Button leadingIcon={<Heart fill={playlist.saved ? "currentColor" : "none"} />} onClick={toggleSaved}>{playlist.saved ? t("musicSaved") : t("musicSave")}</Button>
+    </MusicDetailHeader>
     {actions.failed ? <p className="music-error" role="alert">{t("musicStartFailed")}</p> : null}
     <MusicTrackList tracks={playlist.tracks} playingId={actions.playingId} onPlay={actions.playTrack} />
   </>;
@@ -252,7 +261,7 @@ export default function MusicPage() {
   const location = useLocation();
   const available = useMusicAvailable();
   const section = location.pathname.split("/")[2] ?? "";
-  const tab: Tab = section === "search" ? "search" : section === "library" ? "library" : "home";
+  const tab: Tab = section === "search" ? "search" : section === "library" || section === "mine" ? "library" : "home";
   const tabs = [{ value: "home" as const, label: t("musicHome") }, { value: "search" as const, label: t("musicSearch") }, { value: "library" as const, label: t("musicLibrary") }];
   return <div className="music-page">
     <PageHeader title={t("navMusic")} icon={<Music />}
@@ -266,6 +275,7 @@ export default function MusicPage() {
         <Route path="artist/:id" element={<ArtistView />} />
         <Route path="genre/:id" element={<GenreView />} />
         <Route path="playlist/:id" element={<PlaylistView />} />
+        <Route path="mine/:id" element={<MusicUserPlaylistView />} />
       </Routes> : null}
     </div>
     <MusicPlayerBar />

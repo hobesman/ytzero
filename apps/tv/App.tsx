@@ -946,7 +946,7 @@ function TvApp() {
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
       {phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
-        ? <MusicApp key={profileState.active.id} api={api} musicApi={musicMode.musicApi} session={musicMode.session} t={t} profiles={phoneProfiles(profileState)}
+        ? <MusicApp key={profileState.active.id} api={api} musicApi={musicMode.musicApi} session={musicMode.session} t={t} language={language} profiles={phoneProfiles(profileState)}
           onSwitchToVideo={() => musicMode.setMusic(false)} />
       : phoneMode && hasShell && api && profileState ? <PhoneShortsContext.Provider value={openShorts}><PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail" || Boolean(shorts)}
         brandName={brandName} brandColor={brandColor} profiles={phoneProfiles(profileState)}

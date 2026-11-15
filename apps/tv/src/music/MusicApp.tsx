@@ -8,12 +8,14 @@ import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import { PhoneAccountSheet, PhoneProfileAvatar, type PhoneProfiles } from "../phone/PhoneAccountSheet";
 import { phoneColors, phoneMetrics, phoneType } from "../phone/phoneTheme";
-import type { MusicApi } from "./musicApi";
+import type { Language } from "../types";
+import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicHomeScreen, MusicLibraryScreen, MusicSearchScreen } from "./MusicBrowseScreens";
 import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
 import { MusicGenreScreen, MusicPlaylistScreen } from "./MusicGenreScreens";
-import { MusicAlbumScreen, MusicArtistScreen, type MusicPage } from "./MusicPages";
+import { MusicAlbumScreen, MusicArtistScreen } from "./MusicPages";
+import { MusicAddToPlaylistSheet, MusicUserPlaylistScreen, type MusicAppPage } from "./MusicPlaylistScreens";
 import { MusicTrackMenuProvider } from "./MusicTrackMenu";
 import { current } from "./musicQueue";
 import { useMusicSession, type MusicSession } from "./musicSession";
@@ -22,7 +24,7 @@ type Tab = "home" | "search" | "library";
 const tabKeys: Tab[] = ["home", "search", "library"];
 
 type Props = {
-  api: YtZeroApi; musicApi: MusicApi; session: MusicSession; t: Translate; profiles: PhoneProfiles;
+  api: YtZeroApi; musicApi: MusicApi; session: MusicSession; t: Translate; language: Language; profiles: PhoneProfiles;
   onSwitchToVideo: () => void;
 };
 
@@ -30,7 +32,7 @@ type Props = {
  * Music mode: its own tabs, player and account menu. It talks to the server
  * only through `/music/*`, so nothing here reaches video history or feeds.
  */
-export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo }: Props) {
+export function MusicApp({ api, musicApi, session, t, language, profiles, onSwitchToVideo }: Props) {
   const state = useMusicSession(session);
   // Landscape: tabs down the side and the player always beside the browse list, never over it.
   const landscape = useLandscapeLayout();
@@ -40,8 +42,9 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
   const [playerOpen, setPlayerOpen] = useState(false);
   const [account, setAccount] = useState(false);
   // Album and artist pages opened from the tabs; Back closes the top one.
-  const [pages, setPages] = useState<MusicPage[]>([]);
-  const openPage = useCallback((page: MusicPage) => setPages((open) => [...open.slice(-9), page]), []);
+  const [pages, setPages] = useState<MusicAppPage[]>([]);
+  const [adding, setAdding] = useState<MusicTrack | null>(null);
+  const openPage = useCallback((page: MusicAppPage) => setPages((open) => [...open.slice(-9), page]), []);
   const closePage = useCallback(() => setPages((open) => open.slice(0, -1)), []);
   const topPage = pages.at(-1) ?? null;
   const [notice, setNotice] = useState<string | null>(null);
@@ -63,6 +66,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (adding) { setAdding(null); return true; }
       if (account) { setAccount(false); return true; }
       if (playerOpen && !landscape) { setPlayerOpen(false); return true; }
       if (pages.length) { closePage(); return true; }
@@ -70,7 +74,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
       return false;
     });
     return () => subscription.remove();
-  }, [account, closePage, landscape, pages.length, playerOpen, tab]);
+  }, [account, adding, closePage, landscape, pages.length, playerOpen, tab]);
 
   const selectTab = (next: Tab) => {
     setTab(next);
@@ -78,13 +82,14 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     setVisited((visitedTabs) => visitedTabs.has(next) ? visitedTabs : new Set([...visitedTabs, next]));
   };
   const screen = (key: Tab): ReactNode => {
-    const props = { api: musicApi, session, t, visible: key === tab && !pages.length, playingId, onOpen: openPage };
+    const props = { api: musicApi, session, t, language, visible: key === tab && !pages.length, playingId, onOpen: openPage };
     if (key === "search") return <MusicSearchScreen {...props} />;
     if (key === "library") return <MusicLibraryScreen {...props} />;
     return <MusicHomeScreen {...props} />;
   };
-  const pageScreen = (page: MusicPage): ReactNode => {
+  const pageScreen = (page: MusicAppPage): ReactNode => {
     const props = { api: musicApi, session, t, playingId, id: page.id, onOpen: openPage, onBack: closePage };
+    if (page.kind === "mine") return <MusicUserPlaylistScreen {...props} language={language} />;
     if (page.kind === "album") return <MusicAlbumScreen {...props} />;
     if (page.kind === "artist") return <MusicArtistScreen {...props} />;
     if (page.kind === "genre") return <MusicGenreScreen {...props} title={page.title} />;
@@ -110,6 +115,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
   const noticeBar = notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null;
   const accountSheet = account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
     modeSwitch={{ music: true, onPress: onSwitchToVideo }} /> : null;
+  const addSheet = adding ? <MusicAddToPlaylistSheet api={musicApi} t={t} track={adding} onNotice={setNotice} onClose={() => setAdding(null)} /> : null;
 
   if (landscape) {
     const paneWidth = landscapePlayerWidth(window.width - landscapeRailWidth);
@@ -123,8 +129,9 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
         {!playingId ? <MusicMiniBar api={musicApi} session={session} state={state} t={t} onOpen={() => {}} /> : null}
       </View>
       {playingId ? <View style={[styles.pane, { width: paneWidth }]}>
-        <MusicNowPlaying api={musicApi} session={session} state={state} t={t} paneWidth={paneWidth} onClose={() => {}} />
+        <MusicNowPlaying api={musicApi} session={session} state={state} t={t} paneWidth={paneWidth} onClose={() => {}} onAddToPlaylist={setAdding} />
       </View> : null}
+      {addSheet}
       {accountSheet}
     </View></MusicTrackMenuProvider>;
   }
@@ -149,8 +156,10 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
       })}
     </View>
     {playerOpen && playingId ? <View style={styles.overlay}>
-      <MusicNowPlaying api={musicApi} session={session} state={state} t={t} onClose={() => setPlayerOpen(false)} />
+      <MusicNowPlaying api={musicApi} session={session} state={state} t={t} onClose={() => setPlayerOpen(false)} onAddToPlaylist={setAdding} />
+      {notice ? <Text accessibilityLiveRegion="polite" style={[styles.notice, styles.noticeOver]}>{notice}</Text> : null}
     </View> : null}
+    {addSheet}
     {accountSheet}
   </View></MusicTrackMenuProvider>;
 }
@@ -173,4 +182,5 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingTop: 6 },
   tabLabel: { fontSize: 11.5, fontWeight: "600" },
   overlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  noticeOver: { position: "absolute", right: 0, bottom: 0, left: 0 },
 });

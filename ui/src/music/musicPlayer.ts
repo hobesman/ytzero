@@ -127,6 +127,23 @@ class WebMusicPlayer {
     }
   }
 
+  /**
+   * Plays a list of songs the server already gave, such as one of the profile's
+   * own playlists, from `startAt`; a station from its first song follows.
+   */
+  playTracks(tracks: MusicTrack[], options: { from: string; shuffle?: boolean; startAt?: string }) {
+    if (!tracks.length) return;
+    this.generation++;
+    this.failures = 0;
+    this.finishListen(false, false);
+    this.audio?.pause();
+    const ordered = options.shuffle ? shuffleTracks(tracks) : tracks;
+    const start = options.startAt ? Math.max(0, ordered.findIndex((track) => track.videoId === options.startAt)) : 0;
+    const list = ordered.slice(start);
+    this.set({ queue: createQueue({ kind: "track", videoId: list[0].videoId }, null, list, options.from) });
+    this.load(list[0]);
+  }
+
   private async refill() {
     const queue = this.state.queue;
     if (!queue || !needsMore(queue) || this.refilling) return;
