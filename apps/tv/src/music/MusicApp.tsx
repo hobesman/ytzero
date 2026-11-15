@@ -95,7 +95,8 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     <View style={styles.topBar}>
       <MusicIcon name="note" color={phoneColors.accent} size={26} />
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
-      <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}`} onPress={() => setAccount(true)} style={styles.avatar}>
+      <Pressable hitSlop={8} accessibilityRole="button" accessibilityLabel={`${t("account")}: ${profiles.active.name}${profiles.incognito ? `, ${t("incognitoMode")}` : ""}`} onPress={() => setAccount(true)}
+        style={[styles.avatar, profiles.incognito && styles.incognitoRing]}>
         <PhoneProfileAvatar api={api} profile={profiles.active} size={30} />
       </Pressable>
     </View>
@@ -129,7 +130,9 @@ const styles = StyleSheet.create({
   screen: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: phoneColors.background },
   topBar: { height: phoneMetrics.topBar, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: phoneMetrics.gutter },
   title: { flex: 1, ...phoneType.heading, color: phoneColors.text },
-  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
+  // Incognito is shown as a dashed ring around the avatar, as in video mode.
+  incognitoRing: { borderColor: phoneColors.textMuted, borderStyle: "dashed" },
   body: { flex: 1 },
   layer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   gone: { display: "none" },
