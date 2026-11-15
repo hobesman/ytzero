@@ -17,6 +17,8 @@ type Options = {
   profileId: number | undefined;
   /** Child profiles have no music mode. */
   isChild: boolean;
+  /** The device's Incognito mode: songs played aren't recorded. */
+  incognito: boolean;
 };
 
 /**
@@ -24,7 +26,7 @@ type Options = {
  * profile. Leaving music mode, switching profile or signing out ends the
  * station, so music never carries over into video or another profile.
  */
-export function useMusicMode({ available, instanceUrl, accessToken, profileId, isChild }: Options) {
+export function useMusicMode({ available, instanceUrl, accessToken, profileId, isChild, incognito }: Options) {
   const [chosen, setChosen] = useState(false);
   const allowed = available && musicPlayer.available && !isChild && profileId !== undefined && Boolean(accessToken);
   const music = allowed && chosen;
@@ -47,6 +49,7 @@ export function useMusicMode({ available, instanceUrl, accessToken, profileId, i
     setSession(created);
     return () => { void created.stop().finally(() => created.dispose()); };
   }, [music, musicApi, profileId]);
+  useEffect(() => { session?.setIncognito(incognito); }, [incognito, session]);
 
   const setMusic = useCallback((value: boolean) => {
     setChosen(value);

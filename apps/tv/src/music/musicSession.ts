@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { musicPlayer, type MusicPlayerProgress, type MusicPlayerState, type MusicTrackChange } from "../musicPlayer";
 import { onSleepTimerChange, setSleepTimer, sleepTimer } from "../sleepTimer";
-import type { MusicApi, MusicSeed, MusicTrack } from "./musicApi";
+import type { MusicApi, MusicPlay, MusicSeed, MusicTrack } from "./musicApi";
 import { nonMusicSegments } from "./musicNonMusic";
 import {
   appendTracks, applyTrackChange, createQueue, current, endReason, needsMore, playFor, rateTrack, removeTrack, served, shuffleTracks,
@@ -35,6 +35,8 @@ export class MusicSession {
   private refilling = false;
   private generation = 0;
   private warmed: { key: string; at: number; station: Promise<StationResult> } | null = null;
+  /** Incognito mode on this device: listens aren't recorded, so they don't shape the mix or stations. Ratings still are. */
+  private incognito = false;
 
   constructor(private readonly api: MusicApi) {
     void musicPlayer.setAuthorization(api.accessToken ?? null);
@@ -119,7 +121,7 @@ export class MusicSession {
     if (!queue) return;
     const result = applyTrackChange(queue, change, new Date());
     this.update({ queue: result.queue });
-    if (result.play) this.api.recordPlay(result.play).catch(() => {});
+    if (result.play) this.record(result.play);
     this.prepare(result.prepare);
     if (needsMore(result.queue)) void this.refill();
   }
@@ -205,7 +207,13 @@ export class MusicSession {
   private recordLast(queue: MusicQueue | null, last: MusicPlayerProgress | null) {
     if (!queue || !last) return;
     const play = playFor(queue, last, endReason({ reason: "playlist" }, last), queue.startedAt);
-    if (play) this.api.recordPlay(play).catch(() => {});
+    if (play) this.record(play);
+  }
+
+  setIncognito(value: boolean) { this.incognito = value; }
+
+  private record(play: MusicPlay) {
+    if (!this.incognito) this.api.recordPlay(play).catch(() => {});
   }
 
   /** A new station is replacing the one playing: record how far its song got. */

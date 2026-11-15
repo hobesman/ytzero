@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { img } from "../img";
+import { isIncognitoMode } from "../incognitoMode";
 import { musicApi, type MusicSeed, type MusicTrack } from "./musicApi";
 import {
   appendTracks, createQueue, current, endReason, moveTo, needsMore, playRecord, rateTrack, removeUpcoming, served, shuffleTracks,
@@ -89,6 +90,8 @@ class WebMusicPlayer {
     const listen = this.listen;
     this.listen = null;
     if (!queue || !track || !listen || listen.videoId !== track.videoId || listen.listened < 1) return;
+    // Incognito mode in this tab: the listen isn't recorded, so it doesn't shape the mix or stations. Ratings still are.
+    if (isIncognitoMode()) return;
     const reason = endReason(listen.listened, track.duration, finished, skipped);
     void musicApi.recordPlay(playRecord(queue, track, listen.startedAt, listen.listened, reason)).catch(() => {});
   }

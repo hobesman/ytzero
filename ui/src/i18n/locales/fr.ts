@@ -343,7 +343,7 @@ export const fr: Locale = {
     "removeFromPlaylist": "Retirer de la playlist",
     "removeFromHistory": "Retirer de l'historique de visionnage",
     "incognitoMode": "Mode Incognito",
-    "incognitoModeHint": "N'enregistre pas l'historique de visionnage, la progression ni les statistiques dans cet onglet.",
+    "incognitoModeHint": "N'enregistre pas l'historique de visionnage, la progression, les statistiques ni la musique écoutée dans cet onglet.",
     "liveBadge": "EN DIRECT",
     "upcomingBadge": "À VENIR",
     "shortBadge": "SHORT",

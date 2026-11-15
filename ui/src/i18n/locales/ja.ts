@@ -343,7 +343,7 @@ export const ja: Locale = {
     "removeFromPlaylist": "プレイリストから削除",
     "removeFromHistory": "時計履歴から削除",
     "incognitoMode": "Incognito モード",
-    "incognitoModeHint": "このタブの時計履歴、進捗、閲覧履歴を保存しないでください。",
+    "incognitoModeHint": "このタブでは再生履歴、再生位置、視聴インサイト、音楽の再生記録を保存しません。",
     "liveBadge": "ライブ",
     "upcomingBadge": "新着情報",
     "shortBadge": "ショートパンツ",
