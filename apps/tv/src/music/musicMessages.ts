@@ -14,6 +14,8 @@ type Messages = {
   musicSleepEndOfSong: string; musicSleepStopped: string;
   /** Albums, artists and saved albums. `musicFromAlbum` names the album playing. */
   musicSongs: string; musicAlbums: string; musicArtists: string; musicSingles: string; musicTopSongs: string; musicShuffle: string; musicSave: string; musicSaved: string; musicSavedAlbums: string; musicFromAlbum: string; musicStation: string; musicPlayStation: string; musicAlbumFailed: string; musicArtistFailed: string; musicSingle: string; musicAlbum: string;
+  /** Moods & genres: Home's two shelves of YouTube Music categories, and their pages. */
+  musicMoods: string; musicGenres: string; musicGenreFailed: string; musicPlaylistFailed: string;
 };
 
 /** Music mode: its own screens, separate from video. */
@@ -29,6 +31,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Like", musicUnlike: "Remove like", musicNotThis: "Not this one", musicRetry: "Try again",
     musicSleepEndOfSong: "End of song", musicSleepStopped: "Sleep timer paused the music",
     musicSongs: "Songs", musicAlbums: "Albums", musicArtists: "Artists", musicSingles: "Singles & EPs", musicTopSongs: "Top songs", musicShuffle: "Shuffle", musicSave: "Save", musicSaved: "Saved", musicSavedAlbums: "Saved albums", musicFromAlbum: "From {title}", musicStation: "Station", musicPlayStation: "Play station", musicAlbumFailed: "Couldn't load this album", musicArtistFailed: "Couldn't load this artist", musicSingle: "Single", musicAlbum: "Album",
+    musicMoods: "Moods & moments", musicGenres: "Genres", musicGenreFailed: "Couldn't load this genre", musicPlaylistFailed: "Couldn't load this playlist",
   },
   pl: {
     musicSwitchToMusic: "Przełącz na muzykę", musicSwitchToVideo: "Przełącz na filmy", musicSwitchHint: "Muzyka ma osobne polubienia i historię",
@@ -41,6 +44,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Lubię to", musicUnlike: "Usuń polubienie", musicNotThis: "Nie ten utwór", musicRetry: "Spróbuj ponownie",
     musicSleepEndOfSong: "Koniec utworu", musicSleepStopped: "Wyłącznik czasowy wstrzymał muzykę",
     musicSongs: "Utwory", musicAlbums: "Albumy", musicArtists: "Wykonawcy", musicSingles: "Single i EP", musicTopSongs: "Popularne utwory", musicShuffle: "Losowo", musicSave: "Zapisz", musicSaved: "Zapisano", musicSavedAlbums: "Zapisane albumy", musicFromAlbum: "Z albumu {title}", musicStation: "Stacja", musicPlayStation: "Uruchom stację", musicAlbumFailed: "Nie udało się wczytać albumu", musicArtistFailed: "Nie udało się wczytać wykonawcy", musicSingle: "Singiel", musicAlbum: "Album",
+    musicMoods: "Nastroje i chwile", musicGenres: "Gatunki", musicGenreFailed: "Nie udało się wczytać gatunku", musicPlaylistFailed: "Nie udało się wczytać playlisty",
   },
   de: {
     musicSwitchToMusic: "Zu Musik wechseln", musicSwitchToVideo: "Zu Videos wechseln", musicSwitchHint: "Musik hat eigene Likes und einen eigenen Verlauf",
@@ -53,6 +57,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Mag ich", musicUnlike: "Like entfernen", musicNotThis: "Nicht diesen", musicRetry: "Erneut versuchen",
     musicSleepEndOfSong: "Ende des Songs", musicSleepStopped: "Der Sleep-Timer hat die Musik angehalten",
     musicSongs: "Songs", musicAlbums: "Alben", musicArtists: "Künstler", musicSingles: "Singles & EPs", musicTopSongs: "Top-Songs", musicShuffle: "Zufallswiedergabe", musicSave: "Speichern", musicSaved: "Gespeichert", musicSavedAlbums: "Gespeicherte Alben", musicFromAlbum: "Aus {title}", musicStation: "Sender", musicPlayStation: "Sender starten", musicAlbumFailed: "Album konnte nicht geladen werden", musicArtistFailed: "Künstler konnte nicht geladen werden", musicSingle: "Single", musicAlbum: "Album",
+    musicMoods: "Stimmungen & Momente", musicGenres: "Genres", musicGenreFailed: "Genre konnte nicht geladen werden", musicPlaylistFailed: "Playlist konnte nicht geladen werden",
   },
   fr: {
     musicSwitchToMusic: "Passer à la musique", musicSwitchToVideo: "Passer aux vidéos", musicSwitchHint: "La musique a ses propres j'aime et son historique",
@@ -65,6 +70,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "J'aime", musicUnlike: "Retirer le j'aime", musicNotThis: "Pas celui-ci", musicRetry: "Réessayer",
     musicSleepEndOfSong: "Fin du titre", musicSleepStopped: "Le minuteur de veille a mis la musique en pause",
     musicSongs: "Titres", musicAlbums: "Albums", musicArtists: "Artistes", musicSingles: "Singles et EP", musicTopSongs: "Titres populaires", musicShuffle: "Lecture aléatoire", musicSave: "Enregistrer", musicSaved: "Enregistré", musicSavedAlbums: "Albums enregistrés", musicFromAlbum: "Extrait de {title}", musicStation: "Station", musicPlayStation: "Lancer la station", musicAlbumFailed: "Impossible de charger cet album", musicArtistFailed: "Impossible de charger cet artiste", musicSingle: "Single", musicAlbum: "Album",
+    musicMoods: "Humeurs et moments", musicGenres: "Genres", musicGenreFailed: "Impossible de charger ce genre", musicPlaylistFailed: "Impossible de charger cette playlist",
   },
   es: {
     musicSwitchToMusic: "Cambiar a música", musicSwitchToVideo: "Cambiar a vídeos", musicSwitchHint: "La música tiene sus propios me gusta e historial",
@@ -77,6 +83,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Me gusta", musicUnlike: "Quitar me gusta", musicNotThis: "Esta no", musicRetry: "Reintentar",
     musicSleepEndOfSong: "Final de la canción", musicSleepStopped: "El temporizador ha pausado la música",
     musicSongs: "Canciones", musicAlbums: "Álbumes", musicArtists: "Artistas", musicSingles: "Sencillos y EP", musicTopSongs: "Canciones principales", musicShuffle: "Aleatorio", musicSave: "Guardar", musicSaved: "Guardado", musicSavedAlbums: "Álbumes guardados", musicFromAlbum: "De {title}", musicStation: "Emisora", musicPlayStation: "Iniciar emisora", musicAlbumFailed: "No se pudo cargar este álbum", musicArtistFailed: "No se pudo cargar este artista", musicSingle: "Sencillo", musicAlbum: "Álbum",
+    musicMoods: "Estados de ánimo y momentos", musicGenres: "Géneros", musicGenreFailed: "No se pudo cargar este género", musicPlaylistFailed: "No se pudo cargar esta lista",
   },
   "pt-BR": {
     musicSwitchToMusic: "Mudar para música", musicSwitchToVideo: "Mudar para vídeos", musicSwitchHint: "A música tem curtidas e histórico próprios",
@@ -89,6 +96,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Curtir", musicUnlike: "Remover curtida", musicNotThis: "Esta não", musicRetry: "Tentar de novo",
     musicSleepEndOfSong: "Fim da música", musicSleepStopped: "O timer pausou a música",
     musicSongs: "Músicas", musicAlbums: "Álbuns", musicArtists: "Artistas", musicSingles: "Singles e EPs", musicTopSongs: "Músicas em alta", musicShuffle: "Aleatório", musicSave: "Salvar", musicSaved: "Salvo", musicSavedAlbums: "Álbuns salvos", musicFromAlbum: "De {title}", musicStation: "Estação", musicPlayStation: "Iniciar estação", musicAlbumFailed: "Não foi possível carregar este álbum", musicArtistFailed: "Não foi possível carregar este artista", musicSingle: "Single", musicAlbum: "Álbum",
+    musicMoods: "Humores e momentos", musicGenres: "Gêneros", musicGenreFailed: "Não foi possível carregar este gênero", musicPlaylistFailed: "Não foi possível carregar esta playlist",
   },
   ru: {
     musicSwitchToMusic: "Перейти к музыке", musicSwitchToVideo: "Перейти к видео", musicSwitchHint: "У музыки свои лайки и история",
@@ -101,6 +109,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Нравится", musicUnlike: "Убрать лайк", musicNotThis: "Не этот", musicRetry: "Повторить",
     musicSleepEndOfSong: "Конец трека", musicSleepStopped: "Таймер сна приостановил музыку",
     musicSongs: "Треки", musicAlbums: "Альбомы", musicArtists: "Исполнители", musicSingles: "Синглы и EP", musicTopSongs: "Популярные треки", musicShuffle: "Перемешать", musicSave: "Сохранить", musicSaved: "Сохранено", musicSavedAlbums: "Сохранённые альбомы", musicFromAlbum: "Из альбома «{title}»", musicStation: "Станция", musicPlayStation: "Запустить станцию", musicAlbumFailed: "Не удалось загрузить альбом", musicArtistFailed: "Не удалось загрузить исполнителя", musicSingle: "Сингл", musicAlbum: "Альбом",
+    musicMoods: "Настроения и моменты", musicGenres: "Жанры", musicGenreFailed: "Не удалось загрузить жанр", musicPlaylistFailed: "Не удалось загрузить плейлист",
   },
   ja: {
     musicSwitchToMusic: "音楽に切り替え", musicSwitchToVideo: "動画に切り替え", musicSwitchHint: "音楽の高評価と履歴は動画とは別です",
@@ -113,6 +122,7 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "高評価", musicUnlike: "高評価を取り消す", musicNotThis: "この曲は除外", musicRetry: "再試行",
     musicSleepEndOfSong: "曲の終わり", musicSleepStopped: "スリープタイマーで音楽を一時停止しました",
     musicSongs: "曲", musicAlbums: "アルバム", musicArtists: "アーティスト", musicSingles: "シングルとEP", musicTopSongs: "人気曲", musicShuffle: "シャッフル", musicSave: "保存", musicSaved: "保存済み", musicSavedAlbums: "保存したアルバム", musicFromAlbum: "{title} から", musicStation: "ステーション", musicPlayStation: "ステーションを再生", musicAlbumFailed: "アルバムを読み込めませんでした", musicArtistFailed: "アーティストを読み込めませんでした", musicSingle: "シングル", musicAlbum: "アルバム",
+    musicMoods: "ムードとシーン", musicGenres: "ジャンル", musicGenreFailed: "このジャンルを読み込めませんでした", musicPlaylistFailed: "このプレイリストを読み込めませんでした",
   },
   hu: {
     musicSwitchToMusic: "Váltás zenére", musicSwitchToVideo: "Váltás videókra", musicSwitchHint: "A zenének saját kedvelései és előzményei vannak",
@@ -125,5 +135,6 @@ export const musicMessages: Record<Language, Messages> = {
     musicLike: "Tetszik", musicUnlike: "Kedvelés visszavonása", musicNotThis: "Ezt ne", musicRetry: "Újra",
     musicSleepEndOfSong: "A dal végén", musicSleepStopped: "Az elalváskapcsoló szüneteltette a zenét",
     musicSongs: "Dalok", musicAlbums: "Albumok", musicArtists: "Előadók", musicSingles: "Kislemezek és EP-k", musicTopSongs: "Népszerű dalok", musicShuffle: "Keverés", musicSave: "Mentés", musicSaved: "Mentve", musicSavedAlbums: "Mentett albumok", musicFromAlbum: "Innen: {title}", musicStation: "Állomás", musicPlayStation: "Állomás indítása", musicAlbumFailed: "Nem sikerült betölteni az albumot", musicArtistFailed: "Nem sikerült betölteni az előadót", musicSingle: "Kislemez", musicAlbum: "Album",
+    musicMoods: "Hangulatok és pillanatok", musicGenres: "Műfajok", musicGenreFailed: "Nem sikerült betölteni ezt a műfajt", musicPlaylistFailed: "Nem sikerült betölteni ezt a lejátszási listát",
   },
 };

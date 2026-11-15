@@ -104,7 +104,7 @@ export class MusicSession {
       if (!station.tracks.length) { this.update({ starting: false, error: "empty" }); return; }
       await this.recordReplaced();
       const tracks = options.shuffle ? shuffleTracks(station.tracks) : station.tracks;
-      const queue = createQueue(seed, station.seed, tracks, new Date(), seed.kind === "album" ? options.from ?? null : null);
+      const queue = createQueue(seed, station.seed, tracks, new Date(), seed.kind === "album" || seed.kind === "playlist" ? options.from ?? null : null);
       this.update({ queue, starting: false });
       await musicPlayer.setQueue(queue.tracks.map((track) => this.api.playerTrack(track)), 0, true);
       this.prepare(queue.tracks[1]?.videoId ?? null);

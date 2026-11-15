@@ -10,6 +10,7 @@ import type { MusicApi } from "./musicApi";
 import { MusicHomeScreen, MusicLibraryScreen, MusicSearchScreen } from "./MusicBrowseScreens";
 import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
+import { MusicGenreScreen, MusicPlaylistScreen } from "./MusicGenreScreens";
 import { MusicAlbumScreen, MusicArtistScreen, type MusicPage } from "./MusicPages";
 import { current } from "./musicQueue";
 import { useMusicSession, type MusicSession } from "./musicSession";
@@ -76,6 +77,13 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     if (key === "library") return <MusicLibraryScreen {...props} />;
     return <MusicHomeScreen {...props} />;
   };
+  const pageScreen = (page: MusicPage): ReactNode => {
+    const props = { api: musicApi, session, t, playingId, id: page.id, onOpen: openPage, onBack: closePage };
+    if (page.kind === "album") return <MusicAlbumScreen {...props} />;
+    if (page.kind === "artist") return <MusicArtistScreen {...props} />;
+    if (page.kind === "genre") return <MusicGenreScreen {...props} title={page.title} />;
+    return <MusicPlaylistScreen {...props} />;
+  };
   const title = tab === "search" ? t("musicSearch") : tab === "library" ? t("musicLibrary") : t("musicTitle");
   const tabs: { key: Tab; icon: "home" | "search" | "playlists"; label: string }[] = [
     { key: "home", icon: "home", label: t("musicHome") },
@@ -94,9 +102,7 @@ export function MusicApp({ api, musicApi, session, t, profiles, onSwitchToVideo 
     <View style={styles.body}>
       {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, key !== tab && styles.gone]}>{screen(key)}</View>)}
       {topPage ? <View key={`${pages.length}:${topPage.kind}:${topPage.id}`} style={styles.layer}>
-        {topPage.kind === "album"
-          ? <MusicAlbumScreen api={musicApi} session={session} t={t} playingId={playingId} id={topPage.id} onOpen={openPage} onBack={closePage} />
-          : <MusicArtistScreen api={musicApi} session={session} t={t} playingId={playingId} id={topPage.id} onOpen={openPage} onBack={closePage} />}
+        {pageScreen(topPage)}
       </View> : null}
     </View>
     {notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null}

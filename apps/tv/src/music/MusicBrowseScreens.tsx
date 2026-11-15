@@ -8,6 +8,7 @@ import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { albumDetail, MusicAlbumCard, MusicArtistCard, MusicShelf } from "./MusicAlbumCard";
 import type { MusicAlbum, MusicApi, MusicArtist, MusicLibrary, MusicSearchResults, MusicTrack } from "./musicApi";
 import type { MusicPage } from "./MusicPages";
+import { MusicGenreShelves } from "./MusicGenreScreens";
 import { MusicIcon, type MusicIconName } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { MusicTrackRow } from "./MusicTrackRow";
@@ -47,7 +48,7 @@ function Note({ text, action, onAction }: { text: string; action?: string; onAct
 }
 
 /** Home: start your mix or your liked songs, or pick up a recent song's station. */
-export function MusicHomeScreen({ api, session, t, visible, playingId }: ScreenProps) {
+export function MusicHomeScreen({ api, session, t, visible, playingId, onOpen }: ScreenProps) {
   const { library, failed, load } = useMusicLibrary(api, visible);
   const start = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
   // The mix is the likeliest first tap, so fetch it ahead while nothing plays.
@@ -59,6 +60,7 @@ export function MusicHomeScreen({ api, session, t, visible, playingId }: ScreenP
       {library?.recent.length ? <StationCard icon="note" title={t("musicYourMix")} hint={t("musicYourMixHint")} onPress={() => void session.start({ kind: "mix" })} /> : null}
       {library?.liked.length ? <StationCard icon="liked" title={t("musicLikedSongs")} hint={t("musicLikedSongsHint")} onPress={() => void session.start({ kind: "liked" })} /> : null}
     </View>
+    <MusicGenreShelves api={api} t={t} visible={visible} onOpen={onOpen} />
     <PhoneSectionTitle title={t("musicRecent")} />
     {failed ? <Note text={t("musicLoadFailed")} action={t("musicRetry")} onAction={load} />
       : !library ? <ActivityIndicator style={styles.loading} color={phoneColors.textMuted} />
