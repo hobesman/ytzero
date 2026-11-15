@@ -215,10 +215,13 @@ after trying something. What's missing tells you as much as what's there:
   local DNS, and that audio-only playback works in the app (yt-dlp is working).
 - A skill isn't found on one Echo: that Echo's language has no model in the
   skill, or it's registered to a different Amazon account.
-- *"<name> is not supported on this device"*: the skill has an interface turned
-  on that the device lacks. In **Build → Interfaces**, leave only **Audio
-  Player** on. Video App, Alexa Presentation Language and Display Interface all
-  need a screen.
-- A reply that isn't one of the skill's own, such as "I couldn't find that video
-  on YouTube": Alexa took the request for one of its own features. Choose a
-  more distinctive invocation name, one without media words like "video".
+- *"<name> is not supported on this device"*, or a reply that isn't one of the
+  skill's own, such as "I couldn't find that video on YouTube": the skill
+  itself won't start, and Alexa falls back to its own features. Check that
+  testing is set to **Development** for that skill, that the skill has a model
+  for the device's language, that it's a **Custom** skill with **Provision your
+  own** hosting, and that **Build → Interfaces** has only **Audio Player** on.
+  If all of that looks right and it still won't start, create the skill again
+  from step 1. Its new Skill ID then goes in the environment variable. Saying
+  "open <name>" in the console's simulator is a quick check: the skill should
+  answer with its own greeting.
