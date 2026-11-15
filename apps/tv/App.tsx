@@ -17,7 +17,8 @@ import { deviceStore, legacyDeviceStore } from "./src/deviceStore";
 import { systemProfilesNative } from "./src/systemProfilesNative";
 import { loadSystemProfilesEnabled, saveSystemProfilesEnabled, parseProfilePreference, profilePreference, resolveSystemProfile, type ProfileState, type ProfilePreference } from "./src/systemProfiles";
 import { TvSetupLayout } from "./src/components/TvSetupLayout";
-import { loadOpenDetails, loadPhoneLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
+import { loadLandscapeLayout, loadOpenDetails, loadPhoneLayout, saveLandscapeLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
+import { LandscapeLayoutContext } from "./src/landscapeLayout";
 import { loadStreamQuality } from "./src/streamQuality";
 import { loadForwardBuffer } from "./src/forwardBuffer";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
@@ -132,6 +133,9 @@ function TvApp() {
   // Android phones use the phone design by default; Settings can switch to the scaled TV layout.
   const [phoneDesign, setPhoneDesign] = useState(phoneDesignAvailable);
   const phoneMode = phoneDesign && phoneDesignAvailable;
+  // The phone design held in landscape (car screens, tablets on a stand); see landscapeLayout.ts.
+  const [landscapeDesign, setLandscapeDesign] = useState(false);
+  const landscapeMode = phoneMode && landscapeDesign;
   const [phonePlaying, setPhonePlaying] = useState(false);
   const [phoneChannelRequest, setPhoneChannelRequest] = useState<{ id: string; request: number } | null>(null);
   // Phones: a fullscreen video, and holding portrait after the viewer leaves fullscreen.
@@ -489,11 +493,12 @@ function TvApp() {
     setScreen("boot");
     void (async () => {
       try {
-        const [stored, detailsPreference, phonePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable),
-          loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5)]);
+        const [stored, detailsPreference, phonePreference, landscapePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable),
+          loadLandscapeLayout(deviceStore).catch(() => false), loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5)]);
         if (!active) return;
         setOpenDetails(detailsPreference);
         setPhoneDesign(phonePreference);
+        setLandscapeDesign(landscapePreference);
         if (!stored.instanceUrl) return setScreen("instance");
         setInstanceUrl(stored.instanceUrl);
         if (!stored.accessToken) {
@@ -716,15 +721,20 @@ function TvApp() {
     await savePhoneLayout(deviceStore, value);
     setPhoneDesign(value);
   }, []);
+  const changeLandscapeDesign = useCallback(async (value: boolean) => {
+    await saveLandscapeLayout(deviceStore, value);
+    setLandscapeDesign(value);
+  }, []);
   // The phone design browses in portrait. On a video's page the phone may rotate, and turning it
   // sideways while the video plays goes fullscreen; leaving fullscreen holds portrait for that video.
-  // The scaled TV layout stays landscape.
+  // The scaled TV layout and the landscape layout stay landscape; a playing video there goes
+  // fullscreen at once, because the window is already wide.
   const videoOpen = screen === "detail" && !playerDocked;
   const windowSize = useWindowDimensions();
   useEffect(() => {
     if (!phoneDesignAvailable) return;
-    setPhoneOrientation(!phoneMode ? "landscape" : !videoOpen ? "portrait" : videoFullscreen ? "landscape" : portraitHeld ? "portrait" : "sensor");
-  }, [phoneMode, portraitHeld, videoFullscreen, videoOpen]);
+    setPhoneOrientation(!phoneMode || landscapeMode ? "landscape" : !videoOpen ? "portrait" : videoFullscreen ? "landscape" : portraitHeld ? "portrait" : "sensor");
+  }, [landscapeMode, phoneMode, portraitHeld, videoFullscreen, videoOpen]);
   useEffect(() => { setVideoFullscreen(false); setPortraitHeld(false); }, [videoOpen, selected?.video_id]);
   const immersive = phoneMode && videoOpen && videoFullscreen;
   useEffect(() => { setPhoneImmersive(immersive); }, [immersive]);
@@ -744,10 +754,10 @@ function TvApp() {
     openVideo(video, context, play, position);
   }, [openVideo]);
   const phoneSettings = useMemo(() => ({
-    instanceUrl, openDetails, phoneLayout: phoneDesign,
+    instanceUrl, openDetails, phoneLayout: phoneDesign, landscapeLayout: landscapeDesign,
     onOpenDetailsChange: async (value: boolean) => { await saveOpenDetails(deviceStore, value); setOpenDetails(value); },
-    onPhoneLayoutChange: changePhoneDesign, onChangeInstance: startInstanceChange, onSignOut: signOut,
-  }), [changePhoneDesign, instanceUrl, openDetails, phoneDesign, signOut, startInstanceChange]);
+    onPhoneLayoutChange: changePhoneDesign, onLandscapeLayoutChange: changeLandscapeDesign, onChangeInstance: startInstanceChange, onSignOut: signOut,
+  }), [changeLandscapeDesign, changePhoneDesign, instanceUrl, landscapeDesign, openDetails, phoneDesign, signOut, startInstanceChange]);
 
   // Phones: Back minimizes the player and returns to where the video was opened.
   const dockPlayer = useCallback(() => {
@@ -932,6 +942,7 @@ function TvApp() {
 
   return (
     <PhoneScale layout={phoneLayout} style={styles.phoneRoot}>
+    <LandscapeLayoutContext.Provider value={landscapeMode}>
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
       {phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
@@ -1022,6 +1033,7 @@ function TvApp() {
     {launchVisible ? <TvLaunchAnimation ready={screen !== "boot" || bootError} accessibilityLabel={t("booting")}
       onReveal={() => setLaunchRevealing(true)} onFinish={() => setLaunchVisible(false)} /> : null}
     </View>
+    </LandscapeLayoutContext.Provider>
     </PhoneScale>
   );
 }
