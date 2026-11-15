@@ -6,6 +6,7 @@ import { log } from "../logger";
 import { createMusicPages } from "../music/musicAlbums";
 import { createMusicAudio, type MusicAudio } from "../music/musicAudio";
 import { musicTrack, musicTracks, upsertMusicTracks, type StoredMusicTrack } from "../music/musicCatalog";
+import { recordMusicPlay, type MusicPlayEndReason } from "../music/musicPlays";
 import { upstreamFailure, withRatings } from "../music/musicRouteHelpers";
 import { savedAlbums } from "../music/musicSavedAlbums";
 import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey, type MusicStations } from "../music/musicStation";
@@ -26,7 +27,7 @@ export interface MusicRouteDependencies {
   ytdlpAvailable?: () => Promise<boolean>;
 }
 
-async function defaultAudio(): Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }> {
+export async function defaultMusicAudio(): Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }> {
   const downloader = await import("../downloader");
   return {
     audio: createMusicAudio({ getAudioResponse: downloader.getAudioResponse, getAudioHeadResponse: downloader.getAudioHeadResponse }),
@@ -47,7 +48,7 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
   let audioDependencies: Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }> | null = null;
   const audioService = () => {
     if (dependencies.audio) return Promise.resolve({ audio: dependencies.audio, ytdlpAvailable: dependencies.ytdlpAvailable ?? (async () => true) });
-    audioDependencies ??= defaultAudio();
+    audioDependencies ??= defaultMusicAudio();
     return audioDependencies;
   };
 
@@ -143,13 +144,8 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
       return context.json({ error: "invalid play" }, 400);
     }
     if (!await musicTrack(videoId)) return context.json({ error: "not found" }, 404);
-    const seed = typeof body?.stationSeed === "string" ? body.stationSeed.slice(0, 40) : null;
-    await database.prepare(`
-      INSERT INTO music_plays (user_id, video_id, started_at, listened_seconds, duration, end_reason, station_seed)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id, video_id, started_at) DO UPDATE SET
-        listened_seconds = excluded.listened_seconds, duration = excluded.duration, end_reason = excluded.end_reason
-    `).run(userId, videoId, startedAt.toISOString(), listened, duration, endReason, seed);
+    const stationSeed = typeof body?.stationSeed === "string" ? body.stationSeed : null;
+    await recordMusicPlay(userId, { videoId, startedAt, listenedSeconds: listened, duration, endReason: endReason as MusicPlayEndReason, stationSeed });
     return context.json({ ok: true });
   });
 

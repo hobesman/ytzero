@@ -1,0 +1,81 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "y. t. zero",
+      "intents": [
+        {
+          "name": "PlaySongIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play {query}",
+            "play the song {query}",
+            "play song {query}",
+            "put on {query}",
+            "listen to {query}",
+            "start a station from {query}",
+            "play music like {query}"
+          ]
+        },
+        {
+          "name": "PlayArtistIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play songs by {query}",
+            "play music by {query}",
+            "play the artist {query}",
+            "play artist {query}",
+            "play some {query} songs",
+            "play a {query} station"
+          ]
+        },
+        {
+          "name": "PlayAlbumIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play the album {query}",
+            "play album {query}",
+            "play the record {query}"
+          ]
+        },
+        {
+          "name": "PlayLikedIntent",
+          "slots": [],
+          "samples": [
+            "play my liked songs",
+            "play my likes",
+            "play my favorites",
+            "play my favourite songs",
+            "play songs I like"
+          ]
+        },
+        {
+          "name": "PlayMixIntent",
+          "slots": [],
+          "samples": [
+            "play my mix",
+            "play my music",
+            "play something",
+            "play some music",
+            "shuffle my music"
+          ]
+        },
+        { "name": "AMAZON.PauseIntent", "samples": [] },
+        { "name": "AMAZON.ResumeIntent", "samples": [] },
+        { "name": "AMAZON.NextIntent", "samples": [] },
+        { "name": "AMAZON.PreviousIntent", "samples": [] },
+        { "name": "AMAZON.StartOverIntent", "samples": [] },
+        { "name": "AMAZON.RepeatIntent", "samples": [] },
+        { "name": "AMAZON.LoopOnIntent", "samples": [] },
+        { "name": "AMAZON.LoopOffIntent", "samples": [] },
+        { "name": "AMAZON.ShuffleOnIntent", "samples": [] },
+        { "name": "AMAZON.ShuffleOffIntent", "samples": [] },
+        { "name": "AMAZON.CancelIntent", "samples": [] },
+        { "name": "AMAZON.StopIntent", "samples": [] },
+        { "name": "AMAZON.HelpIntent", "samples": [] },
+        { "name": "AMAZON.NavigateHomeIntent", "samples": [] },
+        { "name": "AMAZON.FallbackIntent", "samples": [] }
+      ],
+      "types": []
+    }
+  }
+}

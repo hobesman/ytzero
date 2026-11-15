@@ -733,6 +733,13 @@ archive with no such capability restores with public sharing denied.
 - environment-owned authentication overrides and the `YTZERO_AUTH_PASSWORD`
   secret; they are machine-bound runtime configuration and are never persisted,
   exported, or restored
+- the Alexa skill's `YTZERO_ALEXA_SKILL_ID`, `YTZERO_ALEXA_PROFILE`,
+  `YTZERO_ALEXA_PUBLIC_URL` and `YTZERO_ALEXA_SECRET` environment variables;
+  they are machine-bound runtime configuration and are never persisted,
+  exported, or restored. The skill stores no state of its own: the station
+  travels in Alexa's stream token, signed audio links are stateless, and the
+  in-memory map of when each stream began playing is transient. Plays it
+  records are ordinary `music_plays` rows of the configured profile
 - OIDC client secret and active authentication configuration, including the
   instance-local choice to hide other profile names in the authenticated
   profile picker
