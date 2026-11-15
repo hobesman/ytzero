@@ -343,7 +343,7 @@ export const ru: Locale = {
     "removeFromPlaylist": "Удалить из плейлиста",
     "removeFromHistory": "Удалить из истории просмотров",
     "incognitoMode": "Режим инкогнито",
-    "incognitoModeHint": "Не сохранять в этой вкладке историю, прогресс и статистику просмотров.",
+    "incognitoModeHint": "Не сохранять в этой вкладке историю, прогресс, статистику просмотров и прослушанную музыку.",
     "liveBadge": "В ЭФИРЕ",
     "upcomingBadge": "СКОРО",
     "shortBadge": "Шорт",

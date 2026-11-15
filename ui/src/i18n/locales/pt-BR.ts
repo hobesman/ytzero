@@ -343,7 +343,7 @@ export const ptBR: Locale = {
     "removeFromPlaylist": "Remover da lista de reprodução",
     "removeFromHistory": "Remover do histórico de observação",
     "incognitoMode": "Modo incógnito",
-    "incognitoModeHint": "Não gravar o histórico, o progresso ou a visualização de insights nesta página.",
+    "incognitoModeHint": "Não salvar o histórico, o progresso, as estatísticas de visualização nem as músicas ouvidas nesta aba.",
     "liveBadge": "VIVO",
     "upcomingBadge": "VINDO",
     "shortBadge": "CURTO",

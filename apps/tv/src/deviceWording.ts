@@ -23,7 +23,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Pair this device",
     discoveryIntro: "Choose a nearby YT Zero instance or enter its address. Then pair this device with your profile.",
     discoveryHint: "Connect this device and your server to the same local network. You can also enter an address.",
-    incognitoModeHint: "Do not save watch history, progress, or viewing insights on this device.",
+    incognitoModeHint: "Do not save watch history, progress, viewing insights, or music listens on this device.",
   },
   pl: {
     openDetailsFirstHint: "Dotyczy tego urządzenia. Domyślnie wybranie filmu od razu rozpoczyna odtwarzanie.",
@@ -35,7 +35,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Sparuj to urządzenie",
     discoveryIntro: "Wybierz pobliską instancję YT Zero lub wpisz jej adres. Następnie sparuj to urządzenie ze swoim profilem.",
     discoveryHint: "Połącz to urządzenie i serwer z tą samą siecią lokalną. Możesz też wpisać adres.",
-    incognitoModeHint: "Nie zapisuj historii oglądania, postępu ani statystyk oglądania na tym urządzeniu.",
+    incognitoModeHint: "Nie zapisuj historii oglądania, postępu, statystyk oglądania ani słuchanej muzyki na tym urządzeniu.",
   },
   de: {
     openDetailsFirstHint: "Gilt für dieses Gerät. Standardmäßig startet die Auswahl eines Videos sofort die Wiedergabe.",
@@ -47,7 +47,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Dieses Gerät koppeln",
     discoveryIntro: "Wähle eine YT-Zero-Instanz in der Nähe oder gib ihre Adresse ein. Kopple dann dieses Gerät mit deinem Profil.",
     discoveryHint: "Verbinde dieses Gerät und deinen Server mit demselben lokalen Netzwerk. Du kannst auch eine Adresse eingeben.",
-    incognitoModeHint: "Wiedergabeverlauf, Fortschritt und Nutzungsstatistiken auf diesem Gerät nicht speichern.",
+    incognitoModeHint: "Wiedergabeverlauf, Fortschritt, Nutzungsstatistiken und gehörte Musik auf diesem Gerät nicht speichern.",
   },
   fr: {
     openDetailsFirstHint: "S’applique à cet appareil. Par défaut, sélectionner une vidéo lance immédiatement la lecture.",
@@ -59,7 +59,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Associer cet appareil",
     discoveryIntro: "Choisissez une instance YT Zero à proximité ou saisissez son adresse. Associez ensuite cet appareil à votre profil.",
     discoveryHint: "Connectez cet appareil et votre serveur au même réseau local. Vous pouvez aussi saisir une adresse.",
-    incognitoModeHint: "Ne pas enregistrer l’historique, la progression ni les statistiques de visionnage sur cet appareil.",
+    incognitoModeHint: "Ne pas enregistrer l’historique, la progression, les statistiques de visionnage ni la musique écoutée sur cet appareil.",
   },
   es: {
     openDetailsFirstHint: "Se aplica a este dispositivo. De forma predeterminada, al seleccionar un vídeo se inicia la reproducción.",
@@ -71,7 +71,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Vincular este dispositivo",
     discoveryIntro: "Elige una instancia de YT Zero cercana o introduce su dirección. Después vincula este dispositivo con tu perfil.",
     discoveryHint: "Conecta este dispositivo y tu servidor a la misma red local. También puedes introducir una dirección.",
-    incognitoModeHint: "No guardar el historial, el progreso ni las estadísticas de visualización en este dispositivo.",
+    incognitoModeHint: "No guardar el historial, el progreso, las estadísticas de visualización ni la música escuchada en este dispositivo.",
   },
   "pt-BR": {
     openDetailsFirstHint: "Vale para este dispositivo. Por padrão, selecionar um vídeo inicia a reprodução imediatamente.",
@@ -83,7 +83,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Conectar este dispositivo",
     discoveryIntro: "Escolha uma instância do YT Zero próxima ou digite o endereço. Depois conecte este dispositivo ao seu perfil.",
     discoveryHint: "Conecte este dispositivo e o servidor à mesma rede local. Você também pode digitar um endereço.",
-    incognitoModeHint: "Não salvar o histórico, o progresso nem as estatísticas de visualização neste dispositivo.",
+    incognitoModeHint: "Não salvar o histórico, o progresso, as estatísticas de visualização nem as músicas ouvidas neste dispositivo.",
   },
   ru: {
     openDetailsFirstHint: "Действует на этом устройстве. По умолчанию выбор видео сразу запускает воспроизведение.",
@@ -95,7 +95,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Привязать это устройство",
     discoveryIntro: "Выберите ближайший экземпляр YT Zero или введите его адрес. Затем привяжите это устройство к своему профилю.",
     discoveryHint: "Подключите это устройство и сервер к одной локальной сети. Также можно ввести адрес.",
-    incognitoModeHint: "Не сохранять историю просмотра, прогресс и статистику просмотра на этом устройстве.",
+    incognitoModeHint: "Не сохранять историю просмотра, прогресс, статистику просмотра и прослушанную музыку на этом устройстве.",
   },
   ja: {
     openDetailsFirstHint: "このデバイスに適用されます。既定では、動画を選ぶとすぐに再生が始まります。",
@@ -107,7 +107,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "このデバイスをペアリング",
     discoveryIntro: "近くの YT Zero インスタンスを選ぶか、アドレスを入力してください。その後、このデバイスをプロフィールとペアリングします。",
     discoveryHint: "このデバイスとサーバーを同じローカルネットワークに接続してください。アドレスを入力することもできます。",
-    incognitoModeHint: "このデバイスで視聴履歴、再生位置、視聴インサイトを保存しません。",
+    incognitoModeHint: "このデバイスで視聴履歴、再生位置、視聴インサイト、音楽の再生記録を保存しません。",
   },
   hu: {
     openDetailsFirstHint: "Erre az eszközre vonatkozik. Alapértelmezés szerint egy videó kiválasztása azonnal elindítja a lejátszást.",
@@ -119,7 +119,7 @@ export const deviceWording: Record<Language, DeviceWording> = {
     pairTitle: "Az eszköz párosítása",
     discoveryIntro: "Válassz egy közeli YT Zero példányt, vagy add meg a címét. Ezután párosítsd az eszközt a profiloddal.",
     discoveryHint: "Csatlakoztasd az eszközt és a szervert ugyanahhoz a helyi hálózathoz. Címet is megadhatsz.",
-    incognitoModeHint: "Ne mentse a megtekintési előzményeket, a haladást és a megtekintési statisztikákat ezen az eszközön.",
+    incognitoModeHint: "Ne mentse a megtekintési előzményeket, a haladást, a megtekintési statisztikákat és a meghallgatott zenéket ezen az eszközön.",
   },
 };
 

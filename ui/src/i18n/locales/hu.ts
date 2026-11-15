@@ -250,7 +250,7 @@ export const hu: Locale = {
     removeFromPlaylist: "Eltávolítás a lejátszási listáról",
     removeFromHistory: "Eltávolítás a megtekintési előzményekből",
     incognitoMode: "Inkognitó mód",
-    incognitoModeHint: "Ezen a lapon ne mentse el a megtekintési előzményeket, az előrehaladást és a megtekintési statisztikákat.",
+    incognitoModeHint: "Ezen a lapon ne mentse el a megtekintési előzményeket, az előrehaladást, a megtekintési statisztikákat és a meghallgatott zenéket.",
     liveBadge: "ÉLŐ",
     upcomingBadge: "HAMAROSAN",
     shortBadge: "SHORT",

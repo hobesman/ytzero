@@ -347,7 +347,7 @@ export const es: Locale = {
     removeFromPlaylist: "Quitar de la lista",
     removeFromHistory: "Quitar del historial de reproducciones",
     incognitoMode: "Modo incógnito",
-    incognitoModeHint: "No guardar el historial, el progreso ni las estadísticas de visualización en esta pestaña.",
+    incognitoModeHint: "No guardar el historial, el progreso, las estadísticas de visualización ni la música escuchada en esta pestaña.",
     liveBadge: "EN DIRECTO",
     upcomingBadge: "PRÓXIMAMENTE",
     shortBadge: "SHORT",

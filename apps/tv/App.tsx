@@ -236,7 +236,7 @@ function TvApp() {
   const [shorts, setShorts] = useState<ShortsSession | null>(null);
 
   // Phones: music mode replaces the video screens; entering it closes any video.
-  const musicMode = useMusicMode({ available: phoneMode, instanceUrl, accessToken, profileId: profileState?.active.id, isChild: Boolean(profileState?.active.is_child) });
+  const musicMode = useMusicMode({ available: phoneMode, instanceUrl, accessToken, profileId: profileState?.active.id, isChild: Boolean(profileState?.active.is_child), incognito });
   useEffect(() => {
     if (!musicMode.music) return;
     setVideoActionRequest(null);
