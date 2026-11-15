@@ -15,7 +15,9 @@ export function MusicArtwork({ api, url, size, radius = 6 }: { api: MusicApi; ur
   const source = api.artworkSource(url);
   const box = { width: size, height: size, borderRadius: radius };
   if (!source) return <View style={[box, styles.placeholder]}><MusicIcon name="note" color={phoneColors.textMuted} size={size * 0.45} /></View>;
-  return <Image source={source} style={[box, styles.art]} resizeMode="cover" />;
+  // The server sends 544px artwork; "resize" has Android shrink it to the tile before decoding,
+  // so a page of cards holds small bitmaps rather than dozens of full-size ones.
+  return <Image source={source} style={[box, styles.art]} resizeMode="cover" resizeMethod="resize" />;
 }
 
 /** One song in a list: artwork, title, artist and length. */
