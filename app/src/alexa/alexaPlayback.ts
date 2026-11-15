@@ -80,6 +80,8 @@ export interface AlexaTrack {
 export interface AlexaResponse {
   version: "1.0";
   response: Record<string, unknown>;
+  /** Carried to the session's next request, for a question awaiting yes or no. */
+  sessionAttributes?: Record<string, unknown>;
 }
 
 const respond = (response: Record<string, unknown>): AlexaResponse => ({ version: "1.0", response });

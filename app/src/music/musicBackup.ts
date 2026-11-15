@@ -80,7 +80,7 @@ export async function restoreMusicBackup(userId: number, value: unknown, strateg
     await database.prepare(`
       INSERT INTO music_plays (user_id, video_id, started_at, listened_seconds, duration, end_reason, station_seed)
       VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, video_id, started_at) DO NOTHING
-    `).run(userId, row.video_id, row.started_at, listened, duration, row.end_reason, optionalText(row.station_seed, 40));
+    `).run(userId, row.video_id, row.started_at, listened, duration, row.end_reason, optionalText(row.station_seed, 80));
   }
   for (const row of Array.isArray(doc.saved_albums) ? doc.saved_albums as any[] : []) {
     if (!ALBUM_ID.test(row?.browse_id ?? "")) { skipped++; continue; }

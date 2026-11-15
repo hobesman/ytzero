@@ -2,7 +2,7 @@ import { log } from "../logger";
 import { musicTrack, upsertMusicTracks, type StoredMusicTrack } from "../music/musicCatalog";
 import type { MusicPlay } from "../music/musicPlays";
 import { stationSeedKey, type MusicStations, type StationSeed } from "../music/musicStation";
-import type { YouTubeMusicClient } from "../music/youtubeMusicClient";
+import type { MusicPlaylist, YouTubeMusicClient } from "../music/youtubeMusicClient";
 import {
   advancedState, decodePlaybackToken, encodePlaybackToken, playDirective, playResponse, silent, speak, stopDirective,
   type AlexaPlaybackState, type AlexaResponse,
@@ -14,7 +14,7 @@ export interface AlexaEnvelope {
     System?: { application?: { applicationId?: string } };
     AudioPlayer?: { token?: string; offsetInMilliseconds?: number; playerActivity?: string };
   };
-  session?: { application?: { applicationId?: string } };
+  session?: { application?: { applicationId?: string }; attributes?: Record<string, unknown> };
   request?: {
     type?: string;
     timestamp?: string;
@@ -38,15 +38,17 @@ export interface AlexaSkillDependencies {
   recordPlay: (userId: number, play: MusicPlay) => Promise<void>;
   findTrack?: (videoId: string) => Promise<StoredMusicTrack | null>;
   saveTracks?: typeof upsertMusicTracks;
+  /** The YouTube Music playlist for a spoken genre, mood or decade, such as "80s" or "the latest pop". */
+  findGenre?: (userId: number, spoken: string) => Promise<MusicPlaylist | null>;
 }
 
 const MAX_FAILURES_IN_A_ROW = 3;
 const LISTEN_LIMIT = 256;
-const HELP = "You can say play a song, play songs by an artist, play the album, play my liked songs, or play my mix.";
+const HELP = "You can say play a song, play songs by an artist, play the album, play eighties music, play my liked songs, or play my mix.";
 const ASK = "What would you like to hear?";
 const UNREACHABLE = "Sorry, I couldn't reach YouTube Music right now. Please try again in a moment.";
 
-const SEED_INTENTS = new Set(["PlaySongIntent", "PlayArtistIntent", "PlayAlbumIntent", "PlayLikedIntent", "PlayMixIntent"]);
+const SEED_INTENTS = new Set(["PlaySongIntent", "PlayArtistIntent", "PlayAlbumIntent", "PlayLikedIntent", "PlayMixIntent", "PlayGenreIntent"]);
 const STOP_INTENTS = new Set(["AMAZON.PauseIntent", "AMAZON.StopIntent", "AMAZON.CancelIntent"]);
 const UNSUPPORTED_INTENTS = new Set([
   "AMAZON.PreviousIntent", "AMAZON.LoopOnIntent", "AMAZON.LoopOffIntent", "AMAZON.ShuffleOnIntent",
@@ -96,6 +98,11 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     if (intent === "PlayLikedIntent") return { seed: { kind: "liked" }, intro: () => "Playing your liked songs." };
     if (intent === "PlayMixIntent") return { seed: { kind: "mix" }, intro: () => "Playing your mix." };
     if (!query) return "What should I play?";
+    if (intent === "PlayGenreIntent") {
+      const playlist = await dependencies.findGenre?.(userId, query);
+      if (!playlist) return `I couldn't find a playlist for ${query}.`;
+      return { seed: { kind: "playlist", playlistId: playlist.playlistId }, intro: () => `Playing ${playlist.title}.` };
+    }
     if (intent === "PlaySongIntent") {
       const [song] = await saveTracks(await dependencies.client.searchSongs(userId, query));
       if (!song) return `I couldn't find a song called ${query}.`;

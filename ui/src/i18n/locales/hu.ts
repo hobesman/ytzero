@@ -5,6 +5,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 import type { Locale } from "../types";
 
@@ -14,7 +15,7 @@ export const hu: Locale = {
     ...feedBuilderMessages.hu,
     ...clusterMessages.hu,
     ...notificationMessages.hu,
-    ...tvPairingMessages.hu, ...playbackSpeedMemoryMessages.hu,
+    ...tvPairingMessages.hu, ...musicMessages.hu, ...playbackSpeedMemoryMessages.hu,
     navToday: "Kezdőlap",
     navSocial: "Közösség",
     navDiscovery: "Felfedezés",

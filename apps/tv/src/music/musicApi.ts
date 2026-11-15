@@ -27,6 +27,11 @@ export type MusicAlbum = {
 export type MusicArtist = { channelId: string; name: string; thumbnail: string | null };
 export type MusicAlbumPage = MusicAlbum & { tracks: MusicTrack[]; saved: boolean };
 export type MusicArtistPage = MusicArtist & { topSongs: MusicTrack[]; albums: MusicAlbum[]; singles: MusicAlbum[] };
+/** A Moods & genres category; its name comes from YouTube Music, already translated. */
+export type MusicGenre = { id: string; title: string; group: "mood" | "genre"; color: string | null };
+export type MusicPlaylist = { playlistId: string; title: string; subtitle: string; thumbnail: string | null };
+export type MusicGenrePage = { id: string; title: string; shelves: { title: string; playlists: MusicPlaylist[] }[] };
+export type MusicPlaylistPage = MusicPlaylist & { tracks: MusicTrack[] };
 export type MusicSearchResults = { tracks: MusicTrack[]; albums: MusicAlbum[]; artists: MusicArtist[] };
 export type MusicLibrary = { liked: MusicTrack[]; recent: MusicTrack[]; albums: MusicAlbum[] };
 
@@ -36,7 +41,9 @@ export type MusicSeed =
   | { kind: "mix" }
   /** An album from `startAt` (its first track when absent); a station like it follows. */
   | { kind: "album"; browseId: string; startAt?: string }
-  | { kind: "artist"; artistId: string };
+  | { kind: "artist"; artistId: string }
+  /** A playlist's songs, shuffled by the server; a station like them follows. */
+  | { kind: "playlist"; playlistId: string };
 export type MusicEndReason = "completed" | "skipped" | "stopped";
 export type MusicPlay = {
   videoId: string;
@@ -93,6 +100,18 @@ export class MusicApi {
 
   artist(channelId: string): Promise<MusicArtistPage> {
     return this.request(`/artists/${encodeURIComponent(channelId)}`, {}, 30000);
+  }
+
+  async genres(): Promise<MusicGenre[]> {
+    return (await this.request<{ genres?: MusicGenre[] }>("/genres", {}, 30000)).genres ?? [];
+  }
+
+  genre(id: string): Promise<MusicGenrePage> {
+    return this.request(`/genres/${encodeURIComponent(id)}`, {}, 30000);
+  }
+
+  playlist(playlistId: string): Promise<MusicPlaylistPage> {
+    return this.request(`/playlists/${encodeURIComponent(playlistId)}`, {}, 30000);
   }
 
   setAlbumSaved(browseId: string, saved: boolean): Promise<{ ok: true; saved: boolean }> {

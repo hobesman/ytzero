@@ -5,6 +5,7 @@ import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { feedBuilderMessages } from "./feedBuilder";
 import { tvPairingMessages } from "./tvPairing";
+import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 // English defines the message keys; `pl` and `de` are type-checked against them.
 export const en = {
@@ -12,7 +13,7 @@ export const en = {
     ...surfaceMessages.en,
     ...clusterMessages.en,
     ...notificationMessages.en,
-    ...tvPairingMessages.en, ...playbackSpeedMemoryMessages.en,
+    ...tvPairingMessages.en, ...musicMessages.en, ...playbackSpeedMemoryMessages.en,
     ...feedBuilderMessages.en,
     navToday: "Main",
     navSocial: "Social",

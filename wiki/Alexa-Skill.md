@@ -2,21 +2,28 @@
 
 YT Zero can be the backend for two private Alexa skills. Set up either or both.
 
-**Y T Music** plays music mode: "Alexa, ask Y T Music to play Harvest
+**Hoban Music** plays music mode: "Alexa, ask Hoban Music to play Harvest
 Moon", "…play songs by Radiohead", "…play the album OK Computer", "…play my
 liked songs" or "…play my mix". A song, artist or album starts a station that
-keeps going after it, just as on the phone. Listens are recorded in the
-profile's music history, so stations learn from them.
+keeps going after it, just as on the phone. So does a genre, mood or decade:
+"…play 80s music", "…play some jazz", "…play the latest pop music" or "…play
+music for working out". Listens are recorded in the profile's music history,
+so stations learn from them.
 
-**Y T Video** plays the audio of ordinary videos: "Alexa, ask Y T Zero
-Video to play how to fix a leaky faucet from This Old House", or "…play the
-latest from Mark Rober". A video plays once and stops. Listening counts as
-watching: it resumes where you left off on another device, shows in Continue
-watching, and is marked watched at the end.
+**Hoban Tube** plays the audio of ordinary videos: "Alexa, ask Hoban Tube to
+play how to fix a leaky faucet from This Old House", or "…play the latest from
+Mark Rober". A video plays once and stops. To keep going, shuffle a channel:
+"…play videos from Mark Rober" or "…shuffle Mark Rober" plays its videos in a
+random order, one after another. "…play a random video from Mark Rober" plays
+just one. Listening counts as watching: it resumes where you left off on
+another device, shows in Continue watching, and is marked watched at the end.
 
 Both skills support pause, resume and start over, by voice and with the
-device's buttons. The music skill also supports next. In the video skill, say
-"skip forward 2 minutes" or "go back 30 seconds".
+device's buttons. The music skill and a shuffled channel also support next. In
+the video skill, say "skip forward 2 minutes" or "go back 30 seconds".
+
+These names are only examples: the skills answer to whatever invocation names
+you give them in step 1.
 
 Both skills stay in development mode in your own Amazon developer account. They
 work on every Echo registered to that Amazon account, need no certification,
@@ -45,20 +52,23 @@ Repeat these steps once per skill, using that skill's interaction model:
 
 | Skill | Interaction model | Invocation |
 | --- | --- | --- |
-| Music | [`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json) | `y. t. music` |
-| Video | [`docs/alexa-video-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-video-interaction-model.json) | `y. t. video` |
+| Music | [`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json) | `hoban music` |
+| Video | [`docs/alexa-video-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-video-interaction-model.json) | `hoban tube` |
 
 1. Sign in to the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
    with the same Amazon account your Echo uses.
-2. **Create Skill** → name it (for example *YT Music*) → **Other**
+2. **Create Skill** → name it (for example *Hoban Music*) → **Other**
    experience → **Custom** model → **Provision your own** hosting → start from
    scratch. Choose the language your Echos use. Each language needs its own
    copy of the model; add more from the language list at the top of **Build**.
 3. **Build → Interaction Model → JSON Editor**: paste the contents of the
    skill's interaction model, then **Save** and **Build skill**. To use a
    different invocation name, change `invocationName`. It must be lowercase and
-   at least two words, with initialisms spelled out with periods and spaces, as
-   in `y. t. music`.
+   at least two words. Ordinary words work best: spelled-out letters such as
+   `y. t. video` are easily misheard as another skill's name. When you paste a
+   newer model later, change `invocationName` back to yours before building.
+   The skill's display name (**Distribution → Public Name**) is what Alexa
+   announces when the skill opens, so keep it close to the invocation.
 4. **Build → Interfaces**: turn on **Audio Player**, then **Build skill** again.
 5. **Build → Endpoint**: choose **HTTPS**, enter
    `https://<your YT Zero address>/alexa` as the default region, and pick
@@ -88,16 +98,17 @@ there they become part of the value. Only the `KEY: "value"` form strips them.
 The skills are off, and `/alexa` answers 404, until a skill ID, the profile,
 the secret and an `https://` address are all set.
 
-### Moving from one skill to two
+### Updating a skill
 
-If you set up the music skill when it was the only one, it was called `y. t.
-zero`. Paste the new music model, which changes the invocation to `y. t. zero
-music`, and build. Its skill ID and `YTZERO_ALEXA_SKILL_ID` stay the same.
+When a new version adds commands (genres, shuffling a channel), paste the
+updated interaction model into the skill's JSON Editor, set `invocationName` to
+your skill's, then **Save** and **Build skill**. The skill ID and the
+environment variables stay the same.
 
 ## 3. Try it
 
-On any Echo on your account: "Alexa, ask Y T Music to play my mix", or
-"Alexa, ask Y T Video to play the latest from" one of your channels. The
+On any Echo on your account: "Alexa, ask Hoban Music to play my mix", or
+"Alexa, ask Hoban Tube to play the latest from" one of your channels. The
 console's simulator can check the conversation, but it does not play audio;
 use a real device for that.
 
@@ -124,6 +135,51 @@ plays as a profile of its own, have that profile follow your channels, or set
 "Play the latest from *channel*" plays the channel's newest video, skipping
 Shorts and live streams.
 
+"Play videos from *channel*" and "shuffle *channel*" pick from the channel's
+videos in YT Zero at random, never a Short or a live stream, and queue the
+next one as each ends. Videos the profile hasn't watched come first, and none
+repeats until all of them have played. "Play a random video from *channel*"
+picks the same way but plays only one. All three need a channel the profile
+follows.
+
+## Following channels
+
+The video skill can follow and unfollow channels for its profile, and it
+always asks first:
+
+- "Alexa, ask Hoban Tube to find the channel This Old House" (or "…follow This
+  Old House") searches YouTube and offers the matches one at a time, with their
+  subscriber counts: "The first match is This Old House, with 2.1 million
+  subscribers. Follow it?" Say **yes** to follow it, or **no** to hear the next
+  one, up to ten. A match the profile already follows is named as such, and
+  yes moves on past it.
+- While a video plays (or is paused), "…follow this channel" offers to follow
+  that video's channel.
+- "…unfollow This Old House" offers the followed channels that match, and
+  "…unfollow this channel" the playing video's channel. Unfollowing keeps the
+  profile's settings for the channel, as the app's Unfollow button does.
+
+Nothing changes without a yes. If you don't answer, Alexa asks once more; if
+there's still no answer, nothing is changed.
+
+## Finding a genre
+
+"Play *genre* music" goes through YouTube Music's **Moods & genres**, the same
+list music mode shows on the phone:
+
+1. A decade ("80s", "the eighties", "nineteen seventies rock") plays that
+   decade's shelf in the *Decades* category: *The Hits: '80s*, or the playlist
+   whose name fits best, such as *'80s Rock*.
+2. A genre or mood ("jazz", "hip hop", "chill", "workout") plays its
+   category's first playlist, or the one that fits the rest of the phrase:
+   "classic rock" opens *Rock* and picks its classic rock playlist.
+3. "Latest", "new" or "fresh" prefers a playlist named for new music, such as
+   *Pop Hotlist*.
+4. Anything else is searched among YouTube Music's own playlists.
+
+The playlist's songs play shuffled. Once they run low, the station carries on
+like any other, following the songs you kept listening to.
+
 ## How it works
 
 - `POST /alexa` receives both skills' requests. YT Zero checks Amazon's signing
@@ -149,9 +205,10 @@ settings or backups.
 
 ## Limits
 
-- **Previous**, shuffle and loop aren't supported. A station only goes
-  forward, and a video doesn't queue another after it.
-- Skip forward and back need the skill's name: "Alexa, ask Y T Video to skip
+- **Previous**, loop and Alexa's own shuffle command aren't supported. A
+  station or a shuffled channel only goes forward, and a single video doesn't
+  queue another after it.
+- Skip forward and back need the skill's name: "Alexa, ask Hoban Tube to skip
   forward 2 minutes". Only Alexa's built-in commands (pause, resume, next,
   start over) work without it.
 - Responses are in English.
@@ -181,6 +238,8 @@ While running, it logs:
 - `alexa.audio_failed` when an audio request is refused or fails, with the
   status and a reason, such as `yt-dlp unavailable` or
   `audio unavailable from YouTube`.
+- `alexa.channel_followed` and `alexa.channel_unfollowed` when a yes follows or
+  unfollows a channel.
 - `alexa.request_refused` (with a reason), `alexa.profile_missing`,
   `alexa.playback_failed` and `alexa.request_failed` for the other problems.
 

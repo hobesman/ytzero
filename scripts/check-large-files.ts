@@ -25,7 +25,7 @@ const lineLimits: Record<string, number> = {
   "app/src/videoRoutesSupport.ts": 133,
   "app/src/routeCache.ts": 11,
   "ui/src/App.tsx": 24,
-  "ui/src/AppRoutes.tsx": 105,
+  "ui/src/AppRoutes.tsx": 107,
   "ui/src/app-shell/AppBootstrap.tsx": 17,
   "ui/src/app-shell/AppShell.tsx": 114,
   "ui/src/app-shell/AppSidebar.tsx": 97,

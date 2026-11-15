@@ -5,6 +5,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 
 export const fr: Locale = {
@@ -13,7 +14,7 @@ export const fr: Locale = {
     ...feedBuilderMessages.fr,
     ...clusterMessages.fr,
     ...notificationMessages.fr,
-    ...tvPairingMessages.fr, ...playbackSpeedMemoryMessages.fr,
+    ...tvPairingMessages.fr, ...musicMessages.fr, ...playbackSpeedMemoryMessages.fr,
     "navToday": "Accueil",
     "navSocial": "Social",
     "navDiscovery": "Découverte",

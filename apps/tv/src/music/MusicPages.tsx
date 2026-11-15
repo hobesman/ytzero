@@ -11,15 +11,17 @@ import type { MusicSession } from "./musicSession";
 import { durationLabel, MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
 
 /** A page opened from a list, drawn over the current tab. */
-export type MusicPage = { kind: "album"; id: string } | { kind: "artist"; id: string };
+export type MusicPage =
+  | { kind: "album"; id: string } | { kind: "artist"; id: string }
+  | { kind: "genre"; id: string; title: string } | { kind: "playlist"; id: string };
 
-type PageProps = {
+export type PageProps = {
   api: MusicApi; session: MusicSession; t: Translate; playingId: string | null; id: string;
   onOpen: (page: MusicPage) => void; onBack: () => void;
 };
 
 /** Loads a page's data, with a retry when it fails. */
-function usePageData<T>(load: () => Promise<T>) {
+export function usePageData<T>(load: () => Promise<T>) {
   const [data, setData] = useState<T | null>(null);
   const [failed, setFailed] = useState(false);
   const run = useCallback(() => {
@@ -32,7 +34,7 @@ function usePageData<T>(load: () => Promise<T>) {
   return { data, setData, failed, retry: run };
 }
 
-function PageFrame({ t, onBack, failed, failedText, loading, onRetry, children }: {
+export function PageFrame({ t, onBack, failed, failedText, loading, onRetry, children }: {
   t: Translate; onBack: () => void; failed: boolean; failedText: string; loading: boolean; onRetry: () => void; children: ReactNode;
 }) {
   // The back button comes last so it draws over the page without a zIndex: on

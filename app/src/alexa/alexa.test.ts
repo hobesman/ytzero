@@ -156,6 +156,7 @@ function skillHarness(albumTracks: StoredMusicTrack[] = []) {
     recordPlay: async (_userId, play) => { plays.push(play); },
     findTrack: async (videoId) => track(Number(videoId.slice(3)), { videoId }),
     saveTracks: async (tracks) => tracks as StoredMusicTrack[],
+    findGenre: async (_userId, spoken) => spoken.includes("80s") ? { playlistId: "RDCLAK5uy_lMzHW51iFg1Kx0d_2EHpzbOgCrwtu8cgI", title: "The Hits: '80s", subtitle: "", thumbnail: "" } : null,
   });
   return { skill, stationCalls, plays, prepared };
 }
@@ -193,6 +194,16 @@ describe("alexa skill", () => {
     expect(decodePlaybackToken(second.audioItem.stream.token)?.videoId).toBe(id(2));
     const third = directiveOf(await skill.handle(7, event("AudioPlayer.PlaybackNearlyFinished", second.audioItem.stream.token)));
     expect(decodePlaybackToken(third.audioItem.stream.token)).toMatchObject({ videoId: id(100), served: [id(1), id(2)] });
+  });
+
+  test("plays a genre as a station from YouTube Music's playlist for it", async () => {
+    const { skill, stationCalls } = skillHarness();
+    const started = await skill.handle(7, intent("PlayGenreIntent", "80s music"));
+    expect(started.response.outputSpeech).toEqual({ type: "PlainText", text: "Playing The Hits: '80s." });
+    expect(stationCalls[0].seed).toEqual({ kind: "playlist", playlistId: "RDCLAK5uy_lMzHW51iFg1Kx0d_2EHpzbOgCrwtu8cgI" });
+    expect(decodePlaybackToken(directiveOf(started).audioItem.stream.token)?.seed).toEqual(stationCalls[0].seed);
+    const missing = await skill.handle(7, intent("PlayGenreIntent", "sea shanties"));
+    expect(missing.response.outputSpeech).toEqual({ type: "PlainText", text: "I couldn't find a playlist for sea shanties." });
   });
 
   test("next skips, and the skipped listen is recorded as skipped", async () => {

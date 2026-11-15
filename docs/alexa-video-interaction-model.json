@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "y. t. video",
+      "invocationName": "hoban tube",
       "intents": [
         {
           "name": "PlayVideoIntent",
@@ -25,6 +25,84 @@
             "play the new video from {query}",
             "play the most recent video from {query}",
             "what's new from {query}"
+          ]
+        },
+        {
+          "name": "ShuffleChannelIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "shuffle {query}",
+            "shuffle videos from {query}",
+            "shuffle the channel {query}",
+            "play videos from {query}",
+            "play videos from the channel {query}",
+            "play random videos from {query}",
+            "play some videos from {query}",
+            "play all videos from {query}",
+            "play everything from {query}"
+          ]
+        },
+        {
+          "name": "RandomVideoIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play a random video from {query}",
+            "play a random video by {query}",
+            "play a video from {query}",
+            "play a video from the channel {query}",
+            "play any video from {query}",
+            "play something from {query}",
+            "play one of {query} videos"
+          ]
+        },
+        {
+          "name": "FindChannelIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "find the channel {query}",
+            "find channel {query}",
+            "search for the channel {query}",
+            "look for the channel {query}",
+            "follow the channel {query}",
+            "follow {query}",
+            "subscribe to the channel {query}",
+            "subscribe to {query}"
+          ]
+        },
+        {
+          "name": "FollowCurrentIntent",
+          "slots": [],
+          "samples": [
+            "follow this channel",
+            "subscribe to this channel",
+            "follow this",
+            "subscribe to this",
+            "follow this video's channel",
+            "subscribe to this video's channel",
+            "follow the channel",
+            "subscribe"
+          ]
+        },
+        {
+          "name": "UnfollowChannelIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "unfollow {query}",
+            "unfollow the channel {query}",
+            "unsubscribe from {query}",
+            "unsubscribe from the channel {query}",
+            "stop following {query}"
+          ]
+        },
+        {
+          "name": "UnfollowCurrentIntent",
+          "slots": [],
+          "samples": [
+            "unfollow this channel",
+            "unsubscribe from this channel",
+            "unfollow this",
+            "unsubscribe from this",
+            "stop following this channel"
           ]
         },
         {
@@ -54,6 +132,8 @@
             "rewind"
           ]
         },
+        { "name": "AMAZON.YesIntent", "samples": [] },
+        { "name": "AMAZON.NoIntent", "samples": [] },
         { "name": "AMAZON.PauseIntent", "samples": [] },
         { "name": "AMAZON.ResumeIntent", "samples": [] },
         { "name": "AMAZON.NextIntent", "samples": [] },
