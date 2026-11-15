@@ -20,6 +20,7 @@ import { deploymentMode } from "./deploymentMode";
 import { reloadPluginEnabledCache } from "./plugins";
 import { startClusterHeartbeat } from "./clusterRuntime";
 import { createPublicShareRouter } from "./routes/publicShareRoutes";
+import { createAlexaRouter } from "./routes/alexaRoutes";
 import { startLocalDiscovery } from "./localDiscovery";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
@@ -52,6 +53,11 @@ app.get("/api/health", async (c) => {
 // never resolves a profile from cookies and exposes only its own allowlisted
 // read-only projection and token-scoped media resources.
 app.route("/share", createPublicShareRouter(uiDir));
+
+// The private Alexa skill, off unless YTZERO_ALEXA_* is configured. Like
+// /share it sits outside the API router: Alexa's requests carry Amazon's
+// signature and its audio links their own HMAC, never a session cookie.
+app.route("/alexa", createAlexaRouter());
 
 app.route("/api", api);
 
