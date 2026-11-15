@@ -1,0 +1,26 @@
+diff --git a/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt b/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
+index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..393c122d1605e67ac8c260c3e003c2b32105bbca 100644
+--- a/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
++++ b/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
+@@ -83,6 +83,7 @@ class ExpoVideoPlaybackService : MediaSessionService() {
+         .setId("ExpoVideoPlaybackService_${player.hashCode()}")
+         .setCallback(VideoMediaSessionCallback())
+         .setCustomLayout(ImmutableList.of(seekBackwardButton, seekForwardButton))
++        .apply { sessionActivity()?.let { setSessionActivity(it) } }
+         .build()
+ 
+       // Replace the basic media session with a session connected to our playback service.
+@@ -95,6 +96,13 @@ class ExpoVideoPlaybackService : MediaSessionService() {
+     }
+   }
+ 
++  // YT Zero: tapping the notification brings the app back, as the music notification does.
++  private fun sessionActivity(): android.app.PendingIntent? {
++    val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return null
++    launch.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
++    return android.app.PendingIntent.getActivity(this, 0, launch, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
++  }
++
+   fun unregisterPlayer(player: ExoPlayer) {
+     appContext.mainQueue.launch {
+       hidePlayerNotification(player)

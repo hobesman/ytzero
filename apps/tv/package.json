@@ -38,6 +38,7 @@
     "typescript": "~6.0.3"
   },
   "patchedDependencies": {
-    "expo-secure-store@57.0.3": "patches/expo-secure-store@57.0.3.patch"
+    "expo-secure-store@57.0.3": "patches/expo-secure-store@57.0.3.patch",
+    "expo-video@57.0.3": "patches/expo-video@57.0.3.patch"
   }
 }

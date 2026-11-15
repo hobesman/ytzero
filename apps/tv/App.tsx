@@ -37,6 +37,7 @@ import { withDeviceWording } from "./src/deviceWording";
 import { PhoneApp } from "./src/phone/PhoneApp";
 import { MusicApp } from "./src/music/MusicApp";
 import { useMusicMode } from "./src/music/useMusicMode";
+import { musicPlayer } from "./src/musicPlayer";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { PhoneShortsContext } from "./src/phone/PhoneShorts";
 import { PhoneShortsPlayer } from "./src/phone/PhoneShortsPlayer";
@@ -239,7 +240,7 @@ function TvApp() {
   // Phones: Shorts play in their own vertical player, which closes any regular video and the mini player.
   const [shorts, setShorts] = useState<ShortsSession | null>(null);
 
-  // Phones: music mode replaces the video screens; entering it closes any video.
+  // Phones: music mode replaces the video screens; entering it closes any video. The music station carries on in video mode.
   const musicMode = useMusicMode({ available: phoneMode, instanceUrl, accessToken, profileId: profileState?.active.id, isChild: Boolean(profileState?.active.is_child), incognito });
   useEffect(() => {
     if (!musicMode.music) return;
@@ -257,9 +258,12 @@ function TvApp() {
     setPlayerDocked(false);
     if (screenRef.current === "detail") setScreen("/");
     setShorts({ items, index, loadMore });
+    void musicPlayer.pause();
   }, []);
   const openVideo = useCallback<OpenVideo>((video, context, play, position) => {
     if (phoneModeRef.current && isShort(video)) { openShorts([video], 0); return; }
+    // A video taking over pauses the music station; its queue stays for music mode.
+    if (phoneModeRef.current && shouldPlayVideo(openDetailsRef.current, play)) void musicPlayer.pause();
     if (screenRef.current !== "detail") returnFocus.current = queueVisibleRef.current ? queueTrigger : lastActivatedVideoTarget() ?? contentFocusFallback;
     setSelected(video);
     // Selecting the current film in the queue is a new playback request too.
