@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "y. t. zero",
+      "invocationName": "y. t. music",
       "intents": [
         {
           "name": "PlaySongIntent",

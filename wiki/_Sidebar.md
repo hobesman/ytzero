@@ -17,7 +17,7 @@
 - [Browser Extensions](Browser-Extensions)
 - [YT-DLP Integration](YT-DLP-Integration)
 - [TubeArchivist Integration](TubeArchivist-Integration)
-- [Alexa Skill](Alexa-Skill)
+- [Alexa Skills](Alexa-Skill)
 
 **Operations**
 - [Backup & Updates](Backup-and-Updates)

@@ -1,9 +1,13 @@
 import { Hono, type Context } from "hono";
-import { alexaAudioLink, verifyAlexaAudioLink } from "../alexa/alexaAudioLinks";
+import { alexaAudioLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
-import { speak } from "../alexa/alexaPlayback";
+import { speak, type AlexaResponse } from "../alexa/alexaPlayback";
 import { createAlexaSignatureVerifier, type AlexaSignatureVerifier } from "../alexa/alexaSignature";
 import { createAlexaSkill, envelopeSkillId, type AlexaEnvelope, type AlexaSkillDependencies } from "../alexa/alexaSkill";
+import {
+  alexaVideo, channelVideos, followedChannels, recordVideoFinished, recordVideoProgress, recordVideoStarted,
+} from "../alexa/alexaVideoCatalog";
+import { createAlexaVideoSkill, type AlexaVideoSkillDependencies } from "../alexa/alexaVideoSkill";
 import { parseAudioRange } from "../audioRange";
 import { isChildUser } from "../childTime";
 import { log } from "../logger";
@@ -17,6 +21,8 @@ import { defaultMusicAudio } from "./musicRoutes";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 
+type Handler = { handle: (userId: number, envelope: AlexaEnvelope) => Promise<AlexaResponse> };
+
 export interface AlexaRouteDependencies {
   config?: () => AlexaConfig | { disabled: string };
   verifier?: Pick<AlexaSignatureVerifier, "check">;
@@ -24,13 +30,17 @@ export interface AlexaRouteDependencies {
   isChild?: (userId: number) => Promise<boolean>;
   audio?: () => Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }>;
   skill?: Partial<AlexaSkillDependencies>;
+  videoSkill?: Partial<AlexaVideoSkillDependencies>;
+  /** Whether a video's audio may be served; the default reads the catalog. */
+  videoPlayable?: (userId: number, videoId: string) => Promise<boolean>;
   now?: () => number;
 }
 
 /**
- * A private Alexa skill. It lives outside the authenticated API: Alexa sends
- * no cookie, so the skill request proves itself with Amazon's signature, and
- * each audio link with its own HMAC. Neither grants any other API access.
+ * Two private Alexa skills, music and video, on one endpoint, told apart by
+ * skill ID. It lives outside the authenticated API: Alexa sends no cookie, so
+ * a skill request proves itself with Amazon's signature, and each audio link
+ * with its own HMAC. Neither grants any other API access.
  */
 export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Hono {
   const router = new Hono();
@@ -39,25 +49,45 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const verifier = dependencies.verifier ?? createAlexaSignatureVerifier();
   const resolveProfile = dependencies.resolveProfile ?? resolveAlexaProfile;
   const isChild = dependencies.isChild ?? isChildUser;
+  const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
   let audioDependencies: ReturnType<typeof defaultMusicAudio> | null = null;
   const audioService = dependencies.audio ?? (() => audioDependencies ??= defaultMusicAudio());
+  const prepare = (userId: number, videoId: string) => {
+    audioService()
+      .then(async ({ audio, ytdlpAvailable }) => { if (await ytdlpAvailable()) await audio.prepare(userId, videoId); })
+      .catch(() => {});
+  };
 
-  let skill: ReturnType<typeof createAlexaSkill> | null = null;
-  const skillFor = (settings: AlexaConfig) => {
-    if (skill) return skill;
+  let musicSkill: Handler | null = null;
+  const musicSkillFor = (settings: AlexaConfig): Handler => {
+    if (musicSkill) return musicSkill;
     const client = dependencies.skill?.client as ReturnType<typeof createYouTubeMusicClient> | undefined ?? createYouTubeMusicClient();
-    return skill = createAlexaSkill({
+    return musicSkill = createAlexaSkill({
       client,
       stations: dependencies.skill?.stations ?? createMusicStations(client, createMusicPages(client)),
-      prepare: dependencies.skill?.prepare ?? ((userId, videoId) => {
-        audioService()
-          .then(async ({ audio, ytdlpAvailable }) => { if (await ytdlpAvailable()) await audio.prepare(userId, videoId); })
-          .catch(() => {});
-      }),
-      audioLink: dependencies.skill?.audioLink ?? ((videoId, userId) => alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now())),
+      prepare: dependencies.skill?.prepare ?? prepare,
+      audioLink: dependencies.skill?.audioLink ?? ((videoId, userId) => alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "music")),
       recordPlay: dependencies.skill?.recordPlay ?? recordMusicPlay,
       findTrack: dependencies.skill?.findTrack,
       saveTracks: dependencies.skill?.saveTracks,
+    });
+  };
+
+  let videoSkill: Handler | null = null;
+  const videoSkillFor = (settings: AlexaConfig): Handler => {
+    if (videoSkill) return videoSkill;
+    const given = dependencies.videoSkill ?? {};
+    return videoSkill = createAlexaVideoSkill({
+      followedChannels: given.followedChannels ?? followedChannels,
+      channelVideos: given.channelVideos ?? channelVideos,
+      findVideo: given.findVideo ?? alexaVideo,
+      search: given.search ?? (async (userId, query) => (await (await import("../youtube")).searchYouTube(query, userId)).results),
+      importVideo: given.importVideo ?? (async (userId, videoId) => (await import("../onDemandVideoImport")).ensureOnDemandVideo(videoId, userId)),
+      audioLink: given.audioLink ?? ((videoId, userId) => alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "video")),
+      prepare: given.prepare ?? prepare,
+      recordStarted: given.recordStarted ?? recordVideoStarted,
+      recordProgress: given.recordProgress ?? recordVideoProgress,
+      recordFinished: given.recordFinished ?? recordVideoFinished,
     });
   };
 
@@ -84,7 +114,9 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       log.warn("alexa.request_refused", { reason: refused });
       return context.json({ error: "invalid signature" }, 400);
     }
-    if (envelopeSkillId(envelope) !== settings.skillId) {
+    const skillId = envelopeSkillId(envelope);
+    const kind = skillId && skillId === settings.musicSkillId ? "music" : skillId && skillId === settings.videoSkillId ? "video" : null;
+    if (!kind) {
       log.warn("alexa.request_refused", { reason: "wrong skill" });
       return context.json({ error: "wrong skill" }, 400);
     }
@@ -93,29 +125,35 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       log.warn("alexa.profile_missing", { profile: settings.profile });
       return context.json(speak("YT Zero can't find the profile this skill is set up to use."));
     }
-    if (await isChild(userId)) return context.json(speak("Music isn't available on this profile."));
-    return context.json(await skillFor(settings).handle(userId, envelope));
+    if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
+    const skill = kind === "music" ? musicSkillFor(settings) : videoSkillFor(settings);
+    return context.json(await skill.handle(userId, envelope));
   });
 
-  const serveAudio = async (context: Context) => {
+  const serveAudio = (kind: AlexaAudioKind) => async (context: Context) => {
     const settings = enabled();
     if (!settings) return context.json({ error: "not found" }, 404);
     const videoId = context.req.param("id") ?? "";
-    const userId = verifyAlexaAudioLink(settings.secret, videoId, new URL(context.req.url).searchParams, now());
+    const userId = verifyAlexaAudioLink(settings.secret, videoId, new URL(context.req.url).searchParams, now(), kind);
     if (!userId) return context.json({ error: "invalid link" }, 403);
-    if (await isChild(userId) || !await musicTrack(videoId)) return context.json({ error: "not found" }, 404);
+    if (await isChild(userId)) return context.json({ error: "not found" }, 404);
+    const allowed = kind === "music" ? Boolean(await musicTrack(videoId)) : await videoPlayable(userId, videoId);
+    if (!allowed) return context.json({ error: "not found" }, 404);
     const range = context.req.header("range") ?? null;
     if (!parseAudioRange(range)) {
       return new Response(null, { status: 416, headers: { "Accept-Ranges": "bytes", "Cache-Control": "no-store" } });
     }
     const { audio, ytdlpAvailable } = await audioService();
     if (!await ytdlpAvailable()) return context.json({ error: "yt-dlp unavailable" }, 503);
+    // The music audio service is the shared audio proxy plus a prefetched start,
+    // and serves a video's audio track just the same.
     const response = context.req.method === "HEAD"
       ? await audio.head(userId, videoId, range, context.req.raw.signal)
       : await audio.audio(userId, videoId, range, context.req.raw.signal);
     return response ?? context.json({ error: "audio unavailable" }, 502);
   };
-  router.get("/audio/:id", serveAudio);
+  router.get("/audio/:id", serveAudio("music"));
+  router.get("/video-audio/:id", serveAudio("video"));
 
   return router;
 }

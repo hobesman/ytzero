@@ -40,16 +40,31 @@ function issuedBy(child: X509Certificate, issuer: X509Certificate): boolean {
   return child.checkIssued(issuer) && child.verify(issuer.publicKey);
 }
 
-/** The leaf certificate, when the chain is Amazon's signing certificate and trusted. */
+const publicKeyBytes = (certificate: X509Certificate) => certificate.publicKey.export({ format: "der", type: "spki" }) as Buffer;
+
+/** The same CA as a trusted root, even when this copy of it is cross-signed by another. */
+function sameAuthority(certificate: X509Certificate, root: X509Certificate): boolean {
+  return certificate.subject === root.subject && publicKeyBytes(certificate).equals(publicKeyBytes(root));
+}
+
+/**
+ * The leaf certificate, when the chain is Amazon's signing certificate and
+ * trusted. Trust is reached at the first certificate that is a trusted root
+ * or is signed by one. Amazon's chain ends with a Starfield root cross-signed
+ * by an older root that current trust stores no longer carry, so whatever
+ * follows that point is ignored.
+ */
 export function trustedSigningCertificate(chain: readonly X509Certificate[], roots: readonly X509Certificate[], now: number): X509Certificate | null {
   const [leaf] = chain;
-  if (!leaf || !chain.every((certificate) => currentlyValid(certificate, now))) return null;
-  if (leaf.checkHost(ALEXA_SIGNING_HOST) !== ALEXA_SIGNING_HOST) return null;
-  for (let index = 0; index + 1 < chain.length; index += 1) {
-    if (!issuedBy(chain[index], chain[index + 1])) return null;
+  if (!leaf || leaf.checkHost(ALEXA_SIGNING_HOST) !== ALEXA_SIGNING_HOST) return null;
+  const anchors = roots.filter((root) => currentlyValid(root, now));
+  for (let index = 0; index < chain.length; index += 1) {
+    const certificate = chain[index];
+    if (!currentlyValid(certificate, now)) return null;
+    if (index > 0 && !issuedBy(chain[index - 1], certificate)) return null;
+    if (anchors.some((root) => sameAuthority(certificate, root) || issuedBy(certificate, root))) return leaf;
   }
-  const top = chain[chain.length - 1];
-  return roots.some((root) => currentlyValid(root, now) && (top.fingerprint256 === root.fingerprint256 || issuedBy(top, root))) ? leaf : null;
+  return null;
 }
 
 export function createAlexaSignatureVerifier(dependencies: AlexaSignatureDependencies = {}) {

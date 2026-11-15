@@ -21,6 +21,7 @@ import { reloadPluginEnabledCache } from "./plugins";
 import { startClusterHeartbeat } from "./clusterRuntime";
 import { createPublicShareRouter } from "./routes/publicShareRoutes";
 import { createAlexaRouter } from "./routes/alexaRoutes";
+import { alexaStartupStatus } from "./alexa/alexaConfig";
 import { startLocalDiscovery } from "./localDiscovery";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
@@ -58,6 +59,9 @@ app.route("/share", createPublicShareRouter(uiDir));
 // /share it sits outside the API router: Alexa's requests carry Amazon's
 // signature and its audio links their own HMAC, never a session cookie.
 app.route("/alexa", createAlexaRouter());
+const alexaStatus = alexaStartupStatus();
+if (alexaStatus?.event === "alexa.enabled") log.info(alexaStatus.event, alexaStatus.fields);
+else if (alexaStatus) log.warn(alexaStatus.event, alexaStatus.fields);
 
 app.route("/api", api);
 

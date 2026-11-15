@@ -1,16 +1,27 @@
-# Alexa Skill
+# Alexa Skills
 
-YT Zero can act as the backend for a private Alexa skill that plays music mode
-on an Echo: "Alexa, ask Y T Zero to play Harvest Moon", "…play songs by
-Radiohead", "…play the album OK Computer", "…play my liked songs" or "…play my
-mix". A song, artist or album starts a station that keeps going after it, just
-as on the phone. Pause, resume, next and start over work by voice and from the
-device's buttons, and what you listen to is recorded in the profile's music
-history, so stations learn from it.
+YT Zero can be the backend for two private Alexa skills. Set up either or both.
 
-The skill stays in development mode in your own Amazon developer account. It
-works on every Echo signed in to that Amazon account, needs no certification,
-and is never published. It plays as one YT Zero profile, chosen by the server.
+**Y T Music** plays music mode: "Alexa, ask Y T Music to play Harvest
+Moon", "…play songs by Radiohead", "…play the album OK Computer", "…play my
+liked songs" or "…play my mix". A song, artist or album starts a station that
+keeps going after it, just as on the phone. Listens are recorded in the
+profile's music history, so stations learn from them.
+
+**Y T Video** plays the audio of ordinary videos: "Alexa, ask Y T Zero
+Video to play how to fix a leaky faucet from This Old House", or "…play the
+latest from Mark Rober". A video plays once and stops. Listening counts as
+watching: it resumes where you left off on another device, shows in Continue
+watching, and is marked watched at the end.
+
+Both skills support pause, resume and start over, by voice and with the
+device's buttons. The music skill also supports next. In the video skill, say
+"skip forward 2 minutes" or "go back 30 seconds".
+
+Both skills stay in development mode in your own Amazon developer account. They
+work on every Echo registered to that Amazon account, need no certification,
+and are never published. They play as one YT Zero profile, chosen by the
+server.
 
 ## Requirements
 
@@ -23,27 +34,37 @@ and is never published. It plays as one YT Zero profile, chosen by the server.
   auth, basic auth), exempt `/alexa` and everything under it. YT Zero checks
   every request there itself: skill requests must carry Amazon's signature, and
   audio links carry a signature made with your secret.
-- The [YT-DLP Integration](YT-DLP-Integration) plugin, which music mode already
-  needs for audio.
+- The [YT-DLP Integration](YT-DLP-Integration) plugin, which provides the audio.
 
-## 1. Create the skill
+## 1. Create the skills
+
+Repeat these steps once per skill, using that skill's interaction model:
+
+| Skill | Interaction model | Invocation |
+| --- | --- | --- |
+| Music | [`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json) | `y. t. music` |
+| Video | [`docs/alexa-video-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-video-interaction-model.json) | `y. t. video` |
 
 1. Sign in to the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
    with the same Amazon account your Echo uses.
-2. **Create Skill** → name it (for example *YT Zero*) → **Other** experience →
-   **Custom** model → **Provision your own** hosting → start from scratch.
-3. **Build → Interaction Model → JSON Editor**: paste the contents of
-   [`docs/alexa-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-interaction-model.json),
-   then **Save** and **Build skill**. To use a different invocation name, change
-   `invocationName` (lowercase; spell initialisms with periods and spaces, as
-   in `y. t. zero`).
+2. **Create Skill** → name it (for example *YT Music*) → **Other**
+   experience → **Custom** model → **Provision your own** hosting → start from
+   scratch. Choose the language your Echos use. Each language needs its own
+   copy of the model; add more from the language list at the top of **Build**.
+3. **Build → Interaction Model → JSON Editor**: paste the contents of the
+   skill's interaction model, then **Save** and **Build skill**. To use a
+   different invocation name, change `invocationName`. It must be lowercase and
+   at least two words, with initialisms spelled out with periods and spaces, as
+   in `y. t. music`.
 4. **Build → Interfaces**: turn on **Audio Player**, then **Build skill** again.
 5. **Build → Endpoint**: choose **HTTPS**, enter
    `https://<your YT Zero address>/alexa` as the default region, and pick
    *My development endpoint has a certificate from a trusted certificate
-   authority*. Save.
-6. Copy the **Skill ID** (`amzn1.ask.skill.…`) shown at the top of the
-   Endpoint page.
+   authority*. Save. Both skills use the same endpoint.
+6. Copy the **Skill ID** (`amzn1.ask.skill.…`). It's under **Copy Skill ID**
+   beneath the skill's name in the console's skill list, and it's also in the
+   browser's address bar while you edit the skill.
+7. **Test** → set *Skill testing is enabled in* to **Development**.
 
 ## 2. Configure YT Zero
 
@@ -51,60 +72,121 @@ Set these environment variables on the container and redeploy it:
 
 | Variable | Value |
 | --- | --- |
-| `YTZERO_ALEXA_SKILL_ID` | The skill ID from step 6. Requests from any other skill are refused. |
-| `YTZERO_ALEXA_PROFILE` | The profile the skill plays as: its name (case-insensitive) or its numeric ID. A child profile is refused. |
+| `YTZERO_ALEXA_SKILL_ID` | The music skill's ID. Leave it out to run only the video skill. |
+| `YTZERO_ALEXA_VIDEO_SKILL_ID` | The video skill's ID. Leave it out to run only the music skill. Requests from any skill other than these two are refused. |
+| `YTZERO_ALEXA_PROFILE` | The profile the skills play as: its name (case-insensitive) or its numeric ID. Its likes, mix, followed channels and history are the ones used. A child profile is refused. |
 | `YTZERO_ALEXA_SECRET` | A random value of at least 32 characters, for example from `openssl rand -base64 48`. It signs the audio links handed to Alexa; changing it invalidates links already queued. |
-| `APP_URL` | Your public `https://` address. Set `YTZERO_ALEXA_PUBLIC_URL` instead if Alexa should use a different one. |
+| `APP_URL` | Your public `https://` address, such as `https://yt.example.com`. Set `YTZERO_ALEXA_PUBLIC_URL` instead if Alexa should use a different one. |
 
-The skill is off, and `/alexa` answers 404, until all of these are set.
+Don't put quote marks around a value in a list-form compose entry
+(`- APP_URL=https://…`), in Portainer's environment panel or in an `.env` file:
+there they become part of the value. Only the `KEY: "value"` form strips them.
+
+The skills are off, and `/alexa` answers 404, until a skill ID, the profile,
+the secret and an `https://` address are all set.
+
+### Moving from one skill to two
+
+If you set up the music skill when it was the only one, it was called `y. t.
+zero`. Paste the new music model, which changes the invocation to `y. t. zero
+music`, and build. Its skill ID and `YTZERO_ALEXA_SKILL_ID` stay the same.
 
 ## 3. Try it
 
-In the developer console, **Test** → set *Skill testing is enabled in*
-**Development**. Then on any Echo on your account: "Alexa, ask Y T Zero to play
-my mix." The console's simulator can check the conversation, but it does not
-play audio; use a real device for that.
+On any Echo on your account: "Alexa, ask Y T Music to play my mix", or
+"Alexa, ask Y T Video to play the latest from" one of your channels. The
+console's simulator can check the conversation, but it does not play audio;
+use a real device for that.
+
+## Finding a video
+
+"Play *title* from *channel*" is heard as one phrase, then split at the last
+"from":
+
+1. The part after it is matched against the channels the profile follows. The
+   match is forgiving, because speech recognition often mangles names: "marc
+   robber" finds *Mark Rober*.
+2. The part before it is matched against that channel's videos in YT Zero. You
+   can say part of a title, and the newest video wins a tie.
+3. If the title isn't among them, YouTube is searched for the title and channel,
+   keeping only results from that channel.
+4. If the end of the phrase doesn't match a followed channel, the whole phrase
+   is searched on YouTube and the top result plays. That works, but it is less
+   predictable.
+
+So the video skill works best with channels the profile follows. If the skill
+plays as a profile of its own, have that profile follow your channels, or set
+`YTZERO_ALEXA_PROFILE` to your main profile.
+
+"Play the latest from *channel*" plays the channel's newest video, skipping
+Shorts and live streams.
 
 ## How it works
 
-- `POST /alexa` receives the skill's requests. YT Zero checks Amazon's signing
+- `POST /alexa` receives both skills' requests. YT Zero checks Amazon's signing
   certificate (that it is Amazon's, valid and chains to a trusted root), the
   signature over the exact body, a timestamp no older than 150 seconds, and the
-  skill ID, before doing anything.
-- Each song is played from `GET /alexa/audio/<videoId>`, signed with
-  `YTZERO_ALEXA_SECRET` for one song and one profile and valid for 24 hours, so
-  a song paused overnight still resumes. The link grants nothing else.
-- The station travels inside the stream token Alexa sends back with every
+  skill ID, before doing anything. The skill ID decides whether the music or
+  the video skill answers.
+- A song plays from `GET /alexa/audio/<videoId>`, and a video from
+  `GET /alexa/video-audio/<videoId>`. Each link is signed with
+  `YTZERO_ALEXA_SECRET` for one item, one profile and one kind, and is valid for
+  24 hours, so a song or video paused overnight still resumes. A link grants
+  nothing else: a song link can't open a video, and the reverse.
+- Each station travels inside the stream token Alexa sends back with every
   event: its seed, the current song, and the last songs played and skipped.
   The server keeps no Alexa session, so a restart doesn't interrupt the queue.
 - When a song nears its end, YT Zero picks the next one and starts fetching its
   audio, so it starts without a gap.
+- A video's progress is saved when it stops or pauses, and it's marked watched
+  when it plays to the end, as in the app's player.
 
 The configuration is machine-bound: none of it is stored in the database,
 settings or backups.
 
 ## Limits
 
-- **Previous**, shuffle and loop aren't supported: a station only goes forward.
+- **Previous**, shuffle and loop aren't supported. A station only goes
+  forward, and a video doesn't queue another after it.
+- Skip forward and back need the skill's name: "Alexa, ask Y T Video to skip
+  forward 2 minutes". Only Alexa's built-in commands (pause, resume, next,
+  start over) work without it.
 - Responses are in English.
-- The first song can take a few seconds to start while yt-dlp looks it up.
-- For a skill only you use, the server's profile choice stands in for account
+- The first song or video can take a few seconds to start while yt-dlp looks
+  it up.
+- Live streams, premieres that haven't started, members-only and private videos
+  can't be played.
+- For skills only you use, the server's profile choice stands in for account
   linking. Anyone who talks to an Echo on your Amazon account plays as that
   profile.
 
 ## Troubleshooting
 
-The server log records refused requests as `alexa.request_refused` with a
-reason, failed songs as `alexa.playback_failed`, and upstream errors as
-`alexa.request_failed`.
+At startup the server log says `alexa.enabled` with the profile, the endpoint
+and which skills are on. If any `YTZERO_ALEXA_*` variable is set but the
+configuration is incomplete, it says `alexa.disabled` with the reason instead.
+While running it records refused requests as `alexa.request_refused` with a
+reason, failed audio as `alexa.playback_failed`, and upstream errors as
+`alexa.request_failed`. No `alexa` lines at all after a skill request means the
+request never reached YT Zero's skill code: an image from before the skills, a
+configuration that's switched off, or a reverse proxy that doesn't pass
+`/alexa` through.
 
-- *"The requested skill's response was invalid"* or no response: check that
-  `https://<address>/alexa` is reachable from outside your network, and that
-  the four variables above are set (`/alexa` answers 404 when they're not).
+- *"There was a problem with the requested skill's response"*: send
+  `curl -si -X POST https://<address>/alexa -d "{}"` from outside your
+  network. A working endpoint answers `400` with `{"error":"invalid signature"}`,
+  because curl's request isn't signed by Amazon. `404` with
+  `{"error":"not found"}` means the skills are switched off: the startup log
+  says why. An HTML page means an image from before the skills; a login page
+  means the proxy is in the way.
+- `reason: "wrong skill"`: the request came from a skill whose ID matches
+  neither `YTZERO_ALEXA_SKILL_ID` nor `YTZERO_ALEXA_VIDEO_SKILL_ID`.
 - `reason: "untrusted certificate"` or `"certificate unavailable"`: the server
   could not download or verify Amazon's certificate. Check that the container
   has outbound HTTPS access to `s3.amazonaws.com`.
 - `reason: "stale request"`: the server's clock is off by more than 150 seconds.
 - Speech works but nothing plays: the audio link has to be reachable from
-  Amazon's cloud. Check the proxy exemption for `/alexa/audio/`, and that
-  music plays on the phone (yt-dlp is working).
+  Amazon's cloud. Check the proxy exemption for `/alexa/`, and that audio-only
+  playback works in the app (yt-dlp is working).
+- A skill isn't found on one Echo: that Echo's language has no model in the
+  skill, or it's registered to a different Amazon account.
