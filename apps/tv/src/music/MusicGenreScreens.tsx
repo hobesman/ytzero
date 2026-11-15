@@ -1,15 +1,16 @@
 import { memo, useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { PhoneChip } from "../phone/PhoneChip";
 import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
-import { MusicShelf } from "./MusicAlbumCard";
+import { MusicListShelf, MusicShelf } from "./MusicAlbumCard";
 import type { MusicApi, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage, MusicTrack } from "./musicApi";
 import { PageFrame, usePageData, type MusicPage, type PageProps } from "./MusicPages";
 import { MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
 
 const TILE = 140;
+const playlistKey = (playlist: MusicPlaylist) => playlist.playlistId;
 
 /** Genre tiles two to a column, so a shelf scrolls sideways through all of them. */
 function columns<T>(items: readonly T[]): T[][] {
@@ -66,13 +67,13 @@ export function MusicGenreScreen({ api, t, id, title, onOpen, onBack }: PageProp
   const load = useCallback(() => api.genre(id), [api, id]);
   const { data: page, failed, retry } = usePageData<MusicGenrePage>(load);
   const open = useCallback((playlist: MusicPlaylist) => onOpen({ kind: "playlist", id: playlist.playlistId }), [onOpen]);
+  const card = useCallback((playlist: MusicPlaylist) => <MusicPlaylistCard api={api} playlist={playlist} onPress={open} />, [api, open]);
+  // Shelves and the cards in them are both virtualized: only those near the screen are built.
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicGenreFailed")} loading={!page} onRetry={retry}>
-    {page ? <ScrollView contentContainerStyle={styles.genrePage}>
-      <Text style={styles.heading}>{page.title || title}</Text>
-      {page.shelves.map((shelf, index) => <MusicShelf key={`${index}:${shelf.title}`} title={shelf.title} count={shelf.playlists.length}>
-        {shelf.playlists.map((playlist) => <MusicPlaylistCard key={playlist.playlistId} api={api} playlist={playlist} onPress={open} />)}
-      </MusicShelf>)}
-    </ScrollView> : null}
+    {page ? <FlatList data={page.shelves} keyExtractor={(shelf, index) => `${index}:${shelf.title}`}
+      contentContainerStyle={styles.genrePage} ListHeaderComponent={<Text style={styles.heading}>{page.title || title}</Text>}
+      renderItem={({ item: shelf }) => <MusicListShelf title={shelf.title} data={shelf.playlists} keyOf={playlistKey} render={card} />}
+      initialNumToRender={3} maxToRenderPerBatch={2} windowSize={5} removeClippedSubviews /> : null}
   </PageFrame>;
 }
 
