@@ -6,6 +6,7 @@ import type { PlaybackTicket } from "./types";
 import type { PlaybackPosition } from "./playback";
 import type { SponsorSegment } from "./sponsorBlock";
 import { matchingChannels, searchChannel, searchVideo, type YoutubeSearchChannel, type YoutubeSearchVideo } from "./search";
+import { lowResource, smallThumbnailUrl } from "./lowResource";
 
 type BrowseResult = { videos: Video[]; page: number; hasMore: boolean };
 export type ImageSource = { uri: string; headers?: Record<string, string> };
@@ -166,6 +167,7 @@ export class YtZeroApi {
 
   thumbnailSource(url: string): ImageSource {
     if (!url) return EMPTY_IMAGE_SOURCE;
+    if (lowResource()) url = smallThumbnailUrl(url);
     const uri = /^https?:\/\//.test(url)
       ? `${this.instanceUrl}/api/img?u=${encodeURIComponent(url)}`
       : new URL(url, `${this.instanceUrl}/`).toString();
@@ -178,6 +180,8 @@ export class YtZeroApi {
   }
 
   backdropSource(url: string): ImageSource {
+    // Low-resource mode skips the full-size backdrop for the small thumbnail.
+    if (lowResource()) return this.thumbnailSource(url);
     try {
       const image = new URL(url);
       if (image.hostname === "i.ytimg.com" || image.hostname.endsWith(".ytimg.com")) {

@@ -20,6 +20,7 @@ import { TvSetupLayout } from "./src/components/TvSetupLayout";
 import { loadLandscapeLayout, loadOpenDetails, loadPhoneLayout, saveLandscapeLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
 import { LandscapeLayoutContext } from "./src/landscapeLayout";
 import { loadStreamQuality } from "./src/streamQuality";
+import { loadLowResource } from "./src/lowResource";
 import { loadForwardBuffer } from "./src/forwardBuffer";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TvSidebar } from "./src/components/TvSidebar";
@@ -494,7 +495,8 @@ function TvApp() {
     void (async () => {
       try {
         const [stored, detailsPreference, phonePreference, landscapePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable),
-          loadLandscapeLayout(deviceStore).catch(() => false), loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5)]);
+          loadLandscapeLayout(deviceStore).catch(() => false), loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5),
+          loadLowResource(deviceStore).catch(() => false)]);
         if (!active) return;
         setOpenDetails(detailsPreference);
         setPhoneDesign(phonePreference);
