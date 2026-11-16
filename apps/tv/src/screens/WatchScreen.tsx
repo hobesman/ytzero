@@ -1,3 +1,4 @@
+import { buildBranding } from "../branding";
 import { TvControlSurface } from "../components/TvSurface";
 import { TvPageBackButton } from "../components/TvPageBackButton";
 import { formatVideoDuration } from "../duration";
@@ -304,7 +305,7 @@ export function WatchScreen({ api, incognito, isChild, language, t, video: initi
               onError={short && !portraitFailed ? () => setPortraitFailed(true) : undefined}
             />
           ) : (
-            <View style={styles.imagePlaceholder}><Text style={styles.imagePlaceholderText}>YT Zero</Text></View>
+            <View style={styles.imagePlaceholder}><Text style={styles.imagePlaceholderText}>{buildBranding.name}</Text></View>
           )}
           <View style={styles.posterShade} />
           {duration ? <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View> : null}

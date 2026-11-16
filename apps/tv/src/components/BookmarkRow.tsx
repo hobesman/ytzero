@@ -1,3 +1,4 @@
+import { buildBranding } from "../branding";
 import { useVideoPress } from "../useVideoPress";
 import { useVideoFocusMemory } from "../focus";
 import { forwardRef, useState } from "react";
@@ -85,7 +86,7 @@ export const BookmarkRow = forwardRef<View, Props>(function BookmarkRow(
           {thumbnailSource.uri ? (
             <Image source={thumbnailSource} resizeMode="cover" style={styles.thumbnail} />
           ) : (
-            <View style={[styles.thumbnail, styles.placeholder]}><Text style={styles.placeholderText}>YT Zero</Text></View>
+            <View style={[styles.thumbnail, styles.placeholder]}><Text style={styles.placeholderText}>{buildBranding.name}</Text></View>
           )}
           {duration ? <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View> : null}
         </View>

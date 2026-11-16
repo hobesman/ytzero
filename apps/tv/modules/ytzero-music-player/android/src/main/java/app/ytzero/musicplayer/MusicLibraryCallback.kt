@@ -44,12 +44,15 @@ class MusicLibraryCallback(
 
   private fun string(id: Int) = context.getString(id)
 
+  /** The name under the app's icon, which the APK build takes from the YT Zero server. */
+  private val appName: String by lazy { context.applicationInfo.loadLabel(context.packageManager).toString() }
+
   override fun onGetLibraryRoot(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, params: LibraryParams?): ListenableFuture<LibraryResult<MediaItem>> =
-    Futures.immediateFuture(LibraryResult.ofItem(folder(CatalogIds.ROOT, "YT Zero"), params))
+    Futures.immediateFuture(LibraryResult.ofItem(folder(CatalogIds.ROOT, appName), params))
 
   override fun onGetItem(session: MediaLibrarySession, browser: MediaSession.ControllerInfo, mediaId: String): ListenableFuture<LibraryResult<MediaItem>> {
     val item = tabs().firstOrNull { it.mediaId == mediaId } ?: forYou().firstOrNull { it.mediaId == mediaId }
-      ?: if (mediaId == CatalogIds.ROOT) folder(CatalogIds.ROOT, "YT Zero") else null
+      ?: if (mediaId == CatalogIds.ROOT) folder(CatalogIds.ROOT, appName) else null
     return Futures.immediateFuture(if (item != null) LibraryResult.ofItem(item, null) else LibraryResult.ofError(SessionError.ERROR_BAD_VALUE))
   }
 
@@ -137,10 +140,10 @@ class MusicLibraryCallback(
   private fun sessionError(error: Exception): SessionError {
     val status = (error as? MusicServerException)?.status
     return when (status) {
-      0 -> SessionError(SessionError.ERROR_SESSION_SETUP_REQUIRED, string(R.string.ytzero_music_car_setup))
-      401 -> SessionError(SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED, string(R.string.ytzero_music_car_setup))
+      0 -> SessionError(SessionError.ERROR_SESSION_SETUP_REQUIRED, context.getString(R.string.ytzero_music_car_setup, appName))
+      401 -> SessionError(SessionError.ERROR_SESSION_AUTHENTICATION_EXPIRED, context.getString(R.string.ytzero_music_car_setup, appName))
       403 -> SessionError(SessionError.ERROR_PERMISSION_DENIED, string(R.string.ytzero_music_car_not_allowed))
-      else -> SessionError(SessionError.ERROR_IO, string(R.string.ytzero_music_car_unreachable))
+      else -> SessionError(SessionError.ERROR_IO, context.getString(R.string.ytzero_music_car_unreachable, appName))
     }
   }
 

@@ -14,7 +14,7 @@
   <string name="ytzero_music_car_albums">Альбомы</string>
   <string name="ytzero_music_car_artists">Исполнители</string>
   <string name="ytzero_music_car_artist_radio">Радио: %1$s</string>
-  <string name="ytzero_music_car_setup">Откройте YT Zero на телефоне и включите музыку, чтобы подключить его</string>
+  <string name="ytzero_music_car_setup">Откройте %1$s на телефоне и включите музыку, чтобы подключить его</string>
   <string name="ytzero_music_car_not_allowed">Музыка недоступна для этого профиля</string>
-  <string name="ytzero_music_car_unreachable">Не удаётся подключиться к серверу YT Zero</string>
+  <string name="ytzero_music_car_unreachable">Не удаётся подключиться к серверу %1$s</string>
 </resources>
