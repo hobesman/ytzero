@@ -162,11 +162,17 @@ describe("portable backup classification and restore", () => {
     db.prepare("UPDATE public_share_policy SET enabled=1,updated_at=? WHERE singleton=1").run(timestamp);
     db.prepare(`INSERT INTO public_shares(id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at)
       VALUES('public-share-sentinel',?,1,'video','portable001',1,?,?)`).run(token, timestamp, timestamp);
+    db.prepare(`INSERT INTO public_share_limits(share_id,allow_server_stream,max_plays,play_count,expires_at,updated_at)
+      VALUES('public-share-sentinel',1,10,3,'PUBLIC_SHARE_EXPIRY_SENTINEL',?)`).run(timestamp);
+    db.prepare(`INSERT INTO public_share_plays(share_id,visitor_key,video_id,played_at)
+      VALUES('public-share-sentinel','PUBLIC_SHARE_VISITOR_SENTINEL','portable001',?)`).run(timestamp);
     const zip = await backup.createPortableBackup({ preset: "full" });
     const archiveText = [...backup.readPortableZip(zip).values()].map((bytes) => decoder.decode(bytes)).join("\n");
     expect(archiveText).not.toContain(token);
     expect(archiveText).not.toContain(timestamp);
     expect(archiveText).not.toContain("public-share-sentinel");
+    expect(archiveText).not.toContain("PUBLIC_SHARE_EXPIRY_SENTINEL");
+    expect(archiveText).not.toContain("PUBLIC_SHARE_VISITOR_SENTINEL");
   });
 
   test("excludes rebuildable Shorts retry metadata", async () => {
