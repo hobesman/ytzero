@@ -7,6 +7,7 @@ import type { PlaybackPosition } from "./playback";
 import type { SponsorSegment } from "./sponsorBlock";
 import { matchingChannels, searchChannel, searchVideo, type YoutubeSearchChannel, type YoutubeSearchVideo } from "./search";
 import { lowResource, smallThumbnailUrl } from "./lowResource";
+import type { PublicShare, PublicShareUpdate } from "./publicShareOptions";
 
 type BrowseResult = { videos: Video[]; page: number; hasMore: boolean };
 export type ImageSource = { uri: string; headers?: Record<string, string> };
@@ -301,17 +302,16 @@ export class YtZeroApi {
   }
 
   /**
-   * Whether this profile may publish a YT Zero link for a video, and the link
-   * if it already has one. Null when public sharing is off on the instance or
-   * not allowed for this profile.
+   * Whether this profile may publish a YT Zero link for a video, and its link
+   * if it already has one (active or not). Null when public sharing is off on
+   * the instance or not allowed for this profile.
    */
-  async videoPublicShare(videoId: string): Promise<{ url: string | null } | null> {
+  async videoPublicShare(videoId: string): Promise<{ share: PublicShare | null } | null> {
     try {
-      const result = await this.request<{ policy: { enabled: boolean }; shares: { url: string; active: boolean }[] }>(
+      const result = await this.request<{ policy: { enabled: boolean }; shares: PublicShare[] }>(
         `/public-shares?resource_type=video&resource_id=${encodeURIComponent(videoId)}`);
       if (!result.policy.enabled) return null;
-      // An expired link is left to createVideoPublicShare, which reports it.
-      return { url: result.shares.find((share) => share.active)?.url ?? null };
+      return { share: result.shares[0] ?? null };
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) return null;
       throw error;
@@ -323,9 +323,17 @@ export class YtZeroApi {
    * one with the instance's default limits. An existing link that has expired
    * or used up its plays comes back with `active` false.
    */
-  async createVideoPublicShare(videoId: string): Promise<{ url: string; active: boolean }> {
-    const result = await this.request<{ share: { url: string; active: boolean } }>("/public-shares", {
+  async createVideoPublicShare(videoId: string): Promise<PublicShare> {
+    const result = await this.request<{ share: PublicShare }>("/public-shares", {
       method: "POST", body: JSON.stringify({ resource_type: "video", resource_id: videoId }),
+    });
+    return result.share;
+  }
+
+  /** Changes a link's server streaming or limits. Turning streaming on gives the link a new URL. */
+  async updatePublicShare(id: string, update: PublicShareUpdate): Promise<PublicShare> {
+    const result = await this.request<{ share: PublicShare }>(`/public-shares/${encodeURIComponent(id)}`, {
+      method: "PATCH", body: JSON.stringify(update),
     });
     return result.share;
   }
