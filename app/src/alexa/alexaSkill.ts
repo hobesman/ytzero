@@ -44,11 +44,11 @@ export interface AlexaSkillDependencies {
 
 const MAX_FAILURES_IN_A_ROW = 3;
 const LISTEN_LIMIT = 256;
-const HELP = "You can say play a song, play songs by an artist, play the album, play eighties music, play my liked songs, or play my mix.";
+const HELP = "You can say play a song, play songs by an artist, play an artist's radio, play the album, play eighties music, play my liked songs, or play my mix.";
 const ASK = "What would you like to hear?";
 const UNREACHABLE = "Sorry, I couldn't reach YouTube Music right now. Please try again in a moment.";
 
-const SEED_INTENTS = new Set(["PlaySongIntent", "PlayArtistIntent", "PlayAlbumIntent", "PlayLikedIntent", "PlayMixIntent", "PlayGenreIntent"]);
+const SEED_INTENTS = new Set(["PlaySongIntent", "PlayArtistIntent", "PlayArtistRadioIntent", "PlayAlbumIntent", "PlayLikedIntent", "PlayMixIntent", "PlayGenreIntent"]);
 const STOP_INTENTS = new Set(["AMAZON.PauseIntent", "AMAZON.StopIntent", "AMAZON.CancelIntent"]);
 const UNSUPPORTED_INTENTS = new Set([
   "AMAZON.PreviousIntent", "AMAZON.LoopOnIntent", "AMAZON.LoopOffIntent", "AMAZON.ShuffleOnIntent",
@@ -109,9 +109,13 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
       return { seed: { kind: "track", videoId: song.videoId }, intro: (track) => `Playing ${track.title} by ${track.artist}.` };
     }
     const shelves = await dependencies.client.searchAll(userId, query);
-    if (intent === "PlayArtistIntent") {
+    if (intent === "PlayArtistIntent" || intent === "PlayArtistRadioIntent") {
       const [artist] = shelves.artists;
       if (!artist) return `I couldn't find an artist called ${query}.`;
+      // "Songs by" plays only that artist; "radio" mixes in similar artists from the start.
+      if (intent === "PlayArtistRadioIntent") {
+        return { seed: { kind: "artist", artistId: artist.channelId, radio: true }, intro: () => `Playing ${artist.name} radio.` };
+      }
       return { seed: { kind: "artist", artistId: artist.channelId }, intro: () => `Playing songs by ${artist.name}.` };
     }
     const [album] = shelves.albums;

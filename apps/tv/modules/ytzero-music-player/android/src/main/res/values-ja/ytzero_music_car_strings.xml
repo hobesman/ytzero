@@ -13,6 +13,7 @@
   <string name="ytzero_music_car_songs">曲</string>
   <string name="ytzero_music_car_albums">アルバム</string>
   <string name="ytzero_music_car_artists">アーティスト</string>
+  <string name="ytzero_music_car_artist_radio">%1$s のラジオ</string>
   <string name="ytzero_music_car_setup">スマートフォンで YT Zero を開いて音楽を再生すると接続されます</string>
   <string name="ytzero_music_car_not_allowed">このプロフィールでは音楽を利用できません</string>
   <string name="ytzero_music_car_unreachable">YT Zero サーバーに接続できません</string>

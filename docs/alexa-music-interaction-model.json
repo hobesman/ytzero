@@ -25,7 +25,20 @@
             "play the artist {query}",
             "play artist {query}",
             "play some {query} songs",
-            "play a {query} station"
+            "play only {query}",
+            "play just {query}"
+          ]
+        },
+        {
+          "name": "PlayArtistRadioIntent",
+          "slots": [{ "name": "query", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "play {query} radio",
+            "play the {query} radio",
+            "play a {query} station",
+            "play {query} station",
+            "play artists like {query}",
+            "start {query} radio"
           ]
         },
         {

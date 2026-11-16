@@ -4,8 +4,11 @@ YT Zero can be the backend for two private Alexa skills. Set up either or both.
 
 **Hoban Music** plays music mode: "Alexa, ask Hoban Music to play Harvest
 Moon", "…play songs by Radiohead", "…play the album OK Computer", "…play my
-liked songs" or "…play my mix". A song, artist or album starts a station that
-keeps going after it, just as on the phone. So does a genre, mood or decade:
+liked songs" or "…play my mix". A song or album starts a station that keeps
+going after it, just as on the phone. "…play songs by Radiohead" plays only
+Radiohead, shuffled, until their songs run out, then a station like them; for a
+mix of similar artists from the start, say "…play Radiohead radio". A genre,
+mood or decade starts a station too:
 "…play 80s music", "…play some jazz", "…play the latest pop music" or "…play
 music for working out". Listens are recorded in the profile's music history,
 so stations learn from them.
