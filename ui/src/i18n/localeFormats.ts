@@ -9,6 +9,7 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `Added ${n} new ${plural("en", n, { one: "video", other: "videos" })}`,
     channelCount: (n) => `${n} ${plural("en", n, { one: "channel", other: "channels" })}`,
     playlistCount: (n) => `${n} ${plural("en", n, { one: "playlist", other: "playlists" })}`,
+    songCount: (n) => `${n} ${plural("en", n, { one: "song", other: "songs" })}`,
     historyEntryCount: (n) => `${n} ${plural("en", n, { one: "entry", other: "entries" })}`,
     ageUnit: (n, unit) => plural("en", n, {
       days: { one: "day", other: "days" },
@@ -22,6 +23,7 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `Dodano ${n} nowych filmów`,
     channelCount: (n) => `${n} ${plural("pl", n, { one: "kanał", few: "kanały", many: "kanałów", other: "kanałów" })}`,
     playlistCount: (n) => `${n} ${plural("pl", n, { one: "playlista", few: "playlisty", many: "playlist", other: "playlist" })}`,
+    songCount: (n) => `${n} ${plural("pl", n, { one: "utwór", few: "utwory", many: "utworów", other: "utworu" })}`,
     historyEntryCount: (n) => `${n} ${plural("pl", n, { one: "wpis", few: "wpisy", many: "wpisów", other: "wpisów" })}`,
     ageUnit: (n, unit) => plural("pl", n, {
       days: { one: "dzień", few: "dni", many: "dni", other: "dni" },
@@ -35,6 +37,7 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `${n} neue${n === 1 ? "s" : ""} ${plural("de", n, { one: "Video", other: "Videos" })} hinzugefügt`,
     channelCount: (n) => `${n} ${plural("de", n, { one: "Kanal", other: "Kanäle" })}`,
     playlistCount: (n) => `${n} ${plural("de", n, { one: "Playlist", other: "Playlists" })}`,
+    songCount: (n) => `${n} ${plural("de", n, { one: "Song", other: "Songs" })}`,
     historyEntryCount: (n) => `${n} ${plural("de", n, { one: "Eintrag", other: "Einträge" })}`,
     ageUnit: (n, unit) => plural("de", n, {
       days: { one: "Tag", other: "Tage" },
@@ -48,6 +51,7 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `${n} nouvelle${n > 1 ? "s" : ""} ${plural("fr", n, { one: "vidéo ajoutée", other: "vidéos ajoutées" })}`,
     channelCount: (n) => `${n} ${plural("fr", n, { one: "chaîne", other: "chaînes" })}`,
     playlistCount: (n) => `${n} ${plural("fr", n, { one: "playlist", other: "playlists" })}`,
+    songCount: (n) => `${n} ${plural("fr", n, { one: "titre", other: "titres" })}`,
     historyEntryCount: (n) => `${n} ${plural("fr", n, { one: "entrée", other: "entrées" })}`,
     ageUnit: (n, unit) => plural("fr", n, {
       days: { one: "jour", other: "jours" }, weeks: { one: "semaine", other: "semaines" }, months: { one: "mois", other: "mois" }, years: { one: "an", other: "ans" },
@@ -58,6 +62,7 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `${n} ${plural("es", n, { one: "vídeo nuevo añadido", other: "vídeos nuevos añadidos" })}`,
     channelCount: (n) => `${n} ${plural("es", n, { one: "canal", other: "canales" })}`,
     playlistCount: (n) => `${n} ${plural("es", n, { one: "lista de reproducción", other: "listas de reproducción" })}`,
+    songCount: (n) => `${n} ${plural("es", n, { one: "canción", other: "canciones" })}`,
     historyEntryCount: (n) => `${n} ${plural("es", n, { one: "entrada", other: "entradas" })}`,
     ageUnit: (n, unit) => plural("es", n, {
       days: { one: "día", other: "días" }, weeks: { one: "semana", other: "semanas" }, months: { one: "mes", other: "meses" }, years: { one: "año", other: "años" },
@@ -68,6 +73,7 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `${n} ${plural("pt-BR", n, { one: "novo vídeo adicionado", other: "novos vídeos adicionados" })}`,
     channelCount: (n) => `${n} ${plural("pt-BR", n, { one: "canal", other: "canais" })}`,
     playlistCount: (n) => `${n} ${plural("pt-BR", n, { one: "playlist", other: "playlists" })}`,
+    songCount: (n) => `${n} ${plural("pt-BR", n, { one: "música", other: "músicas" })}`,
     historyEntryCount: (n) => `${n} ${plural("pt-BR", n, { one: "entrada", other: "entradas" })}`,
     ageUnit: (n, unit) => plural("pt-BR", n, {
       days: { one: "dia", other: "dias" }, weeks: { one: "semana", other: "semanas" }, months: { one: "mês", other: "meses" }, years: { one: "ano", other: "anos" },
@@ -78,17 +84,18 @@ export const localeFormats: Record<Language, LocaleFormat> = {
     addedVideos: (n) => `Добавлено ${n} ${plural("ru", n, { one: "новое видео", few: "новых видео", many: "новых видео", other: "нового видео" })}`,
     channelCount: (n) => `${n} ${plural("ru", n, { one: "канал", few: "канала", many: "каналов", other: "канала" })}`,
     playlistCount: (n) => `${n} ${plural("ru", n, { one: "плейлист", few: "плейлиста", many: "плейлистов", other: "плейлиста" })}`,
+    songCount: (n) => `${n} ${plural("ru", n, { one: "трек", few: "трека", many: "треков", other: "трека" })}`,
     historyEntryCount: (n) => `${n} ${plural("ru", n, { one: "запись", few: "записи", many: "записей", other: "записи" })}`,
     ageUnit: (n, unit) => plural("ru", n, {
       days: { one: "день", few: "дня", many: "дней", other: "дня" }, weeks: { one: "неделя", few: "недели", many: "недель", other: "недели" }, months: { one: "месяц", few: "месяца", many: "месяцев", other: "месяца" }, years: { one: "год", few: "года", many: "лет", other: "года" },
     }[unit]),
   },
   ja: {
-    videoCount: (n) => `${n} 本の動画`, addedVideos: (n) => `${n} 本の新しい動画を追加しました`, channelCount: (n) => `${n} チャンネル`, playlistCount: (n) => `${n} プレイリスト`, historyEntryCount: (n) => `${n} 件の履歴`,
+    videoCount: (n) => `${n} 本の動画`, addedVideos: (n) => `${n} 本の新しい動画を追加しました`, channelCount: (n) => `${n} チャンネル`, playlistCount: (n) => `${n} プレイリスト`, songCount: (n) => `${n} 曲`, historyEntryCount: (n) => `${n} 件の履歴`,
     ageUnit: (_n, unit) => ({ days: "日", weeks: "週間", months: "か月", years: "年" })[unit],
   },
   hu: {
-    videoCount: (n) => `${n} videó`, addedVideos: (n) => `${n} újonnan hozzáadott videó`, channelCount: (n) => `${n} csatorna`, playlistCount: (n) => `${n} lejátszási lista`, historyEntryCount: (n) => `${n} elem`,
+    videoCount: (n) => `${n} videó`, addedVideos: (n) => `${n} újonnan hozzáadott videó`, channelCount: (n) => `${n} csatorna`, playlistCount: (n) => `${n} lejátszási lista`, songCount: (n) => `${n} dal`, historyEntryCount: (n) => `${n} elem`,
     ageUnit: (_n, unit) => ({ days: "nap", weeks: "hét", months: "hónap", years: "év" })[unit],
   },
 };

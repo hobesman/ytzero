@@ -231,6 +231,10 @@ export function formatPlaylistCount(n: number, language: Language): string {
   return localeFormats[language].playlistCount(n);
 }
 
+export function formatSongCount(n: number, language: Language): string {
+  return localeFormats[language].songCount(n);
+}
+
 export function formatHistoryEntryCount(n: number, language: Language): string {
   return localeFormats[language].historyEntryCount(n);
 }

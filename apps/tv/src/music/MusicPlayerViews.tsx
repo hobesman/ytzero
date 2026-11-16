@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { onSleepTimerChange, setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, sleepTimerRemaining, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
-import type { MusicApi } from "./musicApi";
+import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
 import { current, playingFrom, upNext } from "./musicQueue";
 import type { MusicSession, MusicSessionState } from "./musicSession";
@@ -71,17 +71,21 @@ export function MusicMiniBar({ api, session, state, t, onOpen }: { api: MusicApi
  * The full player: artwork, progress, controls, like / not this one, and what plays next.
  * `paneWidth` draws it in a pane beside the browse list (the landscape layout), with no close button.
  */
-export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: { api: MusicApi; session: MusicSession; state: MusicSessionState; t: Translate; onClose: () => void; paneWidth?: number }) {
+export function MusicNowPlaying({ api, session, state, t, onClose, onAddToPlaylist, paneWidth }: {
+  api: MusicApi; session: MusicSession; state: MusicSessionState; t: Translate; onClose: () => void; onAddToPlaylist: (track: MusicTrack) => void; paneWidth?: number;
+}) {
   const window = useWindowDimensions();
   const embedded = paneWidth !== undefined;
   const width = paneWidth ?? window.width;
   const height = window.height;
   const [sleepSheet, setSleepSheet] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [barWidth, setBarWidth] = useState(1);
   const sleep = useSleepTimerState();
   const track = current(state.queue);
   const position = usePosition(state, true);
   const next = upNext(state.queue);
+  const first = (state.queue?.index ?? 0) + 1;
   const source = playingFrom(state.queue);
   if (!track) return null;
   const duration = state.player?.duration ?? track.duration ?? 0;
@@ -116,11 +120,22 @@ export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: 
         <MusicIcon name={liked ? "liked" : "like"} color={liked ? phoneColors.accent : phoneColors.text} />
       </Control>
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
-      <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
-      <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
-    </Pressable>
-    {next.length ? <Text style={styles.section}>{t("musicUpNext")}</Text> : null}
+    <View style={styles.extras}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
+        <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
+        <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("musicAddToPlaylist")} onPress={() => onAddToPlaylist(track)} style={styles.sleep}>
+        <MusicIcon name="queueAdd" color={phoneColors.textMuted} size={18} />
+        <Text style={styles.sleepLabel}>{t("musicAddToPlaylist")}</Text>
+      </Pressable>
+    </View>
+    {next.length ? <View style={styles.sectionRow}>
+      <Text style={styles.section}>{t("musicUpNext")}</Text>
+      <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setEditing(!editing)}>
+        <Text style={[styles.edit, editing && styles.sleepOn]}>{editing ? t("musicDoneEditing") : t("musicEditQueue")}</Text>
+      </Pressable>
+    </View> : null}
   </View>;
   // The app root already keeps clear of the system bars.
   return <View style={embedded ? styles.pane : styles.screen}>
@@ -134,13 +149,34 @@ export function MusicNowPlaying({ api, session, state, t, onClose, paneWidth }: 
       <View style={styles.topSpacer} />
     </View>
     <FlatList data={next} keyExtractor={(entry) => entry.videoId} ListHeaderComponent={header} contentContainerStyle={styles.list}
-      renderItem={({ item }) => <MusicTrackRow api={api} track={item} onPress={(entry) => session.skipTo(entry.videoId)} onLongPress={(entry) => void session.dislike(entry)} />} />
+      renderItem={({ item, index }) => {
+        const at = first + index;
+        return <MusicTrackRow api={api} track={item} onPress={(entry) => session.skipTo(entry.videoId)} menuExtras={{ onRemove: () => void session.removeUpcoming(at) }}
+          trailing={editing ? <QueueEditControls t={t} first={index === 0} last={index === next.length - 1}
+            onUp={() => void session.moveUpcoming(at, at - 1)} onDown={() => void session.moveUpcoming(at, at + 1)} onRemove={() => void session.removeUpcoming(at)} /> : undefined} />;
+      }} />
     {sleepSheet ? <TvChoiceSheet<SleepTimerChoice> title={t("sleepTimer")} t={t} value={sleepTimerChoice(sleep.timer)}
       options={SLEEP_TIMER_CHOICES.map((value) => ({ value, label: value === "off" ? t("sleepTimerOff") : value === "end" ? t("musicSleepEndOfSong") : t("sleepTimerMinutes").replace("{count}", value) }))}
       onSelect={(value) => { setSleepTimer(value); setSleepSheet(false); }} onClose={() => setSleepSheet(false)} /> : null}
   </View>;
 }
 
+
+/** Up next while it is being edited: move a song up or down, or take it out. */
+function QueueEditControls({ t, first, last, onUp, onDown, onRemove }: {
+  t: Translate; first: boolean; last: boolean; onUp: () => void; onDown: () => void; onRemove: () => void;
+}) {
+  const button = (label: string, icon: "up" | "down" | "remove", onPress: () => void, disabled = false) =>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} hitSlop={4} onPress={onPress}
+      style={({ pressed }) => [styles.editButton, disabled && styles.disabled, pressed && styles.pressed]}>
+      <MusicIcon name={icon} color={phoneColors.text} size={20} />
+    </Pressable>;
+  return <View style={styles.editControls}>
+    {button(t("musicMoveUp"), "up", onUp, first)}
+    {button(t("musicMoveDown"), "down", onDown, last)}
+    {button(t("musicRemoveFromQueue"), "remove", onRemove)}
+  </View>;
+}
 const styles = StyleSheet.create({
   control: { alignItems: "center", justifyContent: "center" },
   primary: { backgroundColor: phoneColors.text },
@@ -168,8 +204,14 @@ const styles = StyleSheet.create({
   times: { alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between" },
   time: { ...phoneType.caption, color: phoneColors.textMuted },
   controls: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
-  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, marginTop: 12 },
+  extras: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 12 },
+  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10 },
   sleepLabel: { ...phoneType.caption, color: phoneColors.textMuted },
   sleepOn: { color: phoneColors.accent },
-  section: { ...phoneType.caption, alignSelf: "stretch", fontWeight: "700", color: phoneColors.textMuted, textTransform: "uppercase", letterSpacing: 0.6, paddingTop: 24, paddingBottom: 6 },
+  sectionRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingTop: 24, paddingBottom: 6 },
+  section: { ...phoneType.caption, fontWeight: "700", color: phoneColors.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+  edit: { ...phoneType.caption, fontWeight: "700", color: phoneColors.textMuted },
+  editControls: { flexDirection: "row", gap: 2, marginRight: -8 },
+  editButton: { width: 34, height: 36, alignItems: "center", justifyContent: "center" },
+  disabled: { opacity: 0.3 },
 });

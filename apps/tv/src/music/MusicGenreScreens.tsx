@@ -80,10 +80,21 @@ export function MusicGenreScreen({ api, t, id, title, onOpen, onBack }: PageProp
 /** A playlist: play it as a shuffled station, or start a station from one of its songs. */
 export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: PageProps) {
   const load = useCallback(() => api.playlist(id), [api, id]);
-  const { data: playlist, failed, retry } = usePageData<MusicPlaylistPage>(load);
+  const { data: playlist, setData, failed, retry } = usePageData<MusicPlaylistPage>(load);
+  const [saving, setSaving] = useState(false);
   const warmId = playlist?.tracks.length ? playlist.playlistId : null;
   useEffect(() => { if (warmId) session.warm({ kind: "playlist", playlistId: warmId }); }, [session, warmId]);
   const startSong = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
+  // Saving keeps the playlist in the library, as an album is kept.
+  const toggleSaved = async () => {
+    if (!playlist || saving) return;
+    const saved = !playlist.saved;
+    setSaving(true);
+    setData({ ...playlist, saved });
+    try { await api.setPlaylistSaved(playlist.playlistId, saved); }
+    catch { setData((latest) => latest && { ...latest, saved: !saved }); }
+    finally { setSaving(false); }
+  };
   const header = playlist ? <View>
     <View style={styles.header}>
       <MusicArtwork api={api} url={playlist.thumbnail} size={200} radius={10} />
@@ -92,13 +103,14 @@ export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: 
       <View style={styles.actions}>
         <PhoneChip primary label={t("musicShuffle")} disabled={!playlist.tracks.length}
           onPress={() => void session.start({ kind: "playlist", playlistId: playlist.playlistId }, { from: playlist.title })} />
+        <PhoneChip label={playlist.saved ? t("musicSaved") : t("musicSave")} disabled={saving} onPress={() => void toggleSaved()} />
       </View>
     </View>
     {playlist.tracks.length ? <PhoneSectionTitle title={t("musicSongs")} /> : null}
   </View> : null;
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicPlaylistFailed")} loading={!playlist} onRetry={retry}>
     {playlist ? <FlatList data={playlist.tracks} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
-      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={startSong} onLongPress={(track) => void session.dislike(track)} />} /> : null}
+      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={startSong} />} /> : null}
   </PageFrame>;
 }
 

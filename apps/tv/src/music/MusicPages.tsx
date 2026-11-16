@@ -8,7 +8,8 @@ import { albumDetail, MusicAlbumCard, MusicShelf } from "./MusicAlbumCard";
 import type { MusicAlbum, MusicAlbumPage, MusicApi, MusicArtistPage, MusicTrack } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
-import { durationLabel, MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
+import { durationLabel, MusicArtwork, MusicTrackMenuButton, MusicTrackRow } from "./MusicTrackRow";
+import { useMusicTrackMenu } from "./musicTrackMenuContext";
 
 /** A page opened from a list, drawn over the current tab. */
 export type MusicPage =
@@ -50,10 +51,11 @@ export function PageFrame({ t, onBack, failed, failedText, loading, onRetry, chi
   </View>;
 }
 
-function AlbumTrack({ track, number, albumArtist, active, onPress, onLongPress }: {
-  track: MusicTrack; number: number; albumArtist: string; active: boolean; onPress: () => void; onLongPress: () => void;
+function AlbumTrack({ track, number, albumArtist, active, onPress }: {
+  track: MusicTrack; number: number; albumArtist: string; active: boolean; onPress: () => void;
 }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${number}. ${track.title}`} onPress={onPress} onLongPress={onLongPress}
+  const menu = useMusicTrackMenu();
+  return <Pressable accessibilityRole="button" accessibilityLabel={`${number}. ${track.title}`} onPress={onPress} onLongPress={menu ? () => menu.open(track) : undefined}
     style={({ pressed }) => [styles.track, pressed && styles.pressed]}>
     <Text style={[styles.number, active && styles.active]}>{number}</Text>
     <View style={styles.trackCopy}>
@@ -62,6 +64,7 @@ function AlbumTrack({ track, number, albumArtist, active, onPress, onLongPress }
     </View>
     {track.rating === 1 ? <MusicIcon name="liked" color={phoneColors.textMuted} size={16} /> : null}
     <Text style={styles.caption}>{durationLabel(track.duration)}</Text>
+    <MusicTrackMenuButton track={track} />
   </Pressable>;
 }
 
@@ -104,7 +107,7 @@ export function MusicAlbumScreen({ api, session, t, playingId, id, onOpen, onBac
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicAlbumFailed")} loading={!album} onRetry={retry}>
     {album ? <FlatList data={album.tracks} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
       renderItem={({ item, index }) => <AlbumTrack track={item} number={index + 1} albumArtist={album.artist} active={item.videoId === playingId}
-        onPress={() => play({ startAt: item.videoId })} onLongPress={() => void session.dislike(item)} />} /> : null}
+        onPress={() => play({ startAt: item.videoId })} />} /> : null}
   </PageFrame>;
 }
 
