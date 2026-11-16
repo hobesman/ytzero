@@ -7,7 +7,8 @@ import { createMusicPages } from "../music/musicAlbums";
 import { createMusicAudio, type MusicAudio } from "../music/musicAudio";
 import { musicTrack, musicTracks, upsertMusicTracks, type StoredMusicTrack } from "../music/musicCatalog";
 import { recordMusicPlay, type MusicPlayEndReason } from "../music/musicPlays";
-import { upstreamFailure, withRatings } from "../music/musicRouteHelpers";
+import { upstreamFailure, withRatings, withTimeout } from "../music/musicRouteHelpers";
+import { musicLoudness, type MusicLoudness } from "../music/musicLoudness";
 import { savedAlbums } from "../music/musicSavedAlbums";
 import { savedPlaylists, userPlaylists } from "../music/musicPlaylists";
 import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey, type MusicStations } from "../music/musicStation";
@@ -28,6 +29,7 @@ export interface MusicRouteDependencies {
   client?: YouTubeMusicClient;
   audio?: MusicAudio;
   ytdlpAvailable?: () => Promise<boolean>;
+  loudness?: MusicLoudness;
 }
 
 export async function defaultMusicAudio(): Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }> {
@@ -46,6 +48,7 @@ export async function defaultMusicAudio(): Promise<{ audio: MusicAudio; ytdlpAva
 export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependencies): void {
   const { currentUserId } = dependencies;
   const client = dependencies.client ?? createYouTubeMusicClient();
+  const loudness = dependencies.loudness ?? musicLoudness;
   const pages = createMusicPages(client);
   const stations: MusicStations = createMusicStations(client, pages);
   let audioDependencies: Promise<{ audio: MusicAudio; ytdlpAvailable: () => Promise<boolean> }> | null = null;
@@ -84,7 +87,7 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
         }),
       ]);
       const tracks = await upsertMusicTracks(songs);
-      return context.json({ tracks: await withRatings(userId, tracks), albums: shelves.albums.slice(0, 12), artists: shelves.artists.slice(0, 8) });
+      return context.json({ tracks: await withRatings(userId, tracks, loudness), albums: shelves.albums.slice(0, 12), artists: shelves.artists.slice(0, 8) });
     } catch (error) {
       return upstreamFailure(context, error, "music.search_failed");
     }
@@ -102,7 +105,9 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
       const served = parseVideoIdList(body?.served);
       const tracks = await stations.next(userId, seed, served, parseVideoIdList(body?.skipped), count);
       if (!served.length && tracks[0]) prepareInBackground(userId, tracks[0].videoId);
-      return context.json({ seed: stationSeedKey(seed), tracks: await withRatings(userId, tracks) });
+      // The first song plays before the player could ask, so learn its loudness now.
+      if (tracks[0]) await withTimeout(loudness.get(tracks[0].videoId), 2_000);
+      return context.json({ seed: stationSeedKey(seed), tracks: await withRatings(userId, tracks, loudness) });
     } catch (error) {
       return upstreamFailure(context, error, "music.station_failed");
     }
@@ -130,7 +135,8 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
     if (!VIDEO_ID.test(videoId) || !await musicTrack(videoId)) return context.json({ error: "not found" }, 404);
     const { audio, ytdlpAvailable } = await audioService();
     if (!await ytdlpAvailable()) return context.json({ error: "yt-dlp unavailable" }, 503);
-    return context.json({ ready: await audio.prepare(userId, videoId) });
+    const [ready, loudnessDb] = await Promise.all([audio.prepare(userId, videoId), loudness.get(videoId)]);
+    return context.json({ ready, loudnessDb });
   });
 
   api.post("/music/plays", async (context) => {
@@ -181,8 +187,8 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
     const known = await musicTracks([...likedRows, ...recentRows].map((row) => row.video_id));
     const pick = (rows: { video_id: string }[]) => rows.map((row) => known.get(row.video_id)).filter((track): track is StoredMusicTrack => Boolean(track));
     return context.json({
-      liked: await withRatings(userId, pick(likedRows)),
-      recent: await withRatings(userId, pick(recentRows)),
+      liked: await withRatings(userId, pick(likedRows), loudness),
+      recent: await withRatings(userId, pick(recentRows), loudness),
       albums: await savedAlbums(userId),
       playlists: await userPlaylists(userId),
       savedPlaylists: await savedPlaylists(userId),
