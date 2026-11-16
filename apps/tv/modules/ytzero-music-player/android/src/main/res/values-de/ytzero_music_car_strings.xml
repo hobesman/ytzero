@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="ytzero_music_car_for_you">Für dich</string>
+  <string name="ytzero_music_car_recent">Zuletzt gespielt</string>
+  <string name="ytzero_music_car_albums_saved">Gespeicherte Alben</string>
+  <string name="ytzero_music_car_genres">Stimmungen &amp; Genres</string>
+  <string name="ytzero_music_car_mix">Dein Mix</string>
+  <string name="ytzero_music_car_mix_hint">Songs passend zu dem, was du hörst</string>
+  <string name="ytzero_music_car_liked">Gelikte Songs</string>
+  <string name="ytzero_music_car_liked_hint">Ein Sender aus Songs, die du magst</string>
+  <string name="ytzero_music_car_moods">Stimmungen &amp; Momente</string>
+  <string name="ytzero_music_car_genre_group">Genres</string>
+  <string name="ytzero_music_car_songs">Songs</string>
+  <string name="ytzero_music_car_albums">Alben</string>
+  <string name="ytzero_music_car_artists">Künstler</string>
+  <string name="ytzero_music_car_setup">Öffne YT Zero auf deinem Handy und spiel Musik ab, um es zu verbinden</string>
+  <string name="ytzero_music_car_not_allowed">Musik ist für dieses Profil nicht verfügbar</string>
+  <string name="ytzero_music_car_unreachable">Dein YT-Zero-Server ist nicht erreichbar</string>
+</resources>

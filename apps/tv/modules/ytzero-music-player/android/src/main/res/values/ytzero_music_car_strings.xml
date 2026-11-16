@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android Auto's music browser, in the words of the app's music screens (apps/tv/src/music/musicMessages.ts). -->
+<resources>
+  <string name="ytzero_music_car_for_you">For you</string>
+  <string name="ytzero_music_car_recent">Recently played</string>
+  <string name="ytzero_music_car_albums_saved">Saved albums</string>
+  <string name="ytzero_music_car_genres">Moods &amp; genres</string>
+  <string name="ytzero_music_car_mix">Your mix</string>
+  <string name="ytzero_music_car_mix_hint">Songs picked from what you play</string>
+  <string name="ytzero_music_car_liked">Liked songs</string>
+  <string name="ytzero_music_car_liked_hint">A station from songs you like</string>
+  <string name="ytzero_music_car_moods">Moods &amp; moments</string>
+  <string name="ytzero_music_car_genre_group">Genres</string>
+  <string name="ytzero_music_car_songs">Songs</string>
+  <string name="ytzero_music_car_albums">Albums</string>
+  <string name="ytzero_music_car_artists">Artists</string>
+  <string name="ytzero_music_car_setup">Open YT Zero on your phone and play some music to connect it</string>
+  <string name="ytzero_music_car_not_allowed">Music isn\'t available for this profile</string>
+  <string name="ytzero_music_car_unreachable">Can\'t reach your YT Zero server</string>
+</resources>

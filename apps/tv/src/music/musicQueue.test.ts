@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { MusicTrack } from "./musicApi";
 import {
-  appendTracks, applyTrackChange, createQueue, endReason, moveUpcoming, needsMore, playingFrom, queueTrack, removeTrack, served, shuffleTracks, upNext,
+  appendTracks, applyTrackChange, createQueue, endReason, moveUpcoming, needsMore, playingFrom, queueTrack, removeTrack, served, shuffleTracks, takenElsewhere, upNext,
   type MusicQueue,
 } from "./musicQueue";
 
@@ -156,5 +156,15 @@ describe("music queue", () => {
       const album = createQueue({ kind: "album", browseId: "B" }, "album:B", ["a", "b"].map(track), start, "Album");
       expect(queueTrack(album, track("x"), "next").queue.from).toEqual({ title: "Album", count: 3 });
     });
+  });
+});
+
+describe("takenElsewhere", () => {
+  test("a song this queue never handed the player means the car took over", () => {
+    const queue = createQueue({ kind: "mix" }, "mix", ["a", "b"].map(track), start);
+    expect(takenElsewhere(queue, { videoId: "b" })).toBe(false);
+    expect(takenElsewhere(queue, { videoId: "car" })).toBe(true);
+    // The queue being cleared is not a takeover.
+    expect(takenElsewhere(queue, { videoId: null })).toBe(false);
   });
 });
