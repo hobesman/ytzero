@@ -4,7 +4,7 @@ import { onSleepTimerChange, setSleepTimer, sleepTimer } from "../sleepTimer";
 import type { MusicApi, MusicPlay, MusicSeed, MusicTrack } from "./musicApi";
 import { nonMusicSegments } from "./musicNonMusic";
 import {
-  appendTracks, applyTrackChange, createQueue, current, endReason, moveUpcoming, needsMore, playFor, queueTrack, rateTrack, removeTrack, served,
+  appendTracks, applyTrackChange, createQueue, current, endReason, moveUpcoming, needsMore, playFor, queueTrack, rateTrack, removeTrack, served, takenElsewhere,
   shuffleTracks, type QueueEdit,
   type MusicQueue,
 } from "./musicQueue";
@@ -147,6 +147,13 @@ export class MusicSession {
   private trackChanged(change: MusicTrackChange) {
     const queue = this.state.queue;
     if (!queue) return;
+    if (takenElsewhere(queue, change)) {
+      // The car started music: its native station records and refills from here, so this one lets go.
+      this.generation++;
+      this.recordLast(queue, change.previous ?? null);
+      this.update({ queue: null });
+      return;
+    }
     const result = applyTrackChange(queue, change, new Date());
     this.update({ queue: result.queue });
     if (result.play) this.record(result.play);
@@ -284,7 +291,11 @@ export class MusicSession {
     if (play) this.record(play);
   }
 
-  setIncognito(value: boolean) { this.incognito = value; }
+  setIncognito(value: boolean) {
+    this.incognito = value;
+    // Stations started from the car record listens natively; they follow the same switch.
+    void musicPlayer.setIncognito(value);
+  }
 
   private record(play: MusicPlay) {
     if (!this.incognito) this.api.recordPlay(play).catch(() => {});

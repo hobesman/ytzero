@@ -23,6 +23,7 @@ export const musicPlayer: MusicPlayer = {
   getState: async () => null,
   stop: async () => null,
   setSleepTimer: noop,
+  setIncognito: noop,
   setSkips: noop,
   setLoudness: noop,
   setLevelling: noop,

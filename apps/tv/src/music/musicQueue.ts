@@ -100,6 +100,14 @@ export function playFor(queue: MusicQueue, progress: MusicPlayerProgress, reason
   return { videoId: progress.videoId, startedAt, listenedSeconds: duration ? Math.min(listened, duration) : listened, duration, endReason: reason, stationSeed: queue.seedKey };
 }
 
+/**
+ * The player moved to a song this queue never handed it: something else
+ * (Android Auto, the Assistant) replaced the queue and now runs it natively.
+ */
+export function takenElsewhere(queue: MusicQueue, change: Pick<MusicTrackChange, "videoId">): boolean {
+  return change.videoId != null && !queue.tracks.some((track) => track.videoId === change.videoId);
+}
+
 export type TrackChangeResult = {
   queue: MusicQueue;
   /** The play to record for the song that just ended. */

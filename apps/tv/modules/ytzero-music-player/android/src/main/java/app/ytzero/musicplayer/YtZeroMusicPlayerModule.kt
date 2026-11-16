@@ -127,6 +127,9 @@ class YtZeroMusicPlayerModule : Module() {
 
     AsyncFunction("setAuthorization") { token: String? -> MusicPlayerHolder.setAuthorization(token) }
 
+    // Incognito mode: stations started from the car (CarStation) record no listens.
+    AsyncFunction("setIncognito") { value: Boolean -> MusicPlayerHolder.incognito = value }.runOnQueue(Queues.MAIN)
+
     // Pause at a wall-clock time (milliseconds since the epoch, 0 for none) or when the current song ends.
     AsyncFunction("setSleepTimer") { deadline: Double, endOfSong: Boolean ->
       sleepDeadline = deadline.toLong()

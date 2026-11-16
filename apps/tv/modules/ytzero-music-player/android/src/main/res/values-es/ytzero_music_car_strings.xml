@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="ytzero_music_car_for_you">Para ti</string>
+  <string name="ytzero_music_car_recent">Escuchado recientemente</string>
+  <string name="ytzero_music_car_albums_saved">Álbumes guardados</string>
+  <string name="ytzero_music_car_genres">Estados de ánimo y géneros</string>
+  <string name="ytzero_music_car_mix">Tu mix</string>
+  <string name="ytzero_music_car_mix_hint">Canciones elegidas según lo que escuchas</string>
+  <string name="ytzero_music_car_liked">Canciones que te gustan</string>
+  <string name="ytzero_music_car_liked_hint">Una emisora con las canciones que te gustan</string>
+  <string name="ytzero_music_car_moods">Estados de ánimo y momentos</string>
+  <string name="ytzero_music_car_genre_group">Géneros</string>
+  <string name="ytzero_music_car_songs">Canciones</string>
+  <string name="ytzero_music_car_albums">Álbumes</string>
+  <string name="ytzero_music_car_artists">Artistas</string>
+  <string name="ytzero_music_car_setup">Abre YT Zero en tu teléfono y pon música para conectarlo</string>
+  <string name="ytzero_music_car_not_allowed">La música no está disponible para este perfil</string>
+  <string name="ytzero_music_car_unreachable">No se puede conectar con tu servidor de YT Zero</string>
+</resources>

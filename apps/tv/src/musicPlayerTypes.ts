@@ -57,6 +57,8 @@ export type MusicPlayer = {
   stop(): Promise<MusicPlayerProgress | null>;
   /** Pause at `deadline` (ms since the epoch, 0 for none), or when the current song ends. */
   setSleepTimer(deadline: number, endOfSong: boolean): Promise<void>;
+  /** Incognito mode: stations started from the car record no listens either. */
+  setIncognito(value: boolean): Promise<void>;
   /** Parts of a song to jump over, as [start, end] seconds; an empty list clears them. */
   setSkips(videoId: string, segments: [number, number][]): Promise<void>;
   /** A song's loudness learned after it was queued. */
