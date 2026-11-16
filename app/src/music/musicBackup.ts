@@ -1,15 +1,19 @@
+import { createHash } from "node:crypto";
 import { database } from "../database";
 import { songKey } from "./musicCatalog";
 import { ALBUM_ID, ARTIST_ID } from "./youtubeMusicBrowseParsers";
+import { MAX_PLAYLIST_TRACKS, MAX_TITLE, playlistTrackIds, USER_PLAYLIST_ID } from "./musicPlaylists";
+import { PLAYLIST_ID } from "./youtubeMusicGenreParsers";
 
 /**
- * Portable backup for music mode (section `profile.music`). Ratings, plays and
- * saved albums (since schema v2) are portable personal state. Track rows are a rebuildable cache; only those
- * the profile's ratings and plays point at travel with them, so a restored
+ * Portable backup for music mode (section `profile.music`). Ratings, plays,
+ * saved albums (since schema v2), and the profile's own playlists and saved YouTube Music playlists (since
+ * v3) are portable personal state. Track rows are a rebuildable cache; only those
+ * the profile's ratings, plays and playlists point at travel with them, so a restored
  * library can still show titles before the songs are seen again.
  */
 export const MUSIC_BACKUP_SECTION = {
-  id: "profile.music", schemaVersion: 2, scope: "profile" as const, sensitivity: "personal" as const, dependencies: ["profiles.index"],
+  id: "profile.music", schemaVersion: 3, scope: "profile" as const, sensitivity: "personal" as const, dependencies: ["profiles.index"],
   category: "personal" as const, path: (uuid = "") => `profiles/${uuid}/music.json`,
 };
 
@@ -22,6 +26,9 @@ export interface MusicBackupDocument {
   plays: Array<{ video_id: string; started_at: string; listened_seconds: number; duration: number | null; end_reason: string; station_seed: string | null }>;
   /** Added in schema v2; absent from v1 documents. */
   saved_albums?: Array<{ browse_id: string; title: string; artist: string; artist_id: string | null; year: string | null; thumbnail: string; kind: string; saved_at: string }>;
+  /** Added in schema v3; absent from older documents. `tracks` lists video IDs in playlist order. */
+  playlists?: Array<{ id: string; title: string; created_at: string; updated_at: string; tracks: string[] }>;
+  saved_playlists?: Array<{ playlist_id: string; title: string; subtitle: string; thumbnail: string; saved_at: string }>;
 }
 
 export async function exportMusicBackup(userId: number): Promise<MusicBackupDocument> {
@@ -31,19 +38,32 @@ export async function exportMusicBackup(userId: number): Promise<MusicBackupDocu
     .all<MusicBackupDocument["plays"][number]>(userId);
   const tracks = await database.prepare(`
     SELECT video_id, title, artist, artist_id, album, duration, thumbnail, is_topic FROM music_tracks
-    WHERE video_id IN (SELECT video_id FROM music_ratings WHERE user_id = ? UNION SELECT video_id FROM music_plays WHERE user_id = ?)
+    WHERE video_id IN (SELECT video_id FROM music_ratings WHERE user_id = ? UNION SELECT video_id FROM music_plays WHERE user_id = ?
+      UNION SELECT t.video_id FROM music_playlist_tracks t JOIN music_playlists p ON p.id = t.playlist_id WHERE p.user_id = ?)
     ORDER BY video_id
-  `).all<MusicBackupDocument["tracks"][number]>(userId, userId);
+  `).all<MusicBackupDocument["tracks"][number]>(userId, userId, userId);
   const saved_albums = await database.prepare("SELECT browse_id, title, artist, artist_id, year, thumbnail, kind, saved_at FROM music_saved_albums WHERE user_id = ? ORDER BY saved_at, browse_id")
     .all<NonNullable<MusicBackupDocument["saved_albums"]>[number]>(userId);
-  return { tracks, ratings, plays, saved_albums };
+  const playlistRows = await database.prepare("SELECT id, title, created_at, updated_at FROM music_playlists WHERE user_id = ? ORDER BY created_at, id")
+    .all<Omit<NonNullable<MusicBackupDocument["playlists"]>[number], "tracks">>(userId);
+  const playlists = [];
+  for (const row of playlistRows) playlists.push({ ...row, tracks: await playlistTrackIds(row.id) });
+  const saved_playlists = await database.prepare("SELECT playlist_id, title, subtitle, thumbnail, saved_at FROM music_saved_playlists WHERE user_id = ? ORDER BY saved_at, playlist_id")
+    .all<NonNullable<MusicBackupDocument["saved_playlists"]>[number]>(userId);
+  return { tracks, ratings, plays, saved_albums, playlists, saved_playlists };
 }
 
 const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
 const optionalText = (value: unknown, max: number) => typeof value === "string" && value ? value.slice(0, max) : null;
 const validTime = (value: unknown) => typeof value === "string" && !Number.isNaN(new Date(value).getTime());
 
-/** Restore one profile's music. Safe to run twice; `replace` first clears that profile's ratings and plays. */
+/** A stable playlist ID for a copy of `id` restored into another profile. */
+function profilePlaylistId(id: string, userId: number): string {
+  const hex = createHash("sha256").update(`${id}:${userId}`).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+/** Restore one profile's music. Safe to run twice; `replace` first clears that profile's music library and history. */
 export async function restoreMusicBackup(userId: number, value: unknown, strategy: string): Promise<{ skipped: number }> {
   const doc = (value && typeof value === "object" ? value : {}) as Partial<Record<keyof MusicBackupDocument, unknown>>;
   let skipped = 0;
@@ -51,6 +71,9 @@ export async function restoreMusicBackup(userId: number, value: unknown, strateg
     await database.prepare("DELETE FROM music_ratings WHERE user_id = ?").run(userId);
     await database.prepare("DELETE FROM music_plays WHERE user_id = ?").run(userId);
     await database.prepare("DELETE FROM music_saved_albums WHERE user_id = ?").run(userId);
+    await database.prepare("DELETE FROM music_playlist_tracks WHERE playlist_id IN (SELECT id FROM music_playlists WHERE user_id = ?)").run(userId);
+    await database.prepare("DELETE FROM music_playlists WHERE user_id = ?").run(userId);
+    await database.prepare("DELETE FROM music_saved_playlists WHERE user_id = ?").run(userId);
   }
   for (const row of Array.isArray(doc.tracks) ? doc.tracks as any[] : []) {
     if (!VIDEO_ID.test(row?.video_id ?? "")) { skipped++; continue; }
@@ -91,6 +114,37 @@ export async function restoreMusicBackup(userId: number, value: unknown, strateg
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, browse_id) DO NOTHING
     `).run(userId, row.browse_id, text(row.title, 500), text(row.artist, 500), artistId, year, text(row.thumbnail, 2000),
       row.kind === "single" ? "single" : "album", validTime(row.saved_at) ? row.saved_at : new Date().toISOString());
+  }
+  for (const row of Array.isArray(doc.playlists) ? doc.playlists as any[] : []) {
+    const title = typeof row?.title === "string" ? row.title.replace(/\s+/g, " ").trim().slice(0, MAX_TITLE) : "";
+    if (!USER_PLAYLIST_ID.test(row?.id ?? "") || !title) { skipped++; continue; }
+    // A backup restored into a second profile meets its own playlist IDs on the first; the copy gets an ID derived
+    // from both, so restoring again finds it instead of adding another.
+    let id: string = row.id;
+    let owner = await database.prepare("SELECT user_id FROM music_playlists WHERE id = ?").get<{ user_id: number }>(id);
+    if (owner && Number(owner.user_id) !== userId) {
+      id = profilePlaylistId(id, userId);
+      owner = await database.prepare("SELECT user_id FROM music_playlists WHERE id = ?").get<{ user_id: number }>(id);
+    }
+    // Merge keeps a playlist the profile already has as it is.
+    if (owner) continue;
+    const createdAt = validTime(row.created_at) ? row.created_at : new Date().toISOString();
+    await database.prepare("INSERT INTO music_playlists (id, user_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?)")
+      .run(id, userId, title, createdAt, validTime(row.updated_at) ? row.updated_at : createdAt);
+    const songs = [...new Set((Array.isArray(row.tracks) ? row.tracks : []).filter((videoId: unknown) => typeof videoId === "string" && VIDEO_ID.test(videoId)))]
+      .slice(0, MAX_PLAYLIST_TRACKS) as string[];
+    for (const [position, videoId] of songs.entries()) {
+      await database.prepare("INSERT INTO music_playlist_tracks (playlist_id, video_id, position, added_at) VALUES (?, ?, ?, ?) ON CONFLICT(playlist_id, video_id) DO NOTHING")
+        .run(id, videoId, position, createdAt);
+    }
+  }
+  for (const row of Array.isArray(doc.saved_playlists) ? doc.saved_playlists as any[] : []) {
+    if (!PLAYLIST_ID.test(row?.playlist_id ?? "")) { skipped++; continue; }
+    await database.prepare(`
+      INSERT INTO music_saved_playlists (user_id, playlist_id, title, subtitle, thumbnail, saved_at) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, playlist_id) DO NOTHING
+    `).run(userId, row.playlist_id, text(row.title, 500), text(row.subtitle, 500), text(row.thumbnail, 2000),
+      validTime(row.saved_at) ? row.saved_at : new Date().toISOString());
   }
   return { skipped };
 }

@@ -21,6 +21,8 @@ declare class YtZeroMusicPlayerModule extends NativeModule<Events> {
   setAuthorization(token: string | null): Promise<void>;
   setQueue(tracks: MusicPlayerTrack[], startIndex: number, play: boolean): Promise<void>;
   append(tracks: MusicPlayerTrack[]): Promise<void>;
+  insertAt(index: number, tracks: MusicPlayerTrack[]): Promise<void>;
+  move(from: number, to: number): Promise<void>;
   removeAt(index: number): Promise<void>;
   skipTo(index: number): Promise<void>;
   play(): Promise<void>;
@@ -55,6 +57,8 @@ export const musicPlayer: MusicPlayer = {
   setAuthorization: (token) => native?.setAuthorization(token) ?? noop(),
   setQueue: (tracks, startIndex, play) => native?.setQueue(clean(tracks), startIndex, play) ?? noop(),
   append: (tracks) => native?.append(clean(tracks)) ?? noop(),
+  insertAt: (index, tracks) => native?.insertAt(index, clean(tracks)) ?? noop(),
+  move: (from, to) => native?.move(from, to) ?? noop(),
   removeAt: (index) => native?.removeAt(index) ?? noop(),
   skipTo: (index) => native?.skipTo(index) ?? noop(),
   play: () => native?.play() ?? noop(),
