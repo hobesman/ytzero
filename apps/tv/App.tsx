@@ -58,6 +58,7 @@ import { clearAccessToken, loadConnection, saveConnection, savedProfileStore } f
 import type { SavedProfile } from "./src/savedProfiles";
 import type { AuthStatus, Language, PairingAuthorization, Video } from "./src/types";
 import { colors, sidebarRailWidth, topBarMetrics } from "./src/theme";
+import { buildBranding, DEFAULT_BRAND_COLOR, DEFAULT_BRAND_NAME } from "./src/branding";
 import { tvVideoCardActionConfig, type VideoCardActionConfig } from "./src/videoCardActions";
 import { SessionQueueProvider, useSessionQueueActions, useSessionQueueItems } from "./src/SessionQueue";
 import { TvQueueSheet } from "./src/components/TvQueueSheet";
@@ -161,8 +162,8 @@ function TvApp() {
   const [pairingFromSettings, setPairingFromSettings] = useState(false);
   const [language, setLanguage] = useState<Language>(deviceLanguage);
   const [sidebarNav, setSidebarNav] = useState("");
-  const [brandName, setBrandName] = useState("YT Zero");
-  const [brandColor, setBrandColor] = useState<string>(colors.accent);
+  const [brandName, setBrandName] = useState(buildBranding.name);
+  const [brandColor, setBrandColor] = useState<string>(buildBranding.color);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const [detailFocusTarget, setDetailFocusTarget] = useState<View | null>(null);
   const [profileMenuVisible, setProfileMenuVisible] = useState(false);
@@ -426,8 +427,8 @@ function TvApp() {
     try {
       const result = await client.settings();
       setLanguage(normalizeLanguage(result.settings.language));
-      setBrandName(result.settings.app_name?.trim() || "YT Zero");
-      setBrandColor(/^#[0-9a-f]{6}$/i.test(result.settings.app_icon_color ?? "") ? result.settings.app_icon_color! : colors.accent);
+      setBrandName(result.settings.app_name?.trim() || DEFAULT_BRAND_NAME);
+      setBrandColor(/^#[0-9a-f]{6}$/i.test(result.settings.app_icon_color ?? "") ? result.settings.app_icon_color! : DEFAULT_BRAND_COLOR);
       setSidebarNav(typeof result.settings.sidebar_nav === "string" ? result.settings.sidebar_nav : "");
       setFeedSort(result.settings.feed_sort === "arrival" ? "arrival" : "published");
       setShowTopChannels(result.settings.show_top_channels !== "0");

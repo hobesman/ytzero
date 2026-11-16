@@ -1,8 +1,9 @@
 import { StyleSheet, Text, View } from "react-native";
 import Svg, { G, Path, Rect } from "react-native-svg";
+import { buildBranding } from "../branding";
 import { colors } from "../theme";
 
-export function LogoMark({ size, accessibilityLabel, color = colors.accent, layer = "all" }: { size: number; accessibilityLabel?: string; color?: string; layer?: "all" | "tile" | "play" }) {
+export function LogoMark({ size, accessibilityLabel, color = buildBranding.color, layer = "all" }: { size: number; accessibilityLabel?: string; color?: string; layer?: "all" | "tile" | "play" }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" accessibilityLabel={accessibilityLabel}>
       {layer !== "play" ? <Rect width="24" height="24" rx="5.25" fill={color} /> : null}
@@ -24,8 +25,8 @@ export function Logo({ compact = false }: { compact?: boolean }) {
   const size = compact ? 38 : 54;
   return (
     <View style={styles.row}>
-      <LogoMark size={size} accessibilityLabel="YT Zero" />
-      <Text style={[styles.name, compact && styles.nameCompact]}>YT Zero</Text>
+      <LogoMark size={size} accessibilityLabel={buildBranding.name} />
+      <Text style={[styles.name, compact && styles.nameCompact]}>{buildBranding.name}</Text>
     </View>
   );
 }
