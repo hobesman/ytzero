@@ -9,12 +9,14 @@ import { musicTrack, musicTracks, upsertMusicTracks, type StoredMusicTrack } fro
 import { recordMusicPlay, type MusicPlayEndReason } from "../music/musicPlays";
 import { upstreamFailure, withRatings } from "../music/musicRouteHelpers";
 import { savedAlbums } from "../music/musicSavedAlbums";
+import { savedPlaylists, userPlaylists } from "../music/musicPlaylists";
 import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey, type MusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient, type YouTubeMusicClient } from "../music/youtubeMusicClient";
 import { registerMusicAlbumRoutes } from "./musicAlbumRoutes";
 import { registerMusicGenreRoutes } from "./musicGenreRoutes";
 import { registerMusicLyricsRoutes } from "./musicLyricsRoutes";
 import { createMusicLyrics, type MusicLyricsService } from "../music/musicLyrics";
+import { registerMusicPlaylistRoutes } from "./musicPlaylistRoutes";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type Api = Hono<ApiEnvironment>;
@@ -185,10 +187,13 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
       liked: await withRatings(userId, pick(likedRows)),
       recent: await withRatings(userId, pick(recentRows)),
       albums: await savedAlbums(userId),
+      playlists: await userPlaylists(userId),
+      savedPlaylists: await savedPlaylists(userId),
     });
   });
 
   registerMusicAlbumRoutes(api, { currentUserId, pages });
   registerMusicGenreRoutes(api, { currentUserId, pages });
   registerMusicLyricsRoutes(api, { currentUserId, lyrics: dependencies.lyrics ?? createMusicLyrics({ client }) });
+  registerMusicPlaylistRoutes(api, { currentUserId, pages });
 }

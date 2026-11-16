@@ -23,8 +23,10 @@ on:
   workflow_dispatch:
     inputs:
       architectures:
+        # armeabi-v7a is for 32-bit devices, such as car head units, which only install an APK
+        # that includes their ABI.
         description: Comma-separated ABIs (add x86_64 to install on an emulator)
-        default: arm64-v8a
+        default: arm64-v8a,armeabi-v7a
         required: false
 
 permissions:
@@ -59,7 +61,7 @@ jobs:
           echo "EXPO_PUBLIC_UPDATE_REPOSITORY=$GITHUB_REPOSITORY" >> "$GITHUB_ENV"
           echo "TAG=android-$build" >> "$GITHUB_ENV"
           echo "APK_NAME=ytzero-android-$build.apk" >> "$GITHUB_ENV"
-          echo "ARCHITECTURES=${{ inputs.architectures || 'arm64-v8a' }}" >> "$GITHUB_ENV"
+          echo "ARCHITECTURES=${{ inputs.architectures || 'arm64-v8a,armeabi-v7a' }}" >> "$GITHUB_ENV"
 
       - name: Set up the Bun runtime
         uses: oven-sh/setup-bun@v2

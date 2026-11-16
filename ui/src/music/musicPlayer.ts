@@ -3,7 +3,8 @@ import { img } from "../img";
 import { isIncognitoMode } from "../incognitoMode";
 import { musicApi, type MusicSeed, type MusicTrack } from "./musicApi";
 import {
-  appendTracks, createQueue, current, endReason, moveTo, needsMore, playRecord, rateTrack, removeUpcoming, served, shuffleTracks,
+  appendTracks, createQueue, current, endReason, moveTo, moveUpcoming, needsMore, playRecord, queueTrack, rateTrack, removeUpcoming, served,
+  shuffleTracks,
   type MusicQueue,
 } from "./musicQueue";
 
@@ -126,6 +127,23 @@ class WebMusicPlayer {
     }
   }
 
+  /**
+   * Plays a list of songs the server already gave, such as one of the profile's
+   * own playlists, from `startAt`; a station from its first song follows.
+   */
+  playTracks(tracks: MusicTrack[], options: { from: string; shuffle?: boolean; startAt?: string }) {
+    if (!tracks.length) return;
+    this.generation++;
+    this.failures = 0;
+    this.finishListen(false, false);
+    this.audio?.pause();
+    const ordered = options.shuffle ? shuffleTracks(tracks) : tracks;
+    const start = options.startAt ? Math.max(0, ordered.findIndex((track) => track.videoId === options.startAt)) : 0;
+    const list = ordered.slice(start);
+    this.set({ queue: createQueue({ kind: "track", videoId: list[0].videoId }, null, list, options.from) });
+    this.load(list[0]);
+  }
+
   private async refill() {
     const queue = this.state.queue;
     if (!queue || !needsMore(queue) || this.refilling) return;
@@ -181,6 +199,28 @@ class WebMusicPlayer {
     const moved = moveTo(queue, index, true);
     this.set({ queue: moved });
     this.load(current(moved)!);
+  }
+
+  /** "Play next" / "Add to queue". With nothing playing, the song starts its own station. */
+  enqueue(track: MusicTrack, placement: "next" | "last") {
+    const queue = this.state.queue;
+    if (!queue) { void this.start({ kind: "track", videoId: track.videoId }); return; }
+    this.set({ queue: queueTrack(queue, track, placement) });
+  }
+
+  /** Moves a song in Up next, by queue index. */
+  moveUpcoming(from: number, to: number) {
+    const queue = this.state.queue;
+    if (queue) this.set({ queue: moveUpcoming(queue, from, to) });
+  }
+
+  /** Takes a song out of Up next, by queue index. */
+  removeUpcoming(index: number) {
+    const queue = this.state.queue;
+    const track = queue?.tracks[index];
+    if (!queue || !track || index <= queue.index) return;
+    this.set({ queue: removeUpcoming(queue, track.videoId) });
+    void this.refill();
   }
 
   seek(seconds: number) {

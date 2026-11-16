@@ -6,9 +6,10 @@ import { PhoneChip } from "../phone/PhoneChip";
 import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { albumDetail, MusicAlbumCard, MusicArtistCard, MusicShelf } from "./MusicAlbumCard";
-import type { MusicAlbum, MusicApi, MusicArtist, MusicLibrary, MusicSearchResults, MusicTrack } from "./musicApi";
-import type { MusicPage } from "./MusicPages";
-import { MusicGenreShelves } from "./MusicGenreScreens";
+import type { Language } from "../types";
+import type { MusicAlbum, MusicApi, MusicArtist, MusicLibrary, MusicPlaylist, MusicSearchResults, MusicTrack, MusicUserPlaylist } from "./musicApi";
+import { MusicGenreShelves, MusicPlaylistCard } from "./MusicGenreScreens";
+import { MusicNewPlaylistCard, MusicNewPlaylistSheet, MusicUserPlaylistCard, type MusicAppPage } from "./MusicPlaylistScreens";
 import { MusicIcon, type MusicIconName } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { MusicTrackRow } from "./MusicTrackRow";
@@ -27,7 +28,9 @@ function useMusicLibrary(api: MusicApi, visible: boolean) {
   return { library, failed, load };
 }
 
-type ScreenProps = { api: MusicApi; session: MusicSession; t: Translate; visible: boolean; playingId: string | null; onOpen: (page: MusicPage) => void };
+type ScreenProps = {
+  api: MusicApi; session: MusicSession; t: Translate; language: Language; visible: boolean; playingId: string | null; onOpen: (page: MusicAppPage) => void;
+};
 
 function StationCard({ icon, title, hint, onPress }: { icon: MusicIconName | "liked"; title: string; hint: string; onPress: () => void }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={`${title}. ${hint}`} onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
@@ -70,12 +73,22 @@ export function MusicHomeScreen({ api, session, t, visible, playingId, onOpen }:
     renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={start} />} />;
 }
 
-/** Library: the albums this profile saved and the songs it liked in music mode. */
-export function MusicLibraryScreen({ api, session, t, visible, playingId, onOpen }: ScreenProps) {
+/** Library: this profile's playlists, the playlists and albums it saved, and the songs it liked in music mode. */
+export function MusicLibraryScreen({ api, session, t, language, visible, playingId, onOpen }: ScreenProps) {
   const { library, failed, load } = useMusicLibrary(api, visible);
+  const [creating, setCreating] = useState(false);
   const start = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
   const openAlbum = useCallback((album: MusicAlbum) => onOpen({ kind: "album", id: album.browseId }), [onOpen]);
+  const openMine = useCallback((playlist: MusicUserPlaylist) => onOpen({ kind: "mine", id: playlist.id }), [onOpen]);
+  const openSaved = useCallback((playlist: MusicPlaylist) => onOpen({ kind: "playlist", id: playlist.playlistId }), [onOpen]);
   const header = <View>
+    {library ? <MusicShelf title={t("musicYourPlaylists")} count={library.playlists.length + 1}>
+      <MusicNewPlaylistCard t={t} onPress={() => setCreating(true)} />
+      {library.playlists.map((playlist) => <MusicUserPlaylistCard key={playlist.id} api={api} playlist={playlist} language={language} onPress={openMine} />)}
+    </MusicShelf> : null}
+    <MusicShelf title={t("musicSavedPlaylists")} count={library?.savedPlaylists.length ?? 0}>
+      {library?.savedPlaylists.map((playlist) => <MusicPlaylistCard key={playlist.playlistId} api={api} playlist={playlist} onPress={openSaved} />)}
+    </MusicShelf>
     <MusicShelf title={t("musicSavedAlbums")} count={library?.albums.length ?? 0}>
       {library?.albums.map((album) => <MusicAlbumCard key={album.browseId} api={api} album={album} detail={albumDetail(album, t, true)} onPress={openAlbum} />)}
     </MusicShelf>
@@ -84,10 +97,15 @@ export function MusicLibraryScreen({ api, session, t, visible, playingId, onOpen
     </View> : null}
     {failed ? <Note text={t("musicLoadFailed")} action={t("musicRetry")} onAction={load} />
       : !library ? <ActivityIndicator style={styles.loading} color={phoneColors.textMuted} />
-      : library.liked.length === 0 && library.albums.length === 0 ? <Note text={t("musicLibraryEmpty")} /> : null}
+      : library.liked.length === 0 && library.albums.length === 0 && library.playlists.length === 0 && library.savedPlaylists.length === 0
+        ? <Note text={t("musicLibraryEmpty")} /> : null}
   </View>;
-  return <FlatList data={library?.liked ?? []} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
-    renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={start} />} />;
+  return <>
+    <FlatList data={library?.liked ?? []} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
+      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={start} />} />
+    {creating ? <MusicNewPlaylistSheet api={api} t={t} onClose={() => setCreating(false)}
+      onCreated={(playlist) => { setCreating(false); onOpen({ kind: "mine", id: playlist.id }); }} /> : null}
+  </>;
 }
 
 /** Search: artists, albums and songs from YouTube Music; a song starts a station from it. */

@@ -586,6 +586,47 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_saved_albums (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, browse_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', artist_id TEXT, year TEXT, thumbnail TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'album' CHECK (kind IN ('album', 'single')), saved_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'), PRIMARY KEY (user_id, browse_id))" },
     ],
   },
+  {
+    version: 120,
+    name: "music-playlists",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+      "app/src/musicSchema.sql": "86379b2fdb5c81862b508185a471750befa03d62eed1c9e5956ff93eb31ee741",
+    },
+    sqlite: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_playlists (id TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))" },
+      { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_music_playlists_user ON music_playlists(user_id, updated_at)" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_playlist_tracks (playlist_id TEXT NOT NULL REFERENCES music_playlists(id) ON DELETE CASCADE, video_id TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0, added_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (playlist_id, video_id))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_saved_playlists (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, playlist_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', subtitle TEXT NOT NULL DEFAULT '', thumbnail TEXT NOT NULL DEFAULT '', saved_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (user_id, playlist_id))" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_playlists (id TEXT PRIMARY KEY, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, title TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'), updated_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))" },
+      { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_music_playlists_user ON music_playlists(user_id, updated_at)" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_playlist_tracks (playlist_id TEXT NOT NULL REFERENCES music_playlists(id) ON DELETE CASCADE, video_id TEXT NOT NULL, position INTEGER NOT NULL DEFAULT 0, added_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'), PRIMARY KEY (playlist_id, video_id))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_saved_playlists (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, playlist_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', subtitle TEXT NOT NULL DEFAULT '', thumbnail TEXT NOT NULL DEFAULT '', saved_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'), PRIMARY KEY (user_id, playlist_id))" },
+    ],
+  },
+  {
+    version: 121,
+    name: "public-share-streaming-limits",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+      "app/src/musicSchema.sql": "86379b2fdb5c81862b508185a471750befa03d62eed1c9e5956ff93eb31ee741",
+      "app/src/publicShareSchema.sql": "607906c8adae087f6105876c76848ef1afebf180259cabee84ff2ddf203af1ae",
+    },
+    sqlite: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS public_share_limits (share_id TEXT PRIMARY KEY REFERENCES public_shares(id) ON DELETE CASCADE, allow_server_stream INTEGER NOT NULL DEFAULT 0 CHECK (allow_server_stream IN (0,1)), max_plays INTEGER CHECK (max_plays IS NULL OR max_plays > 0), play_count INTEGER NOT NULL DEFAULT 0, expires_at TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS public_share_plays (share_id TEXT NOT NULL REFERENCES public_shares(id) ON DELETE CASCADE, visitor_key TEXT NOT NULL, video_id TEXT NOT NULL, played_at TEXT NOT NULL, PRIMARY KEY (share_id, visitor_key, video_id))" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS public_share_limits (share_id TEXT PRIMARY KEY REFERENCES public_shares(id) ON DELETE CASCADE, allow_server_stream INTEGER NOT NULL DEFAULT 0 CHECK (allow_server_stream IN (0,1)), max_plays INTEGER CHECK (max_plays IS NULL OR max_plays > 0), play_count INTEGER NOT NULL DEFAULT 0, expires_at TEXT, updated_at TEXT NOT NULL DEFAULT to_char(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS public_share_plays (share_id TEXT NOT NULL REFERENCES public_shares(id) ON DELETE CASCADE, visitor_key TEXT NOT NULL, video_id TEXT NOT NULL, played_at TEXT NOT NULL, PRIMARY KEY (share_id, visitor_key, video_id))" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {

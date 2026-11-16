@@ -1,5 +1,6 @@
 import type { Context, Hono } from "hono";
 import type { MusicPages } from "../music/musicAlbums";
+import { isPlaylistSaved } from "../music/musicPlaylists";
 import { upstreamFailure, withRatings } from "../music/musicRouteHelpers";
 import { GENRE_ID, PLAYLIST_ID } from "../music/youtubeMusicGenreParsers";
 
@@ -38,7 +39,7 @@ export function registerMusicGenreRoutes(api: Hono<ApiEnvironment>, { currentUse
     try {
       const page = await pages.playlist(userId, playlistId);
       if (!page) return context.json({ error: "not found" }, 404);
-      return context.json({ ...page, tracks: await withRatings(userId, page.tracks) });
+      return context.json({ ...page, tracks: await withRatings(userId, page.tracks), saved: await isPlaylistSaved(userId, playlistId) });
     } catch (error) {
       return upstreamFailure(context, error, "music.playlist_failed");
     }

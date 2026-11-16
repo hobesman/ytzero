@@ -15,10 +15,12 @@ export type MusicQueue = {
   skipped: string[];
   /** The album or playlist the first songs came from, while they play. */
   from: { title: string; count: number } | null;
+  /** Songs the listener queued by hand; they stay ahead of the station's refill. */
+  queued: string[];
 };
 
 export function createQueue(seed: MusicSeed, seedKey: string | null, tracks: MusicTrack[], fromTitle: string | null = null): MusicQueue {
-  return { seed, seedKey, tracks: dedupe(tracks), index: 0, skipped: [], from: fromTitle ? { title: fromTitle, count: tracks.length } : null };
+  return { seed, seedKey, tracks: dedupe(tracks), index: 0, skipped: [], from: fromTitle ? { title: fromTitle, count: tracks.length } : null, queued: [] };
 }
 
 function dedupe(tracks: readonly MusicTrack[]): MusicTrack[] {
@@ -61,7 +63,7 @@ export function rateTrack(queue: MusicQueue, videoId: string, rating: 1 | -1 | n
 /** Drops a song the listener said "not this one" to from what's still to come. */
 export function removeUpcoming(queue: MusicQueue, videoId: string): MusicQueue {
   const tracks = queue.tracks.filter((track, index) => index <= queue.index || track.videoId !== videoId);
-  return { ...queue, tracks };
+  return { ...queue, tracks, queued: queue.queued.filter((id) => id !== videoId) };
 }
 
 /** Whether the "From <album>" label still applies to the song at the current index. */
@@ -80,4 +82,52 @@ export function playRecord(queue: MusicQueue, track: MusicTrack, startedAt: Date
     listenedSeconds: Math.round(duration ? Math.min(listenedSeconds, duration) : listenedSeconds),
     duration, endReason: reason, stationSeed: queue.seedKey,
   };
+}
+
+/** Where "Add to queue" goes: after the last song queued by hand that is still to come, so they play in the order added. */
+export function handQueuedEnd(queue: MusicQueue): number {
+  const hand = new Set(queue.queued);
+  for (let at = queue.tracks.length - 1; at > queue.index; at -= 1) if (hand.has(queue.tracks[at].videoId)) return at + 1;
+  return queue.index + 1;
+}
+
+/** The song at `from` moved so it ends up at `to`; the playing song keeps playing. */
+function moveItem(queue: MusicQueue, from: number, to: number): MusicQueue {
+  const tracks = [...queue.tracks];
+  const [item] = tracks.splice(from, 1);
+  tracks.splice(to, 0, item);
+  let index = queue.index;
+  if (from === index) index = to;
+  else {
+    if (from < index) index -= 1;
+    if (to <= index) index += 1;
+  }
+  return { ...queue, tracks, index };
+}
+
+/**
+ * "Play next" or "Add to queue". A song already queued moves rather than
+ * appearing twice; the one playing stays where it is.
+ */
+export function queueTrack(queue: MusicQueue, track: MusicTrack, placement: "next" | "last"): MusicQueue {
+  const from = queue.tracks.findIndex((entry) => entry.videoId === track.videoId);
+  if (from === queue.index) return queue;
+  const insertAt = placement === "next" ? queue.index + 1 : handQueuedEnd(queue);
+  const queued = [...queue.queued.filter((id) => id !== track.videoId), track.videoId].slice(-200);
+  if (from < 0) {
+    const tracks = [...queue.tracks];
+    tracks.splice(insertAt, 0, track);
+    const album = queue.from && insertAt < queue.from.count ? { ...queue.from, count: queue.from.count + 1 } : queue.from;
+    return { ...queue, tracks, queued, from: album };
+  }
+  const to = from < insertAt ? insertAt - 1 : insertAt;
+  return { ...(to === from ? queue : moveItem(queue, from, to)), queued };
+}
+
+/** The listener moved a song in Up next. Only songs still to come move, and never above the one playing. */
+export function moveUpcoming(queue: MusicQueue, from: number, to: number): MusicQueue {
+  const last = queue.tracks.length - 1;
+  if (from <= queue.index || from > last) return queue;
+  const target = Math.max(queue.index + 1, Math.min(to, last));
+  return target === from ? queue : moveItem(queue, from, target);
 }

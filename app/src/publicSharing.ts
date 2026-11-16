@@ -2,6 +2,12 @@ import { randomBytes } from "node:crypto";
 import { database } from "./database";
 import { hasPermission } from "./accessControl";
 import { profileVideoOwnershipExists } from "./feedQuery";
+import {
+  applyPublicShareLimitUpdate,
+  insertDefaultPublicShareLimits,
+  publicShareLimitReason,
+  type PublicShareLimitUpdate,
+} from "./publicShareLimits";
 
 export const PUBLIC_SHARE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export const PUBLIC_SHARE_PAGE_SIZE = 60;
@@ -15,6 +21,10 @@ export interface PublicShareRow {
   resource_type: PublicShareResourceType;
   resource_id: string;
   allow_local_media: number;
+  allow_server_stream: number;
+  max_plays: number | null;
+  play_count: number;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
   owner_name?: string;
@@ -61,6 +71,15 @@ export class PublicShareError extends Error {
     this.name = "PublicShareError";
   }
 }
+
+// Every share read joins its playback grant and limits. A link without a limits
+// row predates them: no server streaming and no limits.
+const SHARE_SELECT = `
+  SELECT share.id,share.token,share.owner_user_id,share.resource_type,share.resource_id,share.allow_local_media,
+         share.created_at,share.updated_at,COALESCE(lim.allow_server_stream,0) AS allow_server_stream,
+         lim.max_plays,COALESCE(lim.play_count,0) AS play_count,lim.expires_at
+  FROM public_shares share LEFT JOIN public_share_limits lim ON lim.share_id=share.id
+`;
 
 const PUBLIC_VIDEO_FILTER = `
   COALESCE(v.is_private, 0) = 0
@@ -158,10 +177,7 @@ async function removeTerminatedShares(): Promise<void> {
 
 export async function resolvePublicShare(token: string): Promise<ResolvedPublicShare | null> {
   if (!PUBLIC_SHARE_TOKEN_PATTERN.test(token) || !await publicSharingEnabled()) return null;
-  const share = await database.prepare(`
-    SELECT id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at
-    FROM public_shares WHERE token=?
-  `).get<PublicShareRow>(token);
+  const share = await database.prepare(`${SHARE_SELECT} WHERE share.token=?`).get<PublicShareRow>(token);
   if (!share || await removeTerminatedShare(share) || !await profileCanPublishPublicShares(share.owner_user_id)) return null;
   const resource = await resourceSummary(share.owner_user_id, share.resource_type, share.resource_id);
   if (!resource) {
@@ -273,19 +289,23 @@ export async function listManagedPublicShares(ownerUserId: number, administrator
   if (prioritizeOwner) params.push(ownerUserId);
   return database.prepare(`
     SELECT share.id,share.token,share.owner_user_id,share.resource_type,share.resource_id,
-           share.allow_local_media,share.created_at,share.updated_at,owner.name AS owner_name
+           share.allow_local_media,share.created_at,share.updated_at,owner.name AS owner_name,
+           COALESCE(lim.allow_server_stream,0) AS allow_server_stream,lim.max_plays,
+           COALESCE(lim.play_count,0) AS play_count,lim.expires_at
     FROM public_shares share JOIN users owner ON owner.id=share.owner_user_id
+    LEFT JOIN public_share_limits lim ON lim.share_id=share.id
     WHERE ${where.join(" AND ")}
     ORDER BY ${prioritizeOwner ? "CASE WHEN share.owner_user_id=? THEN 0 ELSE 1 END," : ""} share.created_at DESC,share.id
   `).all<PublicShareRow>(...params);
 }
 
 export async function managedPublicShare(id: string): Promise<PublicShareRow | null> {
-  const share = await database.prepare(`
-    SELECT id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at
-    FROM public_shares WHERE id=?
-  `).get<PublicShareRow>(id);
+  const share = await shareById(id);
   return share && !await removeTerminatedShare(share) ? share : null;
+}
+
+async function shareById(id: string): Promise<PublicShareRow | null> {
+  return database.prepare(`${SHARE_SELECT} WHERE share.id=?`).get<PublicShareRow>(id);
 }
 
 export async function createPublicShare(ownerUserId: number, resourceType: PublicShareResourceType, resourceId: string): Promise<PublicShareRow> {
@@ -297,40 +317,40 @@ export async function createPublicShare(ownerUserId: number, resourceType: Publi
     throw new PublicShareError(409, "public_share_resource_unavailable", "resource cannot be shared");
   }
   const existing = await database.prepare(`
-    SELECT id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at
-    FROM public_shares WHERE owner_user_id=? AND resource_type=? AND resource_id=?
+    ${SHARE_SELECT} WHERE share.owner_user_id=? AND share.resource_type=? AND share.resource_id=?
   `).get<PublicShareRow>(ownerUserId, resourceType, resourceId);
   if (existing) return existing;
   const id = crypto.randomUUID();
   const token = createPublicShareToken();
   const now = new Date().toISOString();
-  return database.prepare(`
+  await database.prepare(`
     INSERT INTO public_shares(id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at)
     VALUES(?,?,?,?,?,0,?,?)
-    RETURNING id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at
-  `).get<PublicShareRow>(id, token, ownerUserId, resourceType, resourceId, now, now) as Promise<PublicShareRow>;
+  `).run(id, token, ownerUserId, resourceType, resourceId, now, now);
+  await insertDefaultPublicShareLimits(id);
+  return await shareById(id) as PublicShareRow;
 }
 
 export async function rotatePublicShare(id: string): Promise<PublicShareRow | null> {
   const token = createPublicShareToken();
   const now = new Date().toISOString();
-  return database.prepare(`
-    UPDATE public_shares SET token=?,updated_at=? WHERE id=?
-    RETURNING id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at
-  `).get<PublicShareRow>(token, now, id);
+  await database.prepare("UPDATE public_shares SET token=?,updated_at=? WHERE id=?").run(token, now, id);
+  return shareById(id);
 }
 
-export async function updatePublicShareLocalMedia(id: string, allowed: boolean): Promise<{ share: PublicShareRow | null; rotated: boolean }> {
+/** Granting local media or server streaming widens what the URL can do, so
+ * either one rotates the token. Revoking a grant keeps the URL. */
+export async function updatePublicShare(id: string, update: PublicShareLimitUpdate): Promise<{ share: PublicShareRow | null; rotated: boolean }> {
   const current = await managedPublicShare(id);
   if (!current) return { share: null, rotated: false };
-  const rotated = allowed && current.allow_local_media !== 1;
+  const allowLocalMedia = update.allowLocalMedia ?? current.allow_local_media === 1;
+  const rotated = (update.allowLocalMedia === true && current.allow_local_media !== 1)
+    || (update.allowServerStream === true && current.allow_server_stream !== 1);
   const token = rotated ? createPublicShareToken() : current.token;
-  const now = new Date().toISOString();
-  const share = await database.prepare(`
-    UPDATE public_shares SET allow_local_media=?,token=?,updated_at=? WHERE id=?
-    RETURNING id,token,owner_user_id,resource_type,resource_id,allow_local_media,created_at,updated_at
-  `).get<PublicShareRow>(allowed ? 1 : 0, token, now, id);
-  return { share, rotated };
+  await database.prepare("UPDATE public_shares SET allow_local_media=?,token=?,updated_at=? WHERE id=?")
+    .run(allowLocalMedia ? 1 : 0, token, new Date().toISOString(), id);
+  await applyPublicShareLimitUpdate(current, update);
+  return { share: await shareById(id), rotated };
 }
 
 export async function deletePublicShare(id: string): Promise<boolean> {
@@ -343,5 +363,7 @@ export async function publicShareStatus(share: PublicShareRow, policyEnabled: bo
   if (!policyEnabled) return { active: false, reason: "policy_disabled", resource };
   if (!await profileCanPublishPublicShares(share.owner_user_id)) return { active: false, reason: "permission_suspended", resource };
   if (!resource) return { active: false, reason: "resource_unavailable", resource: null };
+  const limited = publicShareLimitReason(share);
+  if (limited) return { active: false, reason: limited, resource };
   return { active: true, reason: null, resource };
 }

@@ -241,7 +241,10 @@ preparation status is transient; it adds no new portable entity or setting.
 Public sharing is instance-local security state. `public_share_policy` contains
 the default-off installation-wide kill switch, while `public_shares` contains
 plaintext bearer tokens, owners, targets and the per-link local-media grant.
-Neither table is exposed through settings or diagnostics, and neither is
+`public_share_limits` (per-link server-streaming grant, play limit, play count
+and expiry) is the same class of instance-local security state, and
+`public_share_plays` (hashed visitor keys of counted plays) is transient state.
+None of these tables is exposed through settings or diagnostics, and none is
 included in any portable backup section. An exact stopped-instance backup (or
 the corresponding PostgreSQL database backup) preserves both tables. Access
 control groups may carry the separate `public_sharing` capability as portable
@@ -551,21 +554,33 @@ archive with no such capability restores with public sharing denied.
 - `watch_time_log`, `scheduling_event_log`, `watch_tag_time_log`, and
   `sponsorblock_skip_log` if Insights/Pulse history is selected.
 - Music mode is a separate service and has its own versioned section,
-  `profile.music` (schema v2, `profiles/<uuid>/music.json`). It holds the
+  `profile.music` (schema v3, `profiles/<uuid>/music.json`). It holds the
   profile's `music_ratings` (liked songs and "not this one"), `music_plays`
-  (listening history with listened seconds and how each song ended) and, since
-  v2, `music_saved_albums` (albums saved to the library, keyed by YouTube
-  Music album ID, with the title, artist, year and artwork shown there). A v1
-  document has no saved albums and restores as before. Ratings and plays are
+  (listening history with listened seconds and how each song ended), since
+  v2 `music_saved_albums` (albums saved to the library, keyed by YouTube
+  Music album ID, with the title, artist, year and artwork shown there), and
+  since v3 the profile's own playlists (`music_playlists` and
+  `music_playlist_tracks`, exported as `playlists`: each with its UUID, title,
+  created and updated times and its songs' video IDs in order) and
+  `music_saved_playlists` (YouTube Music playlists saved to the library, keyed
+  by playlist ID, with the title, subtitle and artwork shown there). All of
+  these are portable personal state. A v1 document has no saved albums or
+  playlists and a v2 document has no playlists; both restore as before.
+  Ratings, plays and playlist songs are
   keyed by YouTube video ID, never by a `videos` row: music never writes the
   video catalog, so the section does not depend on
   `library.referenced-videos`. `music_tracks` is a rebuildable cache of songs
-  seen in search or radio; only the rows the exported ratings and plays point
-  at travel with them, as a rehydration seed, and restore never overwrites an
-  existing track row. Merge upserts ratings by profile and video, inserts
-  plays idempotently by profile, video and start time, and keeps an album
-  already saved by the profile; replace clears the mapped profile's ratings,
-  plays and saved albums first. Malformed rows are skipped and counted.
+  seen in search or radio; only the rows the exported ratings, plays and
+  playlists point at travel with them, as a rehydration seed, and restore
+  never overwrites an existing track row. Merge upserts ratings by profile and
+  video, inserts plays idempotently by profile, video and start time, keeps an
+  album or YouTube Music playlist already saved by the profile, and keeps a
+  playlist the profile already has (matched by UUID) as it is. A playlist UUID
+  already owned by another profile (a backup restored into a second profile)
+  is replaced by one derived from the UUID and the target profile, so
+  restoring again finds the same copy. Replace clears the mapped profile's
+  ratings, plays, saved albums, playlists and saved playlists first.
+  Malformed rows are skipped and counted.
   A play's `station_seed` names the station it came from (`track:<id>`,
   `album:<id>`, `artist:<id>`, `playlist:<id>`, `liked` or `mix`), up to 80
   characters. In-memory radio results, album, artist and playlist pages, the
@@ -679,6 +694,12 @@ archive with no such capability restores with public sharing denied.
   tablet, shared across profiles. Missing or invalid values mean off. It is
   never sent to the instance and is excluded from portable and exact server
   backups; no server backup adapter or archive shape changes.
+
+- The Android low-resource mode (`ytzero.phone.low-resource`, SecureStore) is
+  machine-bound configuration for that device's hardware and connection,
+  shared across profiles. Missing or invalid values mean off. It is never sent
+  to the instance and is excluded from portable and exact server backups; no
+  server backup adapter or archive shape changes.
 
 - The Android app's stream quality (`ytzero.tv.stream-quality`, SecureStore) is
   machine-bound playback configuration for that device, shared across

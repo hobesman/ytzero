@@ -90,9 +90,12 @@ describe("HTTP route manifest", () => {
       "POST /music/plays", "PUT /music/tracks/:id/rating", "GET /music/library",
       "GET /music/albums/:id", "GET /music/artists/:id", "PUT /music/albums/:id/saved", "DELETE /music/albums/:id/saved",
       "GET /music/genres", "GET /music/genres/:id", "GET /music/playlists/:id",
+      "GET /music/my-playlists", "POST /music/my-playlists", "GET /music/my-playlists/:id", "PATCH /music/my-playlists/:id", "DELETE /music/my-playlists/:id",
+      "POST /music/my-playlists/:id/tracks", "DELETE /music/my-playlists/:id/tracks/:videoId", "PUT /music/my-playlists/:id/order",
+      "PUT /music/playlists/:id/saved", "DELETE /music/playlists/:id/saved",
     ];
     for (const route of musicRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(296);
+    expect(routes).toHaveLength(306);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);

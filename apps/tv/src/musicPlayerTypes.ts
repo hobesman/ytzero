@@ -39,6 +39,10 @@ export type MusicPlayer = {
   setAuthorization(token: string | null): Promise<void>;
   setQueue(tracks: MusicPlayerTrack[], startIndex: number, play: boolean): Promise<void>;
   append(tracks: MusicPlayerTrack[]): Promise<void>;
+  /** Puts songs at `index`, pushing the ones there later. */
+  insertAt(index: number, tracks: MusicPlayerTrack[]): Promise<void>;
+  /** Moves the song at `from` to `to`. */
+  move(from: number, to: number): Promise<void>;
   removeAt(index: number): Promise<void>;
   skipTo(index: number): Promise<void>;
   play(): Promise<void>;
