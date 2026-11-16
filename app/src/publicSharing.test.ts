@@ -105,12 +105,12 @@ if (process.env[ISOLATION_FLAG] !== "1") {
 
     test("rotates when local media is enabled and revokes permanently", async () => {
       const current = await sharing.createPublicShare(1, "video", "public001");
-      const enabled = await sharing.updatePublicShareLocalMedia(current.id, true);
+      const enabled = await sharing.updatePublicShare(current.id, { allowLocalMedia: true });
       expect(enabled.rotated).toBe(true);
       expect(enabled.share?.token).not.toBe(current.token);
       expect(await sharing.resolvePublicShare(current.token)).toBeNull();
       expect(await sharing.resolvePublicShare(enabled.share!.token)).not.toBeNull();
-      const disabled = await sharing.updatePublicShareLocalMedia(current.id, false);
+      const disabled = await sharing.updatePublicShare(current.id, { allowLocalMedia: false });
       expect(disabled.rotated).toBe(false);
       expect(disabled.share?.token).toBe(enabled.share?.token);
       expect(await sharing.deletePublicShare(current.id)).toBe(true);
@@ -169,6 +169,157 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       expect(limiter.acquire("token")).toBeNull();
       leases[0]?.();
       expect(limiter.acquire("token")).toBeFunction();
+    });
+  });
+
+  const limits = await import("./publicShareLimits");
+  describe("public share limits and server streaming", () => {
+    let videoSeq = 0;
+    const newVideo = () => {
+      const id = `limits${String(++videoSeq).padStart(3, "0")}`;
+      db.prepare("INSERT INTO videos(video_id,channel_id,title,live_status) VALUES(?,'UCshare',?,'none')").run(id, `Limits ${id}`);
+      return id;
+    };
+    const visit = (router: ReturnType<typeof createPublicShareRouter>, path: string, visitor: string, userAgent = "test-agent") =>
+      router.request(`http://localhost/${path}`, { headers: { "x-forwarded-for": visitor, "user-agent": userAgent } });
+
+    const fakeStreaming = () => {
+      const calls: string[] = [];
+      const backend = {
+        available: async () => { calls.push("available"); return true; },
+        playlist: async (userId: number, videoId: string, file: string) => {
+          calls.push(`playlist:${userId}:${videoId}:${file}`);
+          return { kind: "playlist" as const, playlist: `#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="/api/videos/${videoId}/direct-hls/audio.m3u8?v=gen12345"\n/api/videos/${videoId}/direct-hls/video.m3u8?v=gen12345\n` };
+        },
+        resource: async (userId: number, videoId: string, file: string, range: string | null) => {
+          calls.push(`resource:${userId}:${videoId}:${file}:${range}`);
+          return { kind: "response" as const, response: new Response("bytes", { status: 206 }) };
+        },
+      };
+      return { backend, calls };
+    };
+
+    test("new links default to 10 plays and a 2-day expiry, with streaming off", async () => {
+      const before = Date.now();
+      const share = await sharing.createPublicShare(1, "video", newVideo());
+      expect(share.allow_server_stream).toBe(0);
+      expect(share.max_plays).toBe(limits.PUBLIC_SHARE_DEFAULT_MAX_PLAYS);
+      expect(limits.PUBLIC_SHARE_DEFAULT_MAX_PLAYS).toBe(10);
+      expect(share.play_count).toBe(0);
+      const expiresIn = Date.parse(share.expires_at!) - before;
+      expect(expiresIn).toBeGreaterThanOrEqual(48 * 3_600_000 - 1_000);
+      expect(expiresIn).toBeLessThanOrEqual(48 * 3_600_000 + 5_000);
+    });
+
+    test("counts a play once per visitor and video, not per request", async () => {
+      const videoId = newVideo();
+      const share = await sharing.createPublicShare(1, "video", videoId);
+      await sharing.updatePublicShare(share.id, { maxPlays: 2 });
+      const router = createPublicShareRouter(uiDir);
+      for (let index = 0; index < 3; index++) expect((await visit(router, `${share.token}/data`, "198.51.100.1")).status).toBe(200);
+      expect((await sharing.managedPublicShare(share.id))?.play_count).toBe(1);
+      expect((await visit(router, `${share.token}/data`, "198.51.100.2")).status).toBe(200);
+      expect((await sharing.managedPublicShare(share.id))?.play_count).toBe(2);
+
+      const refused = await visit(router, `${share.token}/data`, "198.51.100.3");
+      expect(refused.status).toBe(410);
+      expect(await refused.json()).toEqual({ error: "expired", reason: "plays_exhausted" });
+      expect((await sharing.managedPublicShare(share.id))?.play_count).toBe(2);
+      // Visitors who already used a play keep working (reloads, seeking).
+      expect((await visit(router, `${share.token}/data`, "198.51.100.1")).status).toBe(200);
+      expect((await visit(router, `${share.token}/thumbnail/${videoId}`, "198.51.100.3")).status).toBe(410);
+      // The page shell still loads so it can show the expired state.
+      expect((await visit(router, share.token, "198.51.100.3")).status).toBe(200);
+
+      const managed = await sharing.listManagedPublicShares(1, false, { resourceType: "video", resourceId: videoId });
+      expect(await sharing.publicShareStatus(managed[0]!, true)).toMatchObject({ active: false, reason: "plays_exhausted" });
+
+      await sharing.updatePublicShare(share.id, { resetPlays: true });
+      expect((await sharing.managedPublicShare(share.id))?.play_count).toBe(0);
+      expect((await visit(router, `${share.token}/data`, "198.51.100.3")).status).toBe(200);
+      await sharing.updatePublicShare(share.id, { maxPlays: null });
+      for (const visitor of ["203.0.113.1", "203.0.113.2", "203.0.113.3"]) {
+        expect((await visit(router, `${share.token}/data`, visitor)).status).toBe(200);
+      }
+      expect((await sharing.managedPublicShare(share.id))?.max_plays).toBeNull();
+    });
+
+    test("expires by time for every visitor and media request", async () => {
+      const videoId = newVideo();
+      const share = await sharing.createPublicShare(1, "video", videoId);
+      const updated = (await sharing.updatePublicShare(share.id, { allowLocalMedia: true })).share!;
+      const router = createPublicShareRouter(uiDir);
+      expect((await visit(router, `${updated.token}/data`, "192.0.2.1")).status).toBe(200);
+      db.prepare("UPDATE public_share_limits SET expires_at=? WHERE share_id=?").run(new Date(Date.now() - 1_000).toISOString(), share.id);
+      const expired = await visit(router, `${updated.token}/data`, "192.0.2.1");
+      expect(expired.status).toBe(410);
+      expect(await expired.json()).toEqual({ error: "expired", reason: "expired" });
+      expect((await visit(router, `${updated.token}/media/${videoId}`, "192.0.2.1")).status).toBe(410);
+      expect((await visit(router, updated.token, "192.0.2.1")).status).toBe(200);
+
+      await sharing.updatePublicShare(share.id, { expiresInHours: 24 });
+      expect((await visit(router, `${updated.token}/data`, "192.0.2.1")).status).toBe(200);
+      await sharing.updatePublicShare(share.id, { expiresInHours: null });
+      expect((await sharing.managedPublicShare(share.id))?.expires_at).toBeNull();
+    });
+
+    test("never reaches yt-dlp for anonymous visitors unless streaming is granted", async () => {
+      const videoId = newVideo();
+      const share = await sharing.createPublicShare(1, "video", videoId);
+      const { backend, calls } = fakeStreaming();
+      const router = createPublicShareRouter(uiDir, { streaming: backend });
+      const data = await (await visit(router, `${share.token}/data`, "192.0.2.10")).json() as { playback: unknown };
+      expect(data.playback).toEqual({ kind: "youtube", video_id: videoId });
+      expect((await visit(router, `${share.token}/stream/${videoId}/index.m3u8`, "192.0.2.10")).status).toBe(404);
+      expect((await visit(router, `${share.token}/stream/${videoId}/video.mp4?v=gen12345`, "192.0.2.10")).status).toBe(404);
+      expect(calls).toEqual([]);
+    });
+
+    test("granting streaming rotates the link and streams through the owner's session", async () => {
+      const videoId = newVideo();
+      const share = await sharing.createPublicShare(1, "video", videoId);
+      await sharing.updatePublicShare(share.id, { maxPlays: null, expiresInHours: null });
+      const granted = await sharing.updatePublicShare(share.id, { allowServerStream: true });
+      expect(granted.rotated).toBe(true);
+      expect(granted.share?.token).not.toBe(share.token);
+      expect(await sharing.resolvePublicShare(share.token)).toBeNull();
+      // A grant on an unlimited link brings back the default limits.
+      expect(granted.share?.max_plays).toBe(10);
+      expect(granted.share?.expires_at).not.toBeNull();
+      const token = granted.share!.token;
+
+      const { backend, calls } = fakeStreaming();
+      const router = createPublicShareRouter(uiDir, { streaming: backend });
+      const data = await (await visit(router, `${token}/data`, "192.0.2.20")).json() as { playback: unknown };
+      expect(data.playback).toEqual({ kind: "stream", url: `/share/${token}/stream/${videoId}/index.m3u8`, video_id: videoId });
+      const playlist = await (await visit(router, `${token}/stream/${videoId}/index.m3u8`, "192.0.2.20")).text();
+      expect(playlist).not.toContain("/api/");
+      expect(playlist).toContain(`/share/${token}/stream/${videoId}/video.m3u8?v=gen12345`);
+      expect(playlist).toContain(`/share/${token}/stream/${videoId}/audio.m3u8?v=gen12345`);
+      const segment = await router.request(`http://localhost/${token}/stream/${videoId}/video.mp4?v=gen12345`, {
+        headers: { "x-forwarded-for": "192.0.2.20", "user-agent": "test-agent", range: "bytes=0-99" },
+      });
+      expect(segment.status).toBe(206);
+      expect(calls).toContain(`playlist:1:${videoId}:index.m3u8`);
+      expect(calls).toContain(`resource:1:${videoId}:video.mp4:bytes=0-99`);
+      expect((await visit(router, `${token}/stream/${videoId}/other.ts`, "192.0.2.20")).status).toBe(404);
+      // Segment requests do not use up more plays.
+      expect((await sharing.managedPublicShare(share.id))?.play_count).toBe(1);
+
+      const revoked = await sharing.updatePublicShare(share.id, { allowServerStream: false });
+      expect(revoked.rotated).toBe(false);
+      expect((await visit(router, `${token}/stream/${videoId}/index.m3u8`, "192.0.2.20")).status).toBe(404);
+    });
+
+    test("validates management updates", () => {
+      expect(limits.parsePublicShareUpdate({ allow_server_stream: true, max_plays: 5, expires_in_hours: null, reset_plays: true }))
+        .toEqual({ ok: true, update: { allowLocalMedia: undefined, allowServerStream: true, maxPlays: 5, expiresInHours: null, resetPlays: true } });
+      expect(limits.parsePublicShareUpdate({}).ok).toBe(false);
+      expect(limits.parsePublicShareUpdate({ max_plays: 0 }).ok).toBe(false);
+      expect(limits.parsePublicShareUpdate({ max_plays: 1.5 }).ok).toBe(false);
+      expect(limits.parsePublicShareUpdate({ expires_in_hours: "48" }).ok).toBe(false);
+      expect(limits.parsePublicShareUpdate({ allow_server_stream: "yes" }).ok).toBe(false);
+      expect(limits.publicShareVisitorKey("share", "198.51.100.1", "agent")).not.toContain("198.51.100.1");
     });
   });
 }
