@@ -5,6 +5,7 @@ import type { Translate } from "../i18n";
 import { canDownloadToPhone } from "../phoneDownloads";
 import type { Language, Video } from "../types";
 import { PhoneDownloadSheetRow } from "./PhoneDownloadStatus";
+import { PhoneVideoShareRows } from "./PhoneVideoShareRows";
 import { scheduleBuckets, useVideoActions } from "../useVideoActions";
 import type { VideoCardActionConfig } from "../videoCardActions";
 import { PhoneChip } from "./PhoneChip";
@@ -40,6 +41,7 @@ export function PhoneVideoActionSheet({ api, actionConfig, video, t, language, o
             trailing={busy === item ? <ActivityIndicator color={phoneColors.textMuted} /> : item === "schedule" || item === "playlist" ? chevron : undefined}
             onPress={item === "sessionQueue" && actions.queueFull ? undefined : () => actions.selectAction(item)} />)}
       <PhoneDownloadSheetRow video={currentVideo} t={t} language={language} canStart={canDownloadToPhone(currentVideo)} />
+      <PhoneVideoShareRows api={api} video={currentVideo} t={t} onShared={actions.close} />
     </>;
   } else if (view === "schedule") {
     body = scheduleBuckets.map(({ bucket, label }) => {
