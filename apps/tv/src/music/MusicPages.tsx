@@ -115,7 +115,7 @@ export function MusicAlbumScreen({ api, session, t, playingId, id, onOpen, onBac
   </PageFrame>;
 }
 
-/** An artist: their station, top songs, albums and singles. */
+/** An artist: play only them or their radio, top songs, albums and singles. */
 export function MusicArtistScreen({ api, session, t, playingId, id, onOpen, onBack }: PageProps) {
   const load = useCallback(() => api.artist(id), [api, id]);
   const { data: artist, failed, retry } = usePageData<MusicArtistPage>(load);
@@ -126,8 +126,10 @@ export function MusicArtistScreen({ api, session, t, playingId, id, onOpen, onBa
       <MusicArtwork api={api} url={artist.thumbnail} size={160} radius={80} />
       <Text style={styles.heading}>{artist.name}</Text>
       <View style={styles.actions}>
-        <PhoneChip primary label={t("musicPlayStation")} disabled={!artist.topSongs.length}
+        <PhoneChip primary label={t("musicPlayArtist")} disabled={!artist.topSongs.length}
           onPress={() => void session.start({ kind: "artist", artistId: artist.channelId })} />
+        <PhoneChip label={t("musicArtistRadio")} disabled={!artist.topSongs.length}
+          onPress={() => void session.start({ kind: "artist", artistId: artist.channelId, radio: true })} />
       </View>
     </View>
     {artist.topSongs.length ? <PhoneSectionTitle title={t("musicTopSongs")} /> : null}

@@ -1,5 +1,6 @@
 import { database } from "../database";
 import { musicTracks, upsertMusicTracks, type StoredMusicTrack } from "./musicCatalog";
+import { artistOnlyTracks, artistSongPools } from "./musicArtistStation";
 import { artistKey, pickStationTracks, type MusicPlaySignal, type MusicSignals } from "./musicStationRanking";
 import type { MusicPages } from "./musicAlbums";
 import { ALBUM_ID, ARTIST_ID } from "./youtubeMusicBrowseParsers";
@@ -12,7 +13,8 @@ export type StationSeed =
   | { kind: "mix" }
   /** An album from `startAt` (its first track when absent), then a station like it. */
   | { kind: "album"; browseId: string; startAt?: string }
-  | { kind: "artist"; artistId: string }
+  /** The artist's own songs, shuffled, then a station like them; `radio` mixes in similar artists from the start. */
+  | { kind: "artist"; artistId: string; radio?: true }
   /** A playlist's songs, shuffled, then a station like the last one kept. */
   | { kind: "playlist"; playlistId: string };
 
@@ -35,7 +37,7 @@ function shuffled<T>(items: readonly T[], random = Math.random): T[] {
 }
 
 export function parseStationSeed(value: unknown): StationSeed | null {
-  const seed = value as { kind?: unknown; videoId?: unknown; browseId?: unknown; startAt?: unknown; artistId?: unknown; playlistId?: unknown } | null;
+  const seed = value as { kind?: unknown; videoId?: unknown; browseId?: unknown; startAt?: unknown; artistId?: unknown; radio?: unknown; playlistId?: unknown } | null;
   if (seed?.kind === "liked" || seed?.kind === "mix") return { kind: seed.kind };
   if (seed?.kind === "track" && typeof seed.videoId === "string" && VIDEO_ID.test(seed.videoId)) {
     return { kind: "track", videoId: seed.videoId };
@@ -45,7 +47,7 @@ export function parseStationSeed(value: unknown): StationSeed | null {
     return typeof seed.startAt === "string" && VIDEO_ID.test(seed.startAt) ? { kind: "album", browseId: seed.browseId, startAt: seed.startAt } : null;
   }
   if (seed?.kind === "artist" && typeof seed.artistId === "string" && ARTIST_ID.test(seed.artistId)) {
-    return { kind: "artist", artistId: seed.artistId };
+    return seed.radio === true ? { kind: "artist", artistId: seed.artistId, radio: true } : { kind: "artist", artistId: seed.artistId };
   }
   if (seed?.kind === "playlist" && typeof seed.playlistId === "string" && PLAYLIST_ID.test(seed.playlistId)) {
     return { kind: "playlist", playlistId: seed.playlistId };
@@ -57,7 +59,7 @@ export function stationSeedKey(seed: StationSeed): string {
   if (seed.kind === "track") return `track:${seed.videoId}`;
   if (seed.kind === "playlist") return `playlist:${seed.playlistId}`;
   if (seed.kind === "album") return `album:${seed.browseId}`;
-  if (seed.kind === "artist") return `artist:${seed.artistId}`;
+  if (seed.kind === "artist") return `${seed.radio ? "artist-radio" : "artist"}:${seed.artistId}`;
   return seed.kind;
 }
 
@@ -155,6 +157,14 @@ export function createMusicStations(client: YouTubeMusicClient, pages: MusicPage
     } else if (seed.kind === "artist") {
       const page = await pages.artist(userId, seed.artistId);
       if (!page?.topSongs.length) throw new Error("artist unavailable");
+      if (!seed.radio) {
+        const albumIds = [...page.albums, ...page.singles].map((album) => album.browseId);
+        const pools = await artistSongPools(pages, userId, page.topSongs, albumIds, !servedIds.length);
+        const own = artistOnlyTracks(pools, await loadMusicSignals(userId), { served, servedIds, skipped });
+        // Only the artist until their songs run out; then a station like them.
+        if (own.length >= count || !servedIds.length) return own.slice(0, count);
+        sources.push(own);
+      }
       sources.push(page.topSongs);
       radioSeeds.push(page.topSongs[0].videoId);
     } else if (seed.kind === "track") {

@@ -89,6 +89,23 @@ class MusicCatalogTest {
     assertNull(ListenRules.voiceSeed(CatalogSearch(emptyList(), emptyList(), emptyList())))
   }
 
+  @Test fun anArtistsRadioIsItsOwnSeed() {
+    val radio = StationSeed("artist", "UC1", radio = true)
+    assertEquals(radio, CatalogIds.seedFor(CatalogIds.artistRadio("UC1")))
+    assertEquals(StationSeed("artist", "UC1"), CatalogIds.seedFor(CatalogIds.artist("UC1")))
+    assertEquals(true, radio.toJson().getBoolean("radio"))
+    assertEquals(false, StationSeed("artist", "UC1").toJson().has("radio"))
+    assertEquals(radio, ListenRules.radioSeed(CatalogSearch(emptyList(), emptyList(), listOf(CatalogArtist("UC1", "A", null)))))
+  }
+
+  @Test fun spokenRadioRequestsNameTheArtist() {
+    assertEquals("Radiohead", ListenRules.radioArtistQuery("Radiohead radio"))
+    assertEquals("the beatles", ListenRules.radioArtistQuery("the beatles Station "))
+    assertNull(ListenRules.radioArtistQuery("Radiohead"))
+    assertNull(ListenRules.radioArtistQuery("radio"))
+    assertNull(ListenRules.radioArtistQuery("Video Killed the Radio Star"))
+  }
+
   @Test fun audioAddressesNameTheirServer() {
     assertEquals("https://tube.example", MusicServer.instanceOf("https://tube.example/api/music/tracks/aaaaaaaaaaa/audio"))
     assertEquals("http://192.168.1.5:8080/sub", MusicServer.instanceOf("http://192.168.1.5:8080/sub/api/music/tracks/aaaaaaaaaaa/audio"))

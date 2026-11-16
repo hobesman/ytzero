@@ -21,13 +21,14 @@ data class CatalogSearch(val tracks: List<CatalogTrack>, val albums: List<Catalo
 data class CatalogStation(val seedKey: String?, val tracks: List<CatalogTrack>)
 
 /** A station seed, as `POST /music/station` takes it. */
-data class StationSeed(val kind: String, val id: String? = null, val startAt: String? = null) {
+/** An artist seed plays only that artist; with `radio` it mixes in similar artists from the start. */
+data class StationSeed(val kind: String, val id: String? = null, val startAt: String? = null, val radio: Boolean = false) {
   fun toJson(): JSONObject {
     val json = JSONObject().put("kind", kind)
     when (kind) {
       "track" -> json.put("videoId", id)
       "album" -> { json.put("browseId", id); if (startAt != null) json.put("startAt", startAt) }
-      "artist" -> json.put("artistId", id)
+      "artist" -> { json.put("artistId", id); if (radio) json.put("radio", true) }
       "playlist" -> json.put("playlistId", id)
     }
     return json
@@ -48,6 +49,7 @@ object CatalogIds {
   fun album(browseId: String) = "album:$browseId"
   fun albumTrack(browseId: String, videoId: String) = "albumtrack:$browseId/$videoId"
   fun artist(channelId: String) = "artist:$channelId"
+  fun artistRadio(channelId: String) = "artistradio:$channelId"
   fun genre(id: String) = "genre:$id"
   fun playlist(playlistId: String) = "playlist:$playlistId"
 
@@ -66,6 +68,7 @@ object CatalogIds {
       "track" -> StationSeed("track", value)
       "album" -> StationSeed("album", value)
       "artist" -> StationSeed("artist", value)
+      "artistradio" -> StationSeed("artist", value, radio = true)
       "playlist" -> StationSeed("playlist", value)
       "albumtrack" -> {
         val slash = value.indexOf('/')
@@ -158,4 +161,13 @@ object ListenRules {
   fun voiceSeed(results: CatalogSearch): StationSeed? = results.tracks.firstOrNull()?.let { StationSeed("track", it.videoId) }
     ?: results.albums.firstOrNull()?.let { StationSeed("album", it.browseId) }
     ?: results.artists.firstOrNull()?.let { StationSeed("artist", it.channelId) }
+
+  private val RADIO_SUFFIX = Regex("""\s+(radio|station)$""", RegexOption.IGNORE_CASE)
+
+  /** The artist in a spoken "… radio" or "… station" request, or null for any other request. */
+  fun radioArtistQuery(query: String): String? =
+    query.trim().takeIf { RADIO_SUFFIX.containsMatchIn(it) }?.replace(RADIO_SUFFIX, "")?.trim()?.takeIf { it.isNotEmpty() }
+
+  /** That artist's radio, when the search found an artist. */
+  fun radioSeed(results: CatalogSearch): StationSeed? = results.artists.firstOrNull()?.let { StationSeed("artist", it.channelId, radio = true) }
 }

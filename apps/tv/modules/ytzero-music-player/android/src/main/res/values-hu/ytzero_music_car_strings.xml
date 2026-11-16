@@ -13,6 +13,7 @@
   <string name="ytzero_music_car_songs">Dalok</string>
   <string name="ytzero_music_car_albums">Albumok</string>
   <string name="ytzero_music_car_artists">Előadók</string>
+  <string name="ytzero_music_car_artist_radio">%1$s rádió</string>
   <string name="ytzero_music_car_setup">Nyisd meg a YT Zerót a telefonodon, és indíts el egy dalt a csatlakoztatáshoz</string>
   <string name="ytzero_music_car_not_allowed">Ehhez a profilhoz nem érhető el a zene</string>
   <string name="ytzero_music_car_unreachable">Nem érhető el a YT Zero-szervered</string>

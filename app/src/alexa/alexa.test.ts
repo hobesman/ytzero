@@ -172,6 +172,21 @@ type Directive = { type: string; playBehavior?: string; audioItem: { stream: { u
 const directiveOf = (response: { response: Record<string, unknown> }) => (response.response.directives as Directive[])[0];
 
 describe("alexa skill", () => {
+  test("songs by an artist play only the artist; an artist's radio keeps the radio flag in the token", async () => {
+    const { skill, stationCalls } = skillHarness();
+    const only = await skill.handle(7, intent("PlayArtistIntent", "band"));
+    expect(only.response.outputSpeech).toEqual({ type: "PlainText", text: "Playing songs by Band." });
+    expect(stationCalls[0].seed).toEqual({ kind: "artist", artistId: "UCabcdefghijklmnopqrstuv" });
+
+    const radio = await skill.handle(7, intent("PlayArtistRadioIntent", "band"));
+    expect(radio.response.outputSpeech).toEqual({ type: "PlainText", text: "Playing Band radio." });
+    const seed = { kind: "artist", artistId: "UCabcdefghijklmnopqrstuv", radio: true };
+    expect(stationCalls[1].seed).toEqual(seed as StationSeed);
+    const token = directiveOf(radio).audioItem.stream.token;
+    await skill.handle(7, event("AudioPlayer.PlaybackNearlyFinished", token));
+    expect(stationCalls[2].seed).toEqual(seed as StationSeed);
+  });
+
   test("plays a requested song, then queues the station after it", async () => {
     const { skill, prepared } = skillHarness();
     const started = await skill.handle(7, intent("PlaySongIntent", "song one"));

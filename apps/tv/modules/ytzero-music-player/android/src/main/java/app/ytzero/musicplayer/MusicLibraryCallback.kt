@@ -114,6 +114,7 @@ class MusicLibraryCallback(
       try {
         val server = MusicPlayerHolder.server(context) ?: throw MusicServerException("not set up", 0)
         val seed = CatalogIds.seedFor(mediaId)
+          ?: query?.let(ListenRules::radioArtistQuery)?.let { ListenRules.radioSeed(server.search(it)) }
           ?: query?.takeIf { it.isNotBlank() }?.let { ListenRules.voiceSeed(server.search(it)) }
           ?: StationSeed("mix")
         val first = server.station(seed, emptyList(), emptyList())
@@ -202,7 +203,12 @@ class MusicLibraryCallback(
     val results = server.search(query)
     return results.tracks.take(20).map { track(it, CatalogIds.track(it.videoId), string(R.string.ytzero_music_car_songs)) } +
       results.albums.map { album(it, string(R.string.ytzero_music_car_albums)) } +
-      results.artists.map { artist -> playable(CatalogIds.artist(artist.channelId), artist.name, null, artist.thumbnail, MediaMetadata.MEDIA_TYPE_ARTIST, string(R.string.ytzero_music_car_artists)) }
+      results.artists.flatMap { artist ->
+        listOf(
+          playable(CatalogIds.artist(artist.channelId), artist.name, null, artist.thumbnail, MediaMetadata.MEDIA_TYPE_ARTIST, string(R.string.ytzero_music_car_artists)),
+          playable(CatalogIds.artistRadio(artist.channelId), context.getString(R.string.ytzero_music_car_artist_radio, artist.name), null, artist.thumbnail, MediaMetadata.MEDIA_TYPE_RADIO_STATION, string(R.string.ytzero_music_car_artists)),
+        )
+      }
   }
 
   private fun tabs() = listOf(
