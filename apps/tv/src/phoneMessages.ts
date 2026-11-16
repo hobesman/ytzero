@@ -3,7 +3,7 @@ import type { Language } from "./types";
 type Messages = {
   openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string; streamQuality: string; qualityAuto: string; qualityFast: string; qualityFastHint: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
-  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; landscapeLayout: string; landscapeLayoutHint: string; account: string;
+  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; landscapeLayout: string; landscapeLayoutHint: string; lowResource: string; lowResourceHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
   addProfile: string; savedProfileExpired: string;
   passwordSignIn: string; username: string; password: string; signIn: string; invalidCredentials: string; tooManyAttempts: string; passwordSignInUnavailable: string;
@@ -33,6 +33,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Use the layout designed for phones. Turn off for the TV layout.",
     landscapeLayout: "Landscape layout",
     landscapeLayoutHint: "Keep the app sideways, with navigation down the side and the music player beside your library. For car screens and tablets on a stand.",
+
+    lowResource: "Low-resource mode",
+
+    lowResourceHint: "Video plays at 360p, thumbnails load smaller, and animations and blur are off. For slow devices on slow connections, such as a car screen.",
     account: "Account",
     miniPlayerExpand: "Expand player",
     miniPlayerClose: "Close player",
@@ -63,6 +67,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Używaj układu zaprojektowanego dla telefonów. Wyłącz, aby używać układu TV.",
     landscapeLayout: "Układ poziomy",
     landscapeLayoutHint: "Utrzymuj aplikację w poziomie, z nawigacją z boku i odtwarzaczem muzyki obok biblioteki. Do ekranów w samochodzie i tabletów na stojaku.",
+
+    lowResource: "Tryb oszczędny",
+
+    lowResourceHint: "Wideo odtwarza się w 360p, miniatury wczytują się mniejsze, a animacje i rozmycie są wyłączone. Do wolnych urządzeń przy wolnym połączeniu, na przykład ekranu w samochodzie.",
     account: "Konto",
     miniPlayerExpand: "Rozwiń odtwarzacz",
     miniPlayerClose: "Zamknij odtwarzacz",
@@ -93,6 +101,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Das für Smartphones gestaltete Layout verwenden. Ausschalten für das TV-Layout.",
     landscapeLayout: "Querformat-Layout",
     landscapeLayoutHint: "Die App im Querformat halten, mit Navigation an der Seite und dem Musikplayer neben der Mediathek. Für Autodisplays und Tablets im Ständer.",
+
+    lowResource: "Ressourcensparmodus",
+
+    lowResourceHint: "Videos laufen in 360p, Vorschaubilder werden kleiner geladen, Animationen und Unschärfe sind aus. Für langsame Geräte mit langsamer Verbindung, etwa ein Autodisplay.",
     account: "Konto",
     miniPlayerExpand: "Player vergrößern",
     miniPlayerClose: "Player schließen",
@@ -123,6 +135,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Utiliser la disposition conçue pour les téléphones. Désactivez-la pour la disposition TV.",
     landscapeLayout: "Disposition paysage",
     landscapeLayoutHint: "Garder l’application à l’horizontale, avec la navigation sur le côté et le lecteur de musique à côté de la bibliothèque. Pour les écrans de voiture et les tablettes sur support.",
+
+    lowResource: "Mode économie de ressources",
+
+    lowResourceHint: "Les vidéos sont lues en 360p, les miniatures se chargent en plus petit, et les animations et le flou sont désactivés. Pour les appareils lents sur une connexion lente, comme un écran de voiture.",
     account: "Compte",
     miniPlayerExpand: "Agrandir le lecteur",
     miniPlayerClose: "Fermer le lecteur",
@@ -153,6 +169,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Usa el diseño pensado para teléfonos. Desactívalo para usar el diseño de TV.",
     landscapeLayout: "Diseño horizontal",
     landscapeLayoutHint: "Mantén la aplicación en horizontal, con la navegación a un lado y el reproductor de música junto a la biblioteca. Para pantallas de coche y tabletas en un soporte.",
+
+    lowResource: "Modo de bajos recursos",
+
+    lowResourceHint: "Los vídeos se reproducen en 360p, las miniaturas se cargan más pequeñas y las animaciones y el desenfoque se desactivan. Para dispositivos lentos con conexiones lentas, como una pantalla de coche.",
     account: "Cuenta",
     miniPlayerExpand: "Ampliar reproductor",
     miniPlayerClose: "Cerrar reproductor",
@@ -183,6 +203,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Use o layout feito para celulares. Desative para usar o layout de TV.",
     landscapeLayout: "Layout horizontal",
     landscapeLayoutHint: "Mantenha o app na horizontal, com a navegação na lateral e o player de música ao lado da biblioteca. Para telas de carro e tablets em suporte.",
+
+    lowResource: "Modo de poucos recursos",
+
+    lowResourceHint: "Os vídeos tocam em 360p, as miniaturas carregam menores e as animações e o desfoque ficam desligados. Para aparelhos lentos em conexões lentas, como uma tela de carro.",
     account: "Conta",
     miniPlayerExpand: "Expandir player",
     miniPlayerClose: "Fechar player",
@@ -213,6 +237,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "Использовать макет для телефонов. Отключите, чтобы использовать макет для ТВ.",
     landscapeLayout: "Горизонтальный макет",
     landscapeLayoutHint: "Держать приложение в горизонтальной ориентации: навигация сбоку, музыкальный плеер рядом с библиотекой. Для автомобильных экранов и планшетов на подставке.",
+
+    lowResource: "Экономный режим",
+
+    lowResourceHint: "Видео воспроизводится в 360p, миниатюры загружаются меньшего размера, анимации и размытие отключены. Для медленных устройств с медленным подключением, например автомобильного экрана.",
     account: "Аккаунт",
     miniPlayerExpand: "Развернуть плеер",
     miniPlayerClose: "Закрыть плеер",
@@ -243,6 +271,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "スマートフォン向けのレイアウトを使います。オフにするとテレビ用レイアウトになります。",
     landscapeLayout: "横向きレイアウト",
     landscapeLayoutHint: "アプリを横向きに固定し、ナビゲーションを横に、音楽プレーヤーをライブラリの隣に表示します。車の画面やスタンドに置いたタブレット向けです。",
+
+    lowResource: "低リソースモード",
+
+    lowResourceHint: "動画は360pで再生し、サムネイルは小さく読み込み、アニメーションとぼかしをオフにします。車の画面など、通信の遅い低速な端末向けです。",
     account: "アカウント",
     miniPlayerExpand: "プレーヤーを拡大",
     miniPlayerClose: "プレーヤーを閉じる",
@@ -273,6 +305,10 @@ export const phoneMessages: Record<Language, Messages> = {
     phoneLayoutHint: "A telefonokra tervezett elrendezés használata. Kapcsold ki a TV-elrendezéshez.",
     landscapeLayout: "Fekvő elrendezés",
     landscapeLayoutHint: "Az alkalmazás fekvő helyzetben marad, oldalt a navigációval, a zenelejátszóval a könyvtár mellett. Autós kijelzőkhöz és állványra tett táblagépekhez.",
+
+    lowResource: "Erőforrás-takarékos mód",
+
+    lowResourceHint: "A videók 360p-ben futnak, a bélyegképek kisebb méretben töltődnek be, az animációk és az elmosás ki vannak kapcsolva. Lassú kapcsolaton lévő lassú eszközökhöz, például autós kijelzőhöz.",
     account: "Fiók",
     miniPlayerExpand: "Lejátszó kinagyítása",
     miniPlayerClose: "Lejátszó bezárása",

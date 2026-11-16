@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { YtZeroApi } from "../api";
+import { usePhoneListWindow } from "../lowResource";
 import { channelContentTabs, splitChannelVideos, type ChannelContentTab } from "../channelContent";
 import type { Translate } from "../i18n";
 import type { OpenVideo } from "../playbackQueue";
@@ -20,6 +21,7 @@ type Props = {
 
 /** A channel on the phone: its header with follow and sync, live videos, then Videos or Shorts. */
 export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled, videoUpdate, onOpen, onVideoLongPress }: Props) {
+  const listWindow = usePhoneListWindow();
   const [about, setAbout] = useState<ChannelAbout | null>(null);
   const [channel, setChannel] = useState<Channel | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
@@ -160,7 +162,7 @@ export function PhoneChannelScreen({ api, channelId, language, t, shortsEnabled,
     onEndReachedThreshold={1.5} onEndReached={() => void loadMore()}
     ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={phoneColors.textMuted} /> : null}
     ListEmptyComponent={<Text style={[styles.muted, styles.empty]}>{t(tab === "shorts" ? "channelShortsEmpty" : "channelVideosEmpty")}</Text>}
-    initialNumToRender={4} maxToRenderPerBatch={4} windowSize={7} removeClippedSubviews />;
+    {...listWindow} removeClippedSubviews />;
 }
 
 const styles = StyleSheet.create({

@@ -7,6 +7,11 @@ describe("isCompactWindow", () => {
     expect(isCompactWindow(915, 412, false)).toBe(true);
   });
 
+  test("car head units and small tablets are compact", () => {
+    expect(isCompactWindow(1024, 600, false)).toBe(true);
+    expect(isCompactWindow(600, 960, false)).toBe(true);
+  });
+
   test("tablets keep the full layout", () => {
     expect(isCompactWindow(1280, 800, false)).toBe(false);
   });

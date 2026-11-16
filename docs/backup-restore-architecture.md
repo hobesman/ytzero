@@ -694,6 +694,12 @@ archive with no such capability restores with public sharing denied.
   never sent to the instance and is excluded from portable and exact server
   backups; no server backup adapter or archive shape changes.
 
+- The Android low-resource mode (`ytzero.phone.low-resource`, SecureStore) is
+  machine-bound configuration for that device's hardware and connection,
+  shared across profiles. Missing or invalid values mean off. It is never sent
+  to the instance and is excluded from portable and exact server backups; no
+  server backup adapter or archive shape changes.
+
 - The Android app's stream quality (`ytzero.tv.stream-quality`, SecureStore) is
   machine-bound playback configuration for that device, shared across
   profiles: `auto` (the default for missing or invalid values) or a height cap.
