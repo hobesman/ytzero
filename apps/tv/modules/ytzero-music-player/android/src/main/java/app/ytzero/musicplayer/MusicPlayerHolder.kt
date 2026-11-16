@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 
 /**
@@ -33,18 +34,25 @@ object MusicPlayerHolder {
 
   fun player(context: Context): ExoPlayer {
     player?.let { return it }
+    val created = buildPlayer(context)
+    player = created
+    return created
+  }
+
+  /** A player set up the way music plays. Tests pass their own renderers to hear what it outputs. */
+  internal fun buildPlayer(context: Context, renderers: RenderersFactory? = null): ExoPlayer {
     val attributes = AudioAttributes.Builder()
       .setUsage(C.USAGE_MEDIA)
       .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
       .build()
-    val created = ExoPlayer.Builder(context.applicationContext)
-      .setMediaSourceFactory(DefaultMediaSourceFactory(context.applicationContext).setDataSourceFactory(http))
+    val app = context.applicationContext
+    val builder = if (renderers == null) ExoPlayer.Builder(app) else ExoPlayer.Builder(app, renderers)
+    return builder
+      .setMediaSourceFactory(DefaultMediaSourceFactory(http, GaplessFragmentedMp4Extractor.FACTORY))
       .setAudioAttributes(attributes, true)
       .setHandleAudioBecomingNoisy(true)
       .setWakeMode(C.WAKE_MODE_NETWORK)
       .build()
-    player = created
-    return created
   }
 
   fun release() {
