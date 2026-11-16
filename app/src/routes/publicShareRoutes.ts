@@ -19,6 +19,15 @@ import {
   type PublicShareRow,
   type PublicShareVideo,
 } from "../publicSharing";
+import { admitPublicSharePlay, publicShareVisitorAdmitted, publicShareVisitorKey, type PublicShareAdmission } from "../publicShareLimits";
+import {
+  defaultPublicShareStreamingBackend,
+  isPublicShareStreamFile,
+  publicShareStreamResponse,
+  publicShareStreamUrl,
+  publicShareVideoStreamable,
+  type PublicShareStreamingBackend,
+} from "../publicShareStreaming";
 import { diagnosticRequestPath } from "../requestDiagnostics";
 import { normalizeSubtitleLanguage } from "../subtitleAvailability";
 import { subtitleLanguageLabel } from "../subtitleLanguages";
@@ -95,6 +104,16 @@ function clientAddress(c: any): string {
 
 function notFound(c: any) {
   return c.json({ error: "not found" }, 404);
+}
+
+// A link past its expiry or play limit answers 410 with the reason, so the page
+// can say the link expired instead of showing a generic error.
+function gone(c: any, reason: Exclude<PublicShareAdmission, "ok">) {
+  return c.json({ error: "expired", reason }, 410);
+}
+
+function visitorKey(c: any, share: PublicShareRow): string {
+  return publicShareVisitorKey(share.id, clientAddress(c), c.req.header("user-agent") ?? "");
 }
 
 function publicThumbnailUrl(token: string, videoId: string): string {
@@ -255,7 +274,8 @@ function responseWithLease(response: Response, release: () => void): Response {
   return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
-export function createPublicShareRouter(uiDir: string) {
+export function createPublicShareRouter(uiDir: string, options: { streaming?: PublicShareStreamingBackend } = {}) {
+  const streaming = options.streaming ?? defaultPublicShareStreamingBackend;
   const router = new Hono();
   const limiter = new PublicShareRateLimiter();
   const mediaLimiter = new PublicShareMediaLimiter();
@@ -273,11 +293,25 @@ export function createPublicShareRouter(uiDir: string) {
     c.header("X-Robots-Tag", "noindex, nofollow, noarchive");
     c.header("X-Content-Type-Options", "nosniff");
     c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
-    c.header("Content-Security-Policy", "default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-src https://www.youtube-nocookie.com");
+    c.header("Content-Security-Policy", "default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self'; frame-src https://www.youtube-nocookie.com");
     const ms = Date.now() - startedAt;
     if (c.res.status >= 500) log.error("public_share.request_failed", { path: diagnosticRequestPath(c.req.path), method: c.req.method, status: c.res.status, ms });
     else if (ms >= 2_000) log.warn("public_share.request_slow", { path: diagnosticRequestPath(c.req.path), method: c.req.method, status: c.res.status, ms });
   });
+
+  // Off by default: without the owner's per-link grant no public request
+  // reaches yt-dlp or YouTube.
+  const serverStreamAllowed = async (share: PublicShareRow, video: PublicShareVideo): Promise<boolean> =>
+    share.allow_server_stream === 1 && publicShareVideoStreamable(video) && await streaming.available();
+
+  // Thumbnails and avatars do not start a play, but an expired link serves
+  // nothing and an exhausted one only its counted visitors.
+  const admittedVideo = async (c: any) => {
+    const authorized = await authorizedVideo(c.req.param("token"), c.req.param("videoId"));
+    if (!authorized) return { response: notFound(c) };
+    const admission = await publicShareVisitorAdmitted(authorized.share, visitorKey(c, authorized.share));
+    return admission === "ok" ? { authorized } : { response: gone(c, admission) };
+  };
 
   const rateLimit = (c: any): Response | null => {
     const token = c.req.param("token") ?? "invalid";
@@ -301,11 +335,17 @@ export function createPublicShareRouter(uiDir: string) {
       selectedId ? publicShareVideo(selectedId) : Promise.resolve(null),
     ]);
     if (selectedId && !video) return notFound(c);
-    const [creators, subtitles, source] = video ? await Promise.all([
+    // Opening a video is a play, once per visitor and video.
+    const admission = video
+      ? await admitPublicSharePlay(resolved.share, visitorKey(c, resolved.share), video.video_id)
+      : await publicShareVisitorAdmitted(resolved.share, visitorKey(c, resolved.share));
+    if (admission !== "ok") return gone(c, admission);
+    const [creators, subtitles, source, streamable] = video ? await Promise.all([
       publicShareCreators(video),
       subtitleCatalog(token, resolved.share, video.video_id),
       localMediaSource(resolved.share, video.video_id),
-    ]) : [[], { subtitles: [], available: [] }, null];
+      serverStreamAllowed(resolved.share, video),
+    ]) : [[], { subtitles: [], available: [] }, null, false];
     return c.json({
       brand: { name: getSetting("app_name") || "YT Zero", icon: "/favicon.svg", color: publicBrandColor() },
       resource: { type: resolved.share.resource_type, id: resolved.share.resource_id, ...resolved.resource },
@@ -319,7 +359,9 @@ export function createPublicShareRouter(uiDir: string) {
       subtitles,
       playback: video ? source
         ? { kind: "local", source, url: `/share/${encodeURIComponent(token)}/media/${encodeURIComponent(video.video_id)}` }
-        : { kind: "youtube", video_id: video.video_id }
+        : streamable
+          ? { kind: "stream", url: publicShareStreamUrl(token, video.video_id), video_id: video.video_id }
+          : { kind: "youtube", video_id: video.video_id }
         : null,
       allow_local_media: resolved.share.allow_local_media === 1,
     });
@@ -327,8 +369,8 @@ export function createPublicShareRouter(uiDir: string) {
 
   router.get("/:token/thumbnail/:videoId", async (c) => {
     const limited = rateLimit(c); if (limited) return limited;
-    const authorized = await authorizedVideo(c.req.param("token"), c.req.param("videoId"));
-    if (!authorized) return notFound(c);
+    const { authorized, response } = await admittedVideo(c);
+    if (!authorized) return response;
     if (authorized.video.thumbnail.startsWith("/api/plugins/tubearchivist/thumbnail/")) {
       return await tubeArchivistResource(authorized.video.video_id, "thumbnail", undefined, c.req.raw.signal) ?? notFound(c);
     }
@@ -338,8 +380,8 @@ export function createPublicShareRouter(uiDir: string) {
 
   router.get("/:token/avatar/:videoId/:channelId", async (c) => {
     const limited = rateLimit(c); if (limited) return limited;
-    const authorized = await authorizedVideo(c.req.param("token"), c.req.param("videoId"));
-    if (!authorized) return notFound(c);
+    const { authorized, response } = await admittedVideo(c);
+    if (!authorized) return response;
     const creator = (await publicShareCreators(authorized.video)).find((item) => item.channel_id === c.req.param("channelId"));
     if (!creator?.thumbnail) return notFound(c);
     const remote = extractRemoteThumbnail(creator.thumbnail);
@@ -348,8 +390,9 @@ export function createPublicShareRouter(uiDir: string) {
 
   router.get("/:token/subtitles/:videoId", async (c) => {
     const limited = rateLimit(c); if (limited) return limited;
-    const authorized = await authorizedVideo(c.req.param("token"), c.req.param("videoId"));
-    if (!authorized || authorized.share.allow_local_media !== 1) return notFound(c);
+    const { authorized, response } = await admittedVideo(c);
+    if (!authorized) return response;
+    if (authorized.share.allow_local_media !== 1) return notFound(c);
     return c.json(await subtitleCatalog(c.req.param("token"), authorized.share, authorized.video.video_id));
   });
 
@@ -359,8 +402,9 @@ export function createPublicShareRouter(uiDir: string) {
     const videoId = c.req.param("videoId");
     const language = c.req.param("lang");
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/.test(language)) return notFound(c);
-    const authorized = await authorizedVideo(token, videoId);
-    if (!authorized || authorized.share.allow_local_media !== 1) return notFound(c);
+    const { authorized, response } = await admittedVideo(c);
+    if (!authorized) return response;
+    if (authorized.share.allow_local_media !== 1) return notFound(c);
     if (await downloadedSource(authorized.share, videoId)) {
       const file = (await listSubtitleFiles(videoId)).find((subtitle) => normalizeSubtitleLanguage(subtitle.lang) === language);
       if (file && existsSync(file.path)) {
@@ -382,6 +426,11 @@ export function createPublicShareRouter(uiDir: string) {
         release();
         return notFound(c);
       }
+      const admission = await admitPublicSharePlay(authorized.share, visitorKey(c, authorized.share), authorized.video.video_id);
+      if (admission !== "ok") {
+        release();
+        return gone(c, admission);
+      }
       const download = await downloadedSource(authorized.share, authorized.video.video_id);
       if (download?.path) return responseWithLease(await localMediaResponse(download.path, c.req.header("range") ?? null, c.req.method === "HEAD"), release);
       const archived = await tubeArchivistResource(
@@ -395,6 +444,38 @@ export function createPublicShareRouter(uiDir: string) {
         return notFound(c);
       }
       return responseWithLease(c.req.method === "HEAD" ? new Response(null, { status: archived.status, headers: archived.headers }) : archived, release);
+    } catch (error) {
+      release();
+      throw error;
+    }
+  });
+
+  // Server streaming for videos that are not local. Same HLS presentation as
+  // signed-in direct playback, resolved with the owner's YouTube session.
+  router.get("/:token/stream/:videoId/:file", async (c) => {
+    const token = c.req.param("token");
+    const file = c.req.param("file");
+    if (!isPublicShareStreamFile(file)) return notFound(c);
+    const segment = file === "video.mp4" || file === "audio.mp4";
+    if (!segment) { const limited = rateLimit(c); if (limited) return limited; }
+    const authorized = await authorizedVideo(token, c.req.param("videoId"));
+    if (!authorized || authorized.share.allow_server_stream !== 1 || !publicShareVideoStreamable(authorized.video)) return notFound(c);
+    const admission = await admitPublicSharePlay(authorized.share, visitorKey(c, authorized.share), authorized.video.video_id);
+    if (admission !== "ok") return gone(c, admission);
+    const release = segment ? mediaLimiter.acquire(token) : () => {};
+    if (!release) return c.json({ error: "too many streams" }, 429, { "Retry-After": "1" });
+    try {
+      const response = await publicShareStreamResponse(streaming, {
+        ownerUserId: authorized.share.owner_user_id,
+        token,
+        videoId: authorized.video.video_id,
+        file,
+        range: c.req.header("range") ?? null,
+        generation: c.req.query("v") ?? null,
+        quality: c.req.query("q"),
+        signal: c.req.raw.signal,
+      });
+      return segment ? responseWithLease(response, release) : response;
     } catch (error) {
       release();
       throw error;

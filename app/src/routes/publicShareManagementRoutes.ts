@@ -11,10 +11,11 @@ import {
   PublicShareError,
   rotatePublicShare,
   setPublicSharingEnabled,
-  updatePublicShareLocalMedia,
+  updatePublicShare,
   type PublicShareResourceType,
   type PublicShareRow,
 } from "../publicSharing";
+import { parsePublicShareUpdate } from "../publicShareLimits";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean; permissionGroupUuid?: string } };
 type Api = Hono<ApiEnvironment>;
@@ -51,6 +52,11 @@ async function serializeShare(c: ApiContext, share: PublicShareRow, enabled: boo
     resource_title: status.resource?.title ?? share.resource_id,
     video_count: status.resource?.video_count ?? 0,
     allow_local_media: share.allow_local_media === 1,
+    allow_server_stream: share.allow_server_stream === 1,
+    max_plays: share.max_plays == null ? null : Number(share.max_plays),
+    play_count: Number(share.play_count),
+    plays_remaining: share.max_plays == null ? null : Math.max(0, Number(share.max_plays) - Number(share.play_count)),
+    expires_at: share.expires_at,
     active: status.active,
     suspension_reason: status.reason,
     created_at: share.created_at,
@@ -119,9 +125,9 @@ export function registerPublicShareManagementRoutes(api: Api, access: PublicShar
     const share = await managedPublicShare(c.req.param("id"));
     if (!share) return c.json({ error: "not found" }, 404);
     if (!canManage(c, share)) return c.json({ error: "not found" }, 404);
-    const body = await c.req.json().catch(() => ({})) as { allow_local_media?: unknown };
-    if (typeof body.allow_local_media !== "boolean") return c.json({ error: "allow_local_media must be boolean" }, 400);
-    const result = await updatePublicShareLocalMedia(share.id, body.allow_local_media);
+    const parsed = parsePublicShareUpdate(await c.req.json().catch(() => ({})));
+    if (!parsed.ok) return c.json({ error: parsed.error }, 400);
+    const result = await updatePublicShare(share.id, parsed.update);
     if (!result.share) return c.json({ error: "not found" }, 404);
     const enabled = await publicSharingEnabled();
     c.header("Cache-Control", "private, no-store");

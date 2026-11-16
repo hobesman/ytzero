@@ -241,7 +241,10 @@ preparation status is transient; it adds no new portable entity or setting.
 Public sharing is instance-local security state. `public_share_policy` contains
 the default-off installation-wide kill switch, while `public_shares` contains
 plaintext bearer tokens, owners, targets and the per-link local-media grant.
-Neither table is exposed through settings or diagnostics, and neither is
+`public_share_limits` (per-link server-streaming grant, play limit, play count
+and expiry) is the same class of instance-local security state, and
+`public_share_plays` (hashed visitor keys of counted plays) is transient state.
+None of these tables is exposed through settings or diagnostics, and none is
 included in any portable backup section. An exact stopped-instance backup (or
 the corresponding PostgreSQL database backup) preserves both tables. Access
 control groups may carry the separate `public_sharing` capability as portable
@@ -690,6 +693,12 @@ archive with no such capability restores with public sharing denied.
   tablet, shared across profiles. Missing or invalid values mean off. It is
   never sent to the instance and is excluded from portable and exact server
   backups; no server backup adapter or archive shape changes.
+
+- The Android low-resource mode (`ytzero.phone.low-resource`, SecureStore) is
+  machine-bound configuration for that device's hardware and connection,
+  shared across profiles. Missing or invalid values mean off. It is never sent
+  to the instance and is excluded from portable and exact server backups; no
+  server backup adapter or archive shape changes.
 
 - The Android app's stream quality (`ytzero.tv.stream-quality`, SecureStore) is
   machine-bound playback configuration for that device, shared across
