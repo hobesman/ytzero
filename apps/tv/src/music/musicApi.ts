@@ -54,7 +54,8 @@ export type MusicSeed =
   | { kind: "mix" }
   /** An album from `startAt` (its first track when absent); a station like it follows. */
   | { kind: "album"; browseId: string; startAt?: string }
-  | { kind: "artist"; artistId: string }
+  /** Only the artist's songs until they run out; `radio` mixes in similar artists from the start. */
+  | { kind: "artist"; artistId: string; radio?: true }
   /** A playlist's songs, shuffled by the server; a station like them follows. */
   | { kind: "playlist"; playlistId: string };
 export type MusicEndReason = "completed" | "skipped" | "stopped";

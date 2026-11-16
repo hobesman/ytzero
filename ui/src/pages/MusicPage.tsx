@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { Heart, Music, Play, Search, Shuffle, Sparkles } from "lucide-react";
+import { Heart, Music, Play, Radio, Search, Shuffle, Sparkles } from "lucide-react";
 import { ApiError } from "../apiHttp";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
@@ -189,7 +189,8 @@ function ArtistView() {
   if (!artist) return null;
   return <>
     <MusicDetailHeader art={artist.thumbnail} round title={artist.name}>
-      <Button variant="primary" leadingIcon={<Play />} onClick={() => actions.play({ kind: "artist", artistId: artist.channelId })}>{t("musicPlayStation")}</Button>
+      <Button variant="primary" leadingIcon={<Play />} onClick={() => actions.play({ kind: "artist", artistId: artist.channelId })}>{t("musicPlayArtist")}</Button>
+      <Button leadingIcon={<Radio />} onClick={() => actions.play({ kind: "artist", artistId: artist.channelId, radio: true })}>{t("musicArtistRadio")}</Button>
     </MusicDetailHeader>
     {actions.failed ? <p className="music-error" role="alert">{t("musicStartFailed")}</p> : null}
     {artist.topSongs.length ? <section className="music-shelf">

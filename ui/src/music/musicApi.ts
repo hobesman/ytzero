@@ -39,7 +39,8 @@ export type MusicSeed =
   | { kind: "liked" }
   | { kind: "mix" }
   | { kind: "album"; browseId: string; startAt?: string }
-  | { kind: "artist"; artistId: string }
+  /** Only the artist's songs until they run out; `radio` mixes in similar artists from the start. */
+  | { kind: "artist"; artistId: string; radio?: true }
   | { kind: "playlist"; playlistId: string };
 
 export type MusicEndReason = "completed" | "skipped" | "stopped";
