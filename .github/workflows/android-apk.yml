@@ -85,6 +85,18 @@ jobs:
         working-directory: apps/tv
         run: bun install --frozen-lockfile
 
+      - name: Take the app name and icon color from the server
+        # The repository variable YTZERO_BRANDING_URL names the server (for
+        # example https://tube.example.com). Its public manifest and favicon
+        # give the name and color; without the variable, or when the server
+        # can't be reached, the build keeps apps/tv/branding.json.
+        working-directory: apps/tv
+        env:
+          YTZERO_BRANDING_URL: ${{ vars.YTZERO_BRANDING_URL }}
+        run: |
+          bun scripts/fetch-branding.ts
+          bun run assets
+
       - name: Generate the Android project
         working-directory: apps/tv
         env:

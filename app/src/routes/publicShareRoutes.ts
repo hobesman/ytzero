@@ -21,6 +21,7 @@ import {
 } from "../publicSharing";
 import { admitPublicSharePlay, publicShareLimitReason, publicShareVisitorAdmitted, publicShareVisitorKey, type PublicShareAdmission } from "../publicShareLimits";
 import { publicBaseUrl } from "../publicBaseUrl";
+import { publicBrand } from "../publicBrand";
 import { injectPublicSharePreview, loadPublicSharePreview } from "../publicSharePreview";
 import {
   defaultPublicShareStreamingBackend,
@@ -133,11 +134,6 @@ function publicCreatorDto(token: string, videoId: string, creator: Awaited<Retur
     ...safe,
     avatar: thumbnail ? `/share/${encodeURIComponent(token)}/avatar/${encodeURIComponent(videoId)}/${encodeURIComponent(creator.channel_id)}` : "",
   };
-}
-
-function publicBrandColor(): string {
-  const color = getSetting("app_icon_color") || "#0a5fff";
-  return /^#[\da-f]{6}$/i.test(color) ? color : "#0a5fff";
 }
 
 async function authorizedVideo(token: string, videoId: string) {
@@ -349,7 +345,7 @@ export function createPublicShareRouter(uiDir: string, options: { streaming?: Pu
       serverStreamAllowed(resolved.share, video),
     ]) : [[], { subtitles: [], available: [] }, null, false];
     return c.json({
-      brand: { name: getSetting("app_name") || "YT Zero", icon: "/favicon.svg", color: publicBrandColor() },
+      brand: { ...publicBrand(), icon: "/favicon.svg" },
       resource: { type: resolved.share.resource_type, id: resolved.share.resource_id, ...resolved.resource },
       page,
       page_size: PUBLIC_SHARE_PAGE_SIZE,

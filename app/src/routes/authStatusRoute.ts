@@ -2,6 +2,7 @@ import type { Context, Hono } from "hono";
 import { authMethod, hasPasskeys, proxyHeaderValue, resolveProxyUser, sharedAuth, validateSession } from "../auth";
 import { database } from "../database";
 import { getSetting } from "../db";
+import { publicBrand } from "../publicBrand";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -48,6 +49,7 @@ export function registerAuthStatusRoute(api: Api, access: AuthStatusRouteAccess)
         is_admin: access.isAdmin(c),
         ...ownerCapabilities,
         proxy_header_seen: Boolean(proxyHeaderValue(c)),
+        brand: publicBrand(),
       });
     }
 
@@ -70,6 +72,8 @@ export function registerAuthStatusRoute(api: Api, access: AuthStatusRouteAccess)
         passkey: method === "shared" ? await hasPasskeys(null) : method === "per_profile" ? perProfilePasskeys : false,
         oidc: method === "oidc",
       },
+      // For the sign-in page, which can't read settings yet.
+      brand: publicBrand(),
     });
   });
 }

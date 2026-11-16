@@ -2,10 +2,13 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Resvg } from "@resvg/resvg-js";
+import { buildBranding } from "../src/branding";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const output = join(root, "assets", "brand");
-const blue = "#0a5fff";
+// The tile color and name come from branding.json; see scripts/fetch-branding.ts.
+const blue = buildBranding.color;
+const escapeXml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const background = "#070708";
 const playPath = "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z";
 
@@ -42,7 +45,8 @@ function topShelf(width: number, height: number): string {
   const markSize = Math.round(height * 0.25);
   const gap = Math.round(markSize * 0.32);
   const fontSize = Math.round(markSize * 0.66);
-  const wordWidth = Math.round(fontSize * 3.25);
+  // "YT Zero" measured 3.25 font sizes wide; other names scale by length.
+  const wordWidth = Math.round(fontSize * 3.25 * buildBranding.name.length / 7);
   const groupWidth = markSize + gap + wordWidth;
   const startX = Math.round((width - groupWidth) / 2);
   const startY = Math.round((height - markSize) / 2);
@@ -55,7 +59,7 @@ function topShelf(width: number, height: number): string {
     </defs>
     <rect width="${width}" height="${height}" fill="url(#glow)"/>
     ${mark(markSize, startX, startY)}
-    <text x="${startX + markSize + gap}" y="${height / 2}" fill="#f5f5f7" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${fontSize}" font-weight="700" dominant-baseline="central" letter-spacing="-${Math.max(1, Math.round(fontSize * 0.025))}">YT Zero</text>
+    <text x="${startX + markSize + gap}" y="${height / 2}" fill="#f5f5f7" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="${fontSize}" font-weight="700" dominant-baseline="central" letter-spacing="-${Math.max(1, Math.round(fontSize * 0.025))}">${escapeXml(buildBranding.name)}</text>
   </svg>`;
 }
 

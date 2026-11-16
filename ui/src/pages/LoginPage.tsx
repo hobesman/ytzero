@@ -14,7 +14,11 @@ import { rememberProfile } from "../profilePreference";
  * authenticated. The rendered controls depend on the active method's `login`
  * capabilities (password / passkey / oidc) or, for proxy_header, an error hint.
  */
-export default function LoginPage({ status }: { status: AuthStatus }) {
+// auth/status adds the instance's name and icon color for this page, which
+// can't read settings before sign-in.
+type LoginStatus = AuthStatus & { brand?: { name: string; color: string } };
+
+export default function LoginPage({ status }: { status: LoginStatus }) {
   const { t } = useI18n();
   useDocumentTitle(t("loginTitle"));
   const [username, setUsername] = useState("");
@@ -60,7 +64,7 @@ export default function LoginPage({ status }: { status: AuthStatus }) {
     <div className="login-page">
       <LoginBackdrop />
       <div className="login-card">
-        <span className="logo-mark login-logo">
+        <span className="logo-mark login-logo" style={status.brand ? { background: status.brand.color } : undefined}>
           <Play fill="currentColor" />
         </span>
         <h1 className="login-title">{t("loginTitle")}</h1>
