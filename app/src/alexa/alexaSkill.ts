@@ -4,7 +4,7 @@ import type { MusicPlay } from "../music/musicPlays";
 import { stationSeedKey, type MusicStations, type StationSeed } from "../music/musicStation";
 import type { MusicPlaylist, YouTubeMusicClient } from "../music/youtubeMusicClient";
 import {
-  advancedState, decodePlaybackToken, encodePlaybackToken, playDirective, playResponse, silent, speak, stopDirective,
+  advancedState, decodePlaybackToken, encodePlaybackToken, playDirective, playResponse, retriedState, silent, speak, stopDirective,
   type AlexaPlaybackState, type AlexaResponse,
 } from "./alexaPlayback";
 
@@ -22,6 +22,8 @@ export interface AlexaEnvelope {
     offsetInMilliseconds?: number;
     intent?: { name?: string; slots?: Record<string, { value?: string }> };
     error?: { type?: string; message?: string };
+    /** On PlaybackFailed: where the failed stream had got to. */
+    currentPlaybackState?: { token?: string; offsetInMilliseconds?: number; playerActivity?: string };
   };
 }
 
@@ -190,6 +192,13 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
       log.warn("alexa.playback_failed", { error: envelope.request?.error?.type, message: envelope.request?.error?.message });
       const state = decodePlaybackToken(token);
       if (!state || state.failures + 1 >= MAX_FAILURES_IN_A_ROW) return silent([stopDirective]);
+      // A song that broke off, say while Alexa answered a question, starts again
+      // from where it stopped once; only a second failure moves on.
+      if (!state.retried) {
+        const current = await findTrack(state.videoId);
+        const offset = Math.max(0, Number(envelope.request?.currentPlaybackState?.offsetInMilliseconds ?? envelope.context?.AudioPlayer?.offsetInMilliseconds) || 0);
+        if (current) return play(userId, retriedState(state), current, "REPLACE_ALL", { offset });
+      }
       const track = await nextTrack(userId, state, false);
       if (!track) return silent([stopDirective]);
       return play(userId, advancedState(state, track.videoId, false, true), track, "REPLACE_ALL");
