@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from "react-native";
 import { landscapeColumns, landscapeRailWidth, useLandscapeLayout } from "../landscapeLayout";
 import type { YtZeroApi } from "../api";
+import { usePhoneListWindow } from "../lowResource";
 import { scheduledVideosInOrder, staysInProgress, withoutInProgress } from "../feedSections";
 import { browseEmptyState } from "../emptyState";
 import type { Translate } from "../i18n";
@@ -20,6 +21,7 @@ type Props = {
 
 /** Any browse destination as a phone list; Home adds Continue watching above its feed. */
 export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, header, videoUpdate, onVideoLongPress }: Props) {
+  const listWindow = usePhoneListWindow();
   const home = destination === "/";
   const [videos, setVideos] = useState<Video[]>([]);
   const [inProgress, setInProgress] = useState<Video[]>([]);
@@ -148,7 +150,7 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
       {!error ? <Text style={styles.emptyText}>{t(empty.description)}</Text> : null}
       {error ? <Pressable style={styles.retry} onPress={() => void load(0)}><Text style={styles.retryText}>{t("tryAgain")}</Text></Pressable> : null}
     </View>}
-    initialNumToRender={4} maxToRenderPerBatch={4} windowSize={7} removeClippedSubviews />;
+    {...listWindow} removeClippedSubviews />;
 }
 
 const gridGutter = 12;

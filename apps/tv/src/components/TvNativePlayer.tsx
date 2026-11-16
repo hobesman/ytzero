@@ -5,6 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
 import { heightLabel, qualityButtonLabel, qualityChoiceLabel, saveStreamQuality, STREAM_QUALITIES, streamQuality, type StreamQuality } from "../streamQuality";
+import { cappedStreamQuality, lowResource } from "../lowResource";
 import { deviceStore } from "../deviceStore";
 import { forwardBuffer, forwardBufferOptions, NEIGHBOUR_BUFFER_OPTIONS, onForwardBufferChange } from "../forwardBuffer";
 import { sponsorCategories } from "../sponsorBlock";
@@ -190,7 +191,8 @@ export function TvNativePlayer(props: Props) {
   }, seekPlayer, (entry, cause) => handleFailure.current(entry, cause), unloadPlayer, { play: playPlayer, pause: pausePlayer },
   () => latest.current.settings?.player_speed,
   // Only Android offers the quality menu; other players keep the server's choice.
-  () => ownsSpeedControl ? streamQuality() : "",
+  // Low-resource mode caps it at 360p whatever the menu says.
+  () => ownsSpeedControl ? cappedStreamQuality(streamQuality(), lowResource()) : "",
   (active) => forwardBufferOptions(forwardBuffer(), active)), [api]);
   useEffect(() => onForwardBufferChange(() => buffer.refreshBuffers()), [buffer]);
 
