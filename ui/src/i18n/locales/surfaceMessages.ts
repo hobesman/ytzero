@@ -1,6 +1,7 @@
 // Generated from the formerly inline download, database, backup and plugin UI copy.
 // English text is the stable key so these screens use the same typed i18n catalogue as the rest of the UI.
 import { publicSharingMessages } from "./publicSharing";
+import { publicShareLimitMessages } from "./publicShareLimits";
 const en = {
   " This backup came from this installation.": " This backup came from this installation.",
   " will enter the queue": " will enter the queue",
@@ -2729,13 +2730,13 @@ const hu = {
 } satisfies Record<keyof typeof en, string>;
 
 export const surfaceMessages = {
-  en: { ...en, ...publicSharingMessages.en },
-  pl: { ...pl, ...publicSharingMessages.pl },
-  de: { ...de, ...publicSharingMessages.de },
-  fr: { ...fr, ...publicSharingMessages.fr },
-  es: { ...es, ...publicSharingMessages.es },
-  "pt-BR": { ...ptBR, ...publicSharingMessages["pt-BR"] },
-  ru: { ...ru, ...publicSharingMessages.ru },
-  ja: { ...ja, ...publicSharingMessages.ja },
-  hu: { ...hu, ...publicSharingMessages.hu },
+  en: { ...en, ...publicSharingMessages.en, ...publicShareLimitMessages.en },
+  pl: { ...pl, ...publicSharingMessages.pl, ...publicShareLimitMessages.pl },
+  de: { ...de, ...publicSharingMessages.de, ...publicShareLimitMessages.de },
+  fr: { ...fr, ...publicSharingMessages.fr, ...publicShareLimitMessages.fr },
+  es: { ...es, ...publicSharingMessages.es, ...publicShareLimitMessages.es },
+  "pt-BR": { ...ptBR, ...publicSharingMessages["pt-BR"], ...publicShareLimitMessages["pt-BR"] },
+  ru: { ...ru, ...publicSharingMessages.ru, ...publicShareLimitMessages.ru },
+  ja: { ...ja, ...publicSharingMessages.ja, ...publicShareLimitMessages.ja },
+  hu: { ...hu, ...publicSharingMessages.hu, ...publicShareLimitMessages.hu },
 } as const;

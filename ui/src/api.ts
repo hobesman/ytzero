@@ -76,7 +76,7 @@ import {
   type PlaylistInfo,
   type PlaylistVideo,
   type PublicShareManagementResponse,
-  type PublicShareResourceType,
+  type PublicShareResourceType, type PublicShareUpdate,
   type Profile,
   type ProfilePermissionArea,
   type ProfilePermissions,
@@ -424,8 +424,8 @@ export const api = {
   createPublicShare: (resource_type: PublicShareResourceType, resource_id: string | number) =>
     http<{ share: ManagedPublicShare }>("/public-shares", { method: "POST", body: JSON.stringify({ resource_type, resource_id }) })
       .then((result) => ({ share: withBrowserPublicShareUrl(result.share) })),
-  updatePublicShareLocalMedia: (id: string, allow_local_media: boolean) =>
-    http<{ share: ManagedPublicShare; rotated: boolean }>(`/public-shares/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ allow_local_media }) })
+  updatePublicShare: (id: string, update: PublicShareUpdate) =>
+    http<{ share: ManagedPublicShare; rotated: boolean }>(`/public-shares/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify(update) })
       .then((result) => ({ ...result, share: withBrowserPublicShareUrl(result.share) })),
   rotatePublicShare: (id: string) =>
     http<{ share: ManagedPublicShare }>(`/public-shares/${encodeURIComponent(id)}/rotate`, { method: "POST", body: "{}" })

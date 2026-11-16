@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Clapperboard, ListVideo, LoaderCircle, Play } from "lucide-react";
+import { Clapperboard, ListVideo, LoaderCircle, Play, TimerOff } from "lucide-react";
 import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import type { PlaylistVideo, PublicShareData, VideoCreator } from "../api";
 import LocalPlayer, { type LocalPlayerHandle, type LocalPlayerShortcut } from "../components/LocalPlayer";
+import { parseVideoDurationSeconds } from "../components/VideoCard";
 import VideoCreators from "../components/VideoCreators";
 import { Button, EmptyState, IconButton } from "../components/ui";
 import WatchChapterPanel from "../components/watch/WatchChapterPanel";
@@ -18,6 +19,13 @@ import "./PublicSharePage.css";
 
 const KEYBOARD_SEEK_SECONDS = 5;
 
+type PublicShareLoadError = "unavailable" | "rate_limited" | "expired" | "plays_exhausted";
+
+function loadError(reason: unknown): PublicShareLoadError {
+  const message = reason instanceof Error ? reason.message : "";
+  return message === "rate_limited" || message === "expired" || message === "plays_exhausted" ? message : "unavailable";
+}
+
 async function loadPublicShare(token: string, videoId?: string, page = 0): Promise<PublicShareData> {
   const query = new URLSearchParams({ page: String(page) });
   if (videoId) query.set("video", videoId);
@@ -26,6 +34,10 @@ async function loadPublicShare(token: string, videoId?: string, page = 0): Promi
     credentials: "omit",
     referrerPolicy: "no-referrer",
   });
+  if (response.status === 410) {
+    const body = await response.json().catch(() => null) as { reason?: string } | null;
+    throw new Error(body?.reason === "plays_exhausted" ? "plays_exhausted" : "expired");
+  }
   if (!response.ok) throw new Error(response.status === 429 ? "rate_limited" : "unavailable");
   return response.json() as Promise<PublicShareData>;
 }
@@ -44,7 +56,9 @@ function PublicShareView() {
   const [items, setItems] = useState<PublicShareData["items"]>([]);
   const [page, setPage] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<"unavailable" | "rate_limited" | null>(null);
+  const [error, setError] = useState<PublicShareLoadError | null>(null);
+  // A server stream that fails falls back to the YouTube embed for that video.
+  const [streamFailedFor, setStreamFailedFor] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ kind: LocalPlayerShortcut; id: number; seconds?: number } | null>(null);
   const [cinemaMode, setCinemaMode] = useState(true);
   const [cinemaVisible, setCinemaVisible] = useState(true);
@@ -62,7 +76,7 @@ function PublicShareView() {
       setItems(result.items);
       document.title = `${result.video?.title ?? result.resource.title} · ${result.brand.name}`;
     }).catch((reason) => {
-      if (!cancelled) setError(reason instanceof Error && reason.message === "rate_limited" ? "rate_limited" : "unavailable");
+      if (!cancelled) setError(loadError(reason));
     });
     return () => { cancelled = true; };
   }, [token, videoId]);
@@ -86,7 +100,7 @@ function PublicShareView() {
       setPage((current) => current + 1);
       setData((current) => current ? { ...current, has_more: result.has_more } : current);
     } catch (reason) {
-      setError(reason instanceof Error && reason.message === "rate_limited" ? "rate_limited" : "unavailable");
+      setError(loadError(reason));
     } finally {
       setLoadingMore(false);
     }
@@ -161,6 +175,11 @@ function PublicShareView() {
     return () => document.removeEventListener("keydown", onKey);
   }, [data?.playback?.kind, next, openVideo, previous]);
 
+  if (error === "expired" || error === "plays_exhausted") return <main className="public-share-state"><EmptyState
+    icon={<TimerOff />}
+    title={t("publicShareExpired")}
+    description={t(error === "plays_exhausted" ? "publicShareExpiredPlaysHint" : "publicShareExpiredHint")}
+  /></main>;
   if (error) return <main className="public-share-state"><EmptyState
     icon={<ListVideo />}
     title={t(error === "rate_limited" ? "publicShareRateLimited" : "publicShareUnavailable")}
@@ -169,6 +188,11 @@ function PublicShareView() {
   if (!data) return <main className="public-share-state" aria-busy="true"><LoaderCircle className="spin" /><span>{t("publicShareLoading")}</span></main>;
 
   const video = data.video;
+  // Server streaming plays in the local player over HLS; if it fails, the
+  // same video falls back to the YouTube embed.
+  const playback = data.playback?.kind === "stream" && streamFailedFor === data.playback.video_id
+    ? { kind: "youtube" as const, video_id: data.playback.video_id }
+    : data.playback;
   return <div className="public-share-page">
     <header className={`topbar public-share-header${topbarSolid ? " topbar--solid" : ""}`}>
       <div className="topbar-logo">
@@ -189,11 +213,14 @@ function PublicShareView() {
                 style={{ backgroundImage: `url(${video.thumbnail})`, opacity: cinemaVisible ? 0.6 : 0 }}
               />}
               <div ref={playerShellRef} className="watch-player-shell">
-                {video && data.playback?.kind === "local" && <div className="watch-player watch-player--local">
+                {video && (playback?.kind === "local" || playback?.kind === "stream") && <div className="watch-player watch-player--local">
                   <LocalPlayer
-                    key={`${video.video_id}:${data.playback.url}`}
+                    key={`${video.video_id}:${playback.url}`}
                     ref={playerRef}
-                    src={data.playback.url}
+                    src={playback.url}
+                    hls={playback.kind === "stream"}
+                    durationSeconds={playback.kind === "stream" ? parseVideoDurationSeconds(video.duration) ?? undefined : undefined}
+                    onError={playback.kind === "stream" ? () => setStreamFailedFor(video.video_id) : undefined}
                     poster={video.thumbnail}
                     autoplay={false}
                     startSeconds={startSeconds}
@@ -213,7 +240,7 @@ function PublicShareView() {
                   />
                   {feedback && <WatchPlayerFeedback key={feedback.id} feedback={feedback} keyboardSeekSeconds={KEYBOARD_SEEK_SECONDS} />}
                 </div>}
-                {video && data.playback?.kind === "youtube" && <PublicYouTubePlayer
+                {video && playback?.kind === "youtube" && <PublicYouTubePlayer
                   key={video.video_id}
                   ref={playerRef}
                   chapters={data.chapters}

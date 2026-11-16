@@ -31,13 +31,59 @@ holders of the URL can stream the owner's available local media and subtitles.
 This can consume server bandwidth and may expose media that was previously
 reachable only after signing in. Enable it only when that is intentional.
 
-Public requests never start downloads, synchronization, imports, yt-dlp,
-transcoding, metadata refreshes, or other write jobs.
+### Stream through this server (opt-in)
+
+**Stream through this server** is a third, per-link level, off by default.
+With it on, a video that is not available as local media streams through YT
+Zero instead of YouTube's embed, using the same direct HLS path as signed-in
+playback of a video that is not downloaded: yt-dlp resolves the video with the
+**link owner's YouTube session** (their configured cookies), and the server
+relays the media byte ranges. Every anonymous play therefore uses the server's
+IP address, the owner's YouTube session, and the server's bandwidth. A link
+that spreads can get the address throttled or the account flagged by YouTube.
+Keep a play or time limit on any link that streams (see below). Enabling it
+rotates the token, like local media. Turning it off takes effect immediately.
+If the stream fails in the visitor's browser, the page falls back to the
+YouTube embed for that video. Live and upcoming videos always use the embed.
+
+Without this grant, public requests never start downloads, synchronization,
+imports, yt-dlp, transcoding, metadata refreshes, or other write jobs, and
+never fetch media from YouTube. With it, the only yt-dlp work a public request
+can start is resolving the stream of a video in that link. Public requests
+never start downloads, imports or other write jobs in either case; the only
+writes are the play counter described below.
+
+## Play and time limits
+
+Every link has a play limit and an expiry, each optional:
+
+- **New links** stop after **10 plays** or **2 days**, whichever comes first.
+- A **play** is one visitor opening one video of the link. A visitor is the
+  client address plus user agent, hashed with the link's id; the address itself
+  is not stored. Reloading, seeking, and the range and segment requests of a
+  video already counted do not use another play. On a playlist link, each
+  video a visitor opens is one play.
+- Once the play limit is reached, visitors who already used a play can keep
+  watching the videos they opened; anyone else gets the expired page. Once the
+  expiry passes, the link stops for everyone.
+- Expired links show a "This link has expired" page. Their data and media
+  requests return `410` with the reason (`expired` or `plays_exhausted`);
+  unknown, suspended and revoked links still return the generic `404`.
+- The owner sees the plays used and the expiry in the share control and under
+  **Settings → Sharing**, and can change the limit, choose a new expiry
+  (counted from now, which also extends an expired link), remove either limit,
+  or reset the play count.
+- Limits apply to **every** link, whatever its playback level: a single rule is
+  easier to reason about, and even an embed-only link reveals titles and
+  descriptions. Links created before limits existed keep no limits until the
+  owner sets some; turning on server streaming for a link that has neither
+  limit applies the defaults.
 
 ## Token handling
 
-Each URL contains a random 256-bit bearer token. It has no expiry date and no
-additional password. Treat the complete URL like a password:
+Each URL contains a random 256-bit bearer token. It has no additional password,
+and it keeps working until the link's play limit or expiry is reached (if it
+has them). Treat the complete URL like a password:
 
 - send it only through a channel you trust;
 - do not paste it into tickets, screenshots, public chat, analytics, or error
@@ -47,9 +93,9 @@ additional password. Treat the complete URL like a password:
 - rotate the link if it may have leaked, or revoke it when it is no longer
   needed.
 
-Enabling local-media access automatically rotates the token because it expands
-what the link can reveal. Disabling local media takes effect immediately without
-changing the URL. Revoking or manually rotating a link invalidates the old URL
+Enabling local-media access or server streaming automatically rotates the token
+because it expands what the link can reveal or use. Disabling either takes
+effect immediately without changing the URL. Revoking or manually rotating a link invalidates the old URL
 immediately.
 
 YT Zero redacts tokens in its own request diagnostics. A reverse proxy, ingress,
@@ -185,8 +231,9 @@ deleting them.
 
 ## Backups
 
-Tokens and the global sharing switch are instance-local security state. They
-are excluded from portable YT Zero backups. A full stopped-instance/database
+Tokens, per-link grants and limits, play counts, and the global sharing switch
+are instance-local security state. They are excluded from portable YT Zero
+backups. A full stopped-instance/database
 backup can contain them, so protect full backups as secrets. After restoring a
 full instance to a different hostname or trust boundary, review or revoke all
 links before exposing it.
