@@ -16,6 +16,7 @@ import {
   type PublicShareRow,
 } from "../publicSharing";
 import { parsePublicShareUpdate } from "../publicShareLimits";
+import { publicBaseUrl } from "../publicBaseUrl";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean; permissionGroupUuid?: string } };
 type Api = Hono<ApiEnvironment>;
@@ -31,20 +32,12 @@ function failure(c: ApiContext, error: unknown) {
   throw error;
 }
 
-function publicBaseUrl(c: ApiContext): string {
-  const configured = process.env.APP_URL?.trim().replace(/\/+$/, "");
-  if (configured) {
-    try { return new URL(configured).origin + new URL(configured).pathname.replace(/\/$/, ""); } catch {}
-  }
-  return new URL(c.req.url).origin;
-}
-
 async function serializeShare(c: ApiContext, share: PublicShareRow, enabled: boolean, includeOwner: boolean) {
   const status = await publicShareStatus(share, enabled);
   return {
     id: share.id,
     token: share.token,
-    url: `${publicBaseUrl(c)}/share/${share.token}`,
+    url: `${publicBaseUrl(c.req.url)}/share/${share.token}`,
     owner_user_id: share.owner_user_id,
     ...(includeOwner ? { owner_name: share.owner_name ?? "" } : {}),
     resource_type: share.resource_type,
