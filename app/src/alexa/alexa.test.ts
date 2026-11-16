@@ -245,6 +245,24 @@ describe("alexa skill", () => {
     expect(plays.map((play) => [play.startedAt.getTime(), play.endReason, play.listenedSeconds])).toEqual([[NOW, "stopped", 45], [NOW, "completed", 200]]);
   });
 
+  test("a song that breaks off starts again where it stopped, and moves on only if it fails again", async () => {
+    const { skill } = skillHarness();
+    const token = directiveOf(await skill.handle(7, intent("PlaySongIntent", "song one"))).audioItem.stream.token;
+    const failed: AlexaEnvelope = {
+      ...event("AudioPlayer.PlaybackFailed", token),
+      request: { ...event("AudioPlayer.PlaybackFailed", token).request, currentPlaybackState: { token, offsetInMilliseconds: 95_000, playerActivity: "PLAYING" } },
+    };
+    const retry = directiveOf(await skill.handle(7, failed));
+    expect(retry.playBehavior).toBe("REPLACE_ALL");
+    expect(retry.audioItem.stream.offsetInMilliseconds).toBe(95_000);
+    expect(decodePlaybackToken(retry.audioItem.stream.token)).toMatchObject({ videoId: id(1), served: [], failures: 1, retried: true });
+
+    const next = directiveOf(await skill.handle(7, event("AudioPlayer.PlaybackFailed", retry.audioItem.stream.token)));
+    expect(decodePlaybackToken(next.audioItem.stream.token)).toMatchObject({ videoId: id(100), served: [id(1)], failures: 2 });
+    expect(decodePlaybackToken(next.audioItem.stream.token)?.retried).toBeUndefined();
+    expect(next.audioItem.stream.offsetInMilliseconds).toBe(0);
+  });
+
   test("a stream that keeps failing stops instead of skipping forever", async () => {
     const { skill } = skillHarness();
     let token = directiveOf(await skill.handle(7, intent("PlaySongIntent", "song one"))).audioItem.stream.token;
