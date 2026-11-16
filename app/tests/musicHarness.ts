@@ -157,6 +157,31 @@ const playlistAfter = await (await call("/music/station", "POST", { seed: { kind
 const badPlaylistStatus = (await call("/music/playlists/nope")).status;
 const childGenresStatus = (await call("/music/genres", "GET", undefined, child.id)).status;
 
+// A profile's own playlists, and saving a YouTube Music playlist.
+const createdResponse = await call("/music/my-playlists", "POST", { title: "  Road \n trip " });
+const mine = (await createdResponse.json() as any).playlist;
+const emptyTitleStatus = (await call("/music/my-playlists", "POST", { title: "   " })).status;
+for (const videoId of served.slice(0, 3)) await call(`/music/my-playlists/${mine.id}/tracks`, "POST", { videoId });
+const addAgain = await (await call(`/music/my-playlists/${mine.id}/tracks`, "POST", { videoId: served[0] })).json() as any;
+const unseenSongStatus = (await call(`/music/my-playlists/${mine.id}/tracks`, "POST", { videoId: "videoAAAAA1" })).status;
+const reorderStatus = (await call(`/music/my-playlists/${mine.id}/order`, "PUT", { videoIds: [served[2], served[0], served[1]] })).status;
+const staleOrderStatus = (await call(`/music/my-playlists/${mine.id}/order`, "PUT", { videoIds: [served[0]] })).status;
+await call(`/music/my-playlists/${mine.id}/tracks/${served[0]}`, "DELETE");
+const renameStatus = (await call(`/music/my-playlists/${mine.id}`, "PATCH", { title: "Road trip 2" })).status;
+const minePage = await (await call(`/music/my-playlists/${mine.id}`)).json() as any;
+const otherReadStatus = (await call(`/music/my-playlists/${mine.id}`, "GET", undefined, secondary.id)).status;
+const otherAddStatus = (await call(`/music/my-playlists/${mine.id}/tracks`, "POST", { videoId: served[3] }, secondary.id)).status;
+const otherDeleteStatus = (await call(`/music/my-playlists/${mine.id}`, "DELETE", undefined, secondary.id)).status;
+const childPlaylistsStatus = (await call("/music/my-playlists", "GET", undefined, child.id)).status;
+const doomed = (await (await call("/music/my-playlists", "POST", { title: "Doomed" })).json() as any).playlist;
+await call(`/music/my-playlists/${doomed.id}/tracks`, "POST", { videoId: served[1] });
+const deletePlaylistStatus = (await call(`/music/my-playlists/${doomed.id}`, "DELETE")).status;
+const doomedTracksLeft = (db.prepare("SELECT COUNT(*) AS n FROM music_playlist_tracks WHERE playlist_id = ?").get(doomed.id) as { n: number }).n;
+const playlistSavedBefore = playlistPage.saved;
+const playlistSaveStatus = (await call(`/music/playlists/${PLAYLIST}/saved`, "PUT")).status;
+const playlistSavedAfter = (await (await call(`/music/playlists/${PLAYLIST}`)).json() as any).saved;
+const playlistLibrary = await (await call("/music/library")).json() as any;
+
 const after = counts();
 
 // Backup round trip into another profile: merge twice, then replace.
@@ -167,11 +192,14 @@ const restoredTwice = await exportMusicBackup(secondary.id);
 await call(`/music/tracks/${served[3]}/rating`, "PUT", { rating: 1 }, secondary.id);
 await restoreMusicBackup(secondary.id, exported, "replace");
 const replaced = await exportMusicBackup(secondary.id);
-const malformed = await restoreMusicBackup(secondary.id, { ratings: [{ video_id: "x", rating: 1 }], plays: [{ video_id: served[0], started_at: "never" }], saved_albums: [{ browse_id: "VLnope" }] }, "merge");
+const malformed = await restoreMusicBackup(secondary.id, {
+  ratings: [{ video_id: "x", rating: 1 }], plays: [{ video_id: served[0], started_at: "never" }], saved_albums: [{ browse_id: "VLnope" }],
+  playlists: [{ id: "nope", title: "Bad" }, { id: crypto.randomUUID(), title: "  " }], saved_playlists: [{ playlist_id: "nope" }],
+}, "merge");
 // A schema v1 document, from before saved albums, restores into an empty profile.
 const third = db.prepare("INSERT INTO users(name,avatar_color,sort_order,portable_uuid) VALUES('Third','#111111',3,?) RETURNING id")
   .get(crypto.randomUUID()) as { id: number };
-const { saved_albums: _savedAlbums, ...v1Document } = exported;
+const { saved_albums: _savedAlbums, playlists: _playlists, saved_playlists: _savedPlaylists, ...v1Document } = exported;
 await restoreMusicBackup(third.id, v1Document, "merge");
 const restoredV1 = await exportMusicBackup(third.id);
 
@@ -243,6 +271,26 @@ console.log("RESULT " + JSON.stringify({
   playlistAfterIds: playlistAfter.tracks.map((track: any) => track.videoId),
   badPlaylistStatus,
   childGenresStatus,
+  emptyTitleStatus,
+  createdStatus: createdResponse.status,
+  createdTitle: mine.title,
+  addAgain,
+  unseenSongStatus,
+  reorderStatus,
+  staleOrderStatus,
+  renameStatus,
+  minePage: { title: minePage.title, trackCount: minePage.trackCount, ids: minePage.tracks.map((track: any) => track.videoId), thumbnail: minePage.thumbnail },
+  otherReadStatus,
+  otherAddStatus,
+  otherDeleteStatus,
+  childPlaylistsStatus,
+  deletePlaylistStatus,
+  doomedTracksLeft,
+  playlistSavedBefore,
+  playlistSaveStatus,
+  playlistSavedAfter,
+  libraryPlaylists: playlistLibrary.playlists.map((playlist: any) => playlist.title),
+  librarySavedPlaylists: playlistLibrary.savedPlaylists.map((playlist: any) => `${playlist.playlistId} ${playlist.title}`),
 }));
 
 db.close();

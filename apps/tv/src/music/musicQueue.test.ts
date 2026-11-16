@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { MusicTrack } from "./musicApi";
-import { appendTracks, applyTrackChange, createQueue, endReason, needsMore, playingFrom, removeTrack, served, shuffleTracks, upNext } from "./musicQueue";
+import {
+  appendTracks, applyTrackChange, createQueue, endReason, moveUpcoming, needsMore, playingFrom, queueTrack, removeTrack, served, shuffleTracks, upNext,
+  type MusicQueue,
+} from "./musicQueue";
 
 const track = (videoId: string): MusicTrack => ({
   videoId, title: videoId, artist: "Artist", artistId: null, album: null, duration: 200, thumbnail: null, isTopic: true, rating: null,
@@ -86,5 +89,72 @@ describe("music queue", () => {
     // Removing an album song keeps the boundary between the album and the station.
     expect(removeTrack(queue, 1).from).toEqual({ title: "Abbey Road", count: 1 });
     expect(playingFrom(createQueue({ kind: "mix" }, "mix", [track("a")], start))).toBeNull();
+  });
+
+  describe("editing the queue", () => {
+    const ids = (queue: MusicQueue) => queue.tracks.map((entry) => entry.videoId);
+    const playing = (...videoIds: string[]) => createQueue({ kind: "mix" }, "mix", videoIds.map(track), start);
+
+    test("plays a new song next, right after the one playing", () => {
+      const { queue, change } = queueTrack(playing("a", "s1", "s2"), track("x"), "next");
+      expect(ids(queue)).toEqual(["a", "x", "s1", "s2"]);
+      expect(change).toEqual({ kind: "insert", index: 1, track: track("x") });
+      expect(queue.queued).toEqual(["x"]);
+    });
+
+    test("adds songs to the queue in the order added, ahead of the station", () => {
+      let queue = playing("a", "s1", "s2");
+      queue = queueTrack(queue, track("x"), "last").queue;
+      const second = queueTrack(queue, track("y"), "last");
+      expect(ids(second.queue)).toEqual(["a", "x", "y", "s1", "s2"]);
+      expect(second.change).toEqual({ kind: "insert", index: 2, track: track("y") });
+      // The station's refill still lands after them.
+      expect(ids(appendTracks(second.queue, [track("s3")]).queue)).toEqual(["a", "x", "y", "s1", "s2", "s3"]);
+    });
+
+    test("play next jumps ahead of songs already added", () => {
+      let queue = queueTrack(playing("a", "s1"), track("x"), "last").queue;
+      queue = queueTrack(queue, track("y"), "next").queue;
+      expect(ids(queue)).toEqual(["a", "y", "x", "s1"]);
+      // Add to queue still goes after both.
+      expect(ids(queueTrack(queue, track("z"), "last").queue)).toEqual(["a", "y", "x", "z", "s1"]);
+    });
+
+    test("moves a song already queued instead of adding it twice", () => {
+      const ahead = queueTrack(playing("a", "s1", "s2", "s3"), track("s3"), "next");
+      expect(ids(ahead.queue)).toEqual(["a", "s3", "s1", "s2"]);
+      expect(ahead.change).toEqual({ kind: "move", from: 3, to: 1 });
+      // A song already played comes back after the one playing; the playing index follows it.
+      const onB = { ...playing("a", "b", "c"), index: 1 };
+      const again = queueTrack(onB, track("a"), "next");
+      expect(ids(again.queue)).toEqual(["b", "a", "c"]);
+      expect(again.queue.index).toBe(0);
+      expect(again.change).toEqual({ kind: "move", from: 0, to: 1 });
+    });
+
+    test("leaves the playing song alone", () => {
+      const queue = playing("a", "b");
+      expect(queueTrack(queue, track("a"), "next")).toEqual({ queue, change: null });
+    });
+
+    test("reorders only songs still to come", () => {
+      const queue = { ...playing("a", "b", "c", "d"), index: 1 };
+      const moved = moveUpcoming(queue, 3, 2);
+      expect(ids(moved.queue)).toEqual(["a", "b", "d", "c"]);
+      expect(moved.change).toEqual({ kind: "move", from: 3, to: 2 });
+      // Dragging above the playing song stops just after it.
+      expect(ids(moveUpcoming(queue, 3, 0).queue)).toEqual(["a", "b", "d", "c"]);
+      expect(moveUpcoming(queue, 0, 3).change).toBeNull();
+    });
+
+    test("removing a hand-queued song forgets it", () => {
+      const queue = queueTrack(playing("a", "s1"), track("x"), "next").queue;
+      expect(removeTrack(queue, 1).queued).toEqual([]);
+    });
+
+    test("a song added into an album keeps the album's last songs labelled", () => {
+      const album = createQueue({ kind: "album", browseId: "B" }, "album:B", ["a", "b"].map(track), start, "Album");
+      expect(queueTrack(album, track("x"), "next").queue.from).toEqual({ title: "Album", count: 3 });
+    });
   });
 });

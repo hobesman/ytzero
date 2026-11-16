@@ -24,3 +24,11 @@ export const savePhoneLayout = (store: Store, value: boolean): Promise<void> => 
 export const MUSIC_MODE_KEY = "ytzero.phone.music-mode";
 export const loadMusicMode = async (store: Store): Promise<boolean> => (await store.getItemAsync(MUSIC_MODE_KEY)) === "true";
 export const saveMusicMode = (store: Store, value: boolean): Promise<void> => store.setItemAsync(MUSIC_MODE_KEY, String(value));
+
+/**
+ * Android phones and tablets: hold the phone layout in landscape, with side navigation and music's
+ * player beside what is browsed (car screens, a tablet on a stand). Off unless chosen.
+ */
+export const LANDSCAPE_LAYOUT_KEY = "ytzero.phone.landscape-layout";
+export const loadLandscapeLayout = async (store: Store): Promise<boolean> => (await store.getItemAsync(LANDSCAPE_LAYOUT_KEY)) === "true";
+export const saveLandscapeLayout = (store: Store, value: boolean): Promise<void> => store.setItemAsync(LANDSCAPE_LAYOUT_KEY, String(value));

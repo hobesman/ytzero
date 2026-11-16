@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import type { PhoneProfiles } from "../phone/PhoneAccountSheet";
 import { savedProfileStore } from "../storage";
-import type { Profile } from "../types";
+import type { Language, Profile } from "../types";
 import { MusicApp } from "./MusicApp";
 import type { MusicDownloadsView } from "./musicDownloads";
 import { OfflineMusicApi } from "./musicOfflineApi";
@@ -38,8 +38,8 @@ export function MusicOfflineButton({ instanceUrl, t, onPress }: { instanceUrl: s
  * played from the phone. Listens wait on the phone (never in Incognito mode).
  * Signing out forgets that profile here, so its music doesn't show afterwards.
  */
-export function MusicOfflineApp({ api, instanceUrl, t, incognito, onIncognitoChange, onExit }: {
-  api: YtZeroApi; instanceUrl: string; t: Translate; incognito: boolean; onIncognitoChange: (value: boolean) => void; onExit: () => void;
+export function MusicOfflineApp({ api, instanceUrl, t, language, incognito, onIncognitoChange, onExit }: {
+  api: YtZeroApi; instanceUrl: string; t: Translate; language: Language; incognito: boolean; onIncognitoChange: (value: boolean) => void; onExit: () => void;
 }) {
   const view = useMusicDownloads();
   const profileId = offlineProfileId(view, instanceUrl);
@@ -69,5 +69,5 @@ export function MusicOfflineApp({ api, instanceUrl, t, incognito, onIncognitoCha
     active: profile, profiles: [profile], canSwitch: false, childLockEnabled: false, incognito, onIncognitoChange,
     onSwitch: async () => { throw new Error("offline"); },
   };
-  return <MusicApp api={api} musicApi={musicApi} session={session} t={t} profiles={profiles} onSwitchToVideo={onExit} />;
+  return <MusicApp api={api} musicApi={musicApi} session={session} t={t} language={language} profiles={profiles} onSwitchToVideo={onExit} />;
 }

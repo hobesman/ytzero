@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View, useWindowDimensions, type ImageSourcePropType } from "react-native";
+import { landscapeColumns, landscapeRailWidth, useLandscapeLayout } from "../landscapeLayout";
 import type { YtZeroApi } from "../api";
 import { scheduledVideosInOrder, staysInProgress, withoutInProgress } from "../feedSections";
 import { browseEmptyState } from "../emptyState";
@@ -30,6 +31,8 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
   const [error, setError] = useState(false);
   const request = useRef(0);
   const shortsGrid = destination === "/shorts";
+  const landscape = useLandscapeLayout();
+  const window = useWindowDimensions();
   const pages = useRef({ page: 0, hasMore: true });
   pages.current = { page, hasMore };
 
@@ -122,11 +125,19 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
     </View> : null}
   </>;
 
+  // Landscape: cards in columns rather than one full-width thumbnail per row.
+  const columns = landscape ? landscapeColumns(window.width - landscapeRailWidth - gridGutter * 2) : 1;
+  const cellWidth = (window.width - landscapeRailWidth - gridGutter * 2 - gridGap * (columns - 1)) / columns;
+
   if (loading && videos.length === 0) return <View style={styles.center}><ActivityIndicator color={phoneColors.text} size="large" /></View>;
-  return <FlatList data={feed} keyExtractor={(video) => video.video_id}
+  // A FlatList can't change its column count, so each grid shape is a list of its own.
+  return <FlatList key={shortsGrid ? "shorts" : `videos:${columns}`} data={feed} keyExtractor={(video) => video.video_id}
     ListHeaderComponent={listHeader}
-    {...shortsGrid ? { numColumns: shortsGridColumns, columnWrapperStyle: shortsGridStyles.row, contentContainerStyle: shortsGridStyles.content } : {}}
+    {...shortsGrid ? { numColumns: shortsGridColumns, columnWrapperStyle: shortsGridStyles.row, contentContainerStyle: shortsGridStyles.content }
+      : columns > 1 ? { numColumns: columns, columnWrapperStyle: styles.gridRow, contentContainerStyle: styles.grid } : {}}
     renderItem={({ item }) => shortsGrid ? <PhoneShortCard video={item} thumbnail={shortSource(item)} onPress={open} onLongPress={longPress} />
+      : columns > 1 ? <View style={{ width: cellWidth }}><PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress}
+        thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} /></View>
       : <PhoneVideoCard video={item} language={language} t={t} onPress={open} onLongPress={longPress}
       thumbnail={source(item.thumbnail)!} channelAvatar={source(item.channel_thumbnail)} />}
     onEndReachedThreshold={1.5} onEndReached={() => { if (hasMore && !loadingMore && !loading && !error) void load(page + 1); }}
@@ -140,7 +151,12 @@ export function PhoneFeedScreen({ api, destination, sort, language, t, onOpen, h
     initialNumToRender={4} maxToRenderPerBatch={4} windowSize={7} removeClippedSubviews />;
 }
 
+const gridGutter = 12;
+const gridGap = 12;
+
 const styles = StyleSheet.create({
+  grid: { paddingHorizontal: gridGutter },
+  gridRow: { gap: gridGap },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   shelf: { paddingTop: 8, paddingBottom: 18 },
   sectionTitle: { ...phoneType.section, color: phoneColors.text, paddingHorizontal: 16, paddingBottom: 10 },

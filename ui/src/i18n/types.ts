@@ -22,6 +22,8 @@ export type LocaleFormat = {
   channelCount: (n: number) => string;
   /** e.g. "5 playlists" / "5 playlist" */
   playlistCount: (n: number) => string;
+  /** e.g. "5 songs" / "5 utworów" (music) */
+  songCount: (n: number) => string;
   /** e.g. "5 entries" / "5 wpisów" (watch-history entries) */
   historyEntryCount: (n: number) => string;
   /** Bare time unit agreeing with n, for the feed age limit: "months" / "miesiące". */

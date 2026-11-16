@@ -5,7 +5,7 @@ import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { onSleepTimerChange, setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, sleepTimerRemaining, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
-import type { MusicApi } from "./musicApi";
+import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
 import { current, playingFrom, upNext } from "./musicQueue";
 import type { MusicSession, MusicSessionState } from "./musicSession";
@@ -67,21 +67,32 @@ export function MusicMiniBar({ api, session, state, t, onOpen }: { api: MusicApi
   </Pressable>;
 }
 
-/** The full player: artwork, progress, controls, like / not this one, and what plays next. */
-export function MusicNowPlaying({ api, session, state, t, onClose }: { api: MusicApi; session: MusicSession; state: MusicSessionState; t: Translate; onClose: () => void }) {
-  const { width, height } = useWindowDimensions();
+/**
+ * The full player: artwork, progress, controls, like / not this one, and what plays next.
+ * `paneWidth` draws it in a pane beside the browse list (the landscape layout), with no close button.
+ */
+export function MusicNowPlaying({ api, session, state, t, onClose, onAddToPlaylist, paneWidth }: {
+  api: MusicApi; session: MusicSession; state: MusicSessionState; t: Translate; onClose: () => void; onAddToPlaylist: (track: MusicTrack) => void; paneWidth?: number;
+}) {
+  const window = useWindowDimensions();
+  const embedded = paneWidth !== undefined;
+  const width = paneWidth ?? window.width;
+  const height = window.height;
   const [sleepSheet, setSleepSheet] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [barWidth, setBarWidth] = useState(1);
   const sleep = useSleepTimerState();
   const track = current(state.queue);
   const position = usePosition(state, true);
   const next = upNext(state.queue);
+  const first = (state.queue?.index ?? 0) + 1;
   const source = playingFrom(state.queue);
   if (!track) return null;
   const duration = state.player?.duration ?? track.duration ?? 0;
   const playing = state.player?.playing ?? false;
   const liked = track.rating === 1;
-  const art = Math.min(width - 64, height * 0.38);
+  // A landscape screen is short, so the artwork gives way to keep the controls in view.
+  const art = Math.min(width - 64, height * (embedded ? 0.32 : 0.38));
   const sleepLabel = sleep.remaining !== null ? sleepCountdownLabel(sleep.remaining) : sleep.timer.kind === "end" ? t("musicSleepEndOfSong") : null;
   const header = <View style={styles.player}>
     <MusicArtwork api={api} url={track.thumbnail} size={art} radius={12} />
@@ -109,16 +120,28 @@ export function MusicNowPlaying({ api, session, state, t, onClose }: { api: Musi
         <MusicIcon name={liked ? "liked" : "like"} color={liked ? phoneColors.accent : phoneColors.text} />
       </Control>
     </View>
-    <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
-      <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
-      <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
-    </Pressable>
-    {next.length ? <Text style={styles.section}>{t("musicUpNext")}</Text> : null}
+    <View style={styles.extras}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
+        <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
+        <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("musicAddToPlaylist")} onPress={() => onAddToPlaylist(track)} style={styles.sleep}>
+        <MusicIcon name="queueAdd" color={phoneColors.textMuted} size={18} />
+        <Text style={styles.sleepLabel}>{t("musicAddToPlaylist")}</Text>
+      </Pressable>
+    </View>
+    {next.length ? <View style={styles.sectionRow}>
+      <Text style={styles.section}>{t("musicUpNext")}</Text>
+      <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setEditing(!editing)}>
+        <Text style={[styles.edit, editing && styles.sleepOn]}>{editing ? t("musicDoneEditing") : t("musicEditQueue")}</Text>
+      </Pressable>
+    </View> : null}
   </View>;
   // The app root already keeps clear of the system bars.
-  return <View style={styles.screen}>
+  return <View style={embedded ? styles.pane : styles.screen}>
     <View style={styles.top}>
-      <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={t("close")} onPress={onClose}><MusicIcon name="down" color={phoneColors.text} size={28} /></Pressable>
+      {embedded ? <View style={styles.topSpacer} />
+        : <Pressable hitSlop={12} accessibilityRole="button" accessibilityLabel={t("close")} onPress={onClose}><MusicIcon name="down" color={phoneColors.text} size={28} /></Pressable>}
       <View style={styles.topCopy}>
         <Text style={styles.heading}>{t("musicNowPlaying")}</Text>
         <Text numberOfLines={1} style={styles.source}>{source ? t("musicFromAlbum").replace("{title}", source) : t("musicStation")}</Text>
@@ -126,13 +149,34 @@ export function MusicNowPlaying({ api, session, state, t, onClose }: { api: Musi
       <View style={styles.topSpacer} />
     </View>
     <FlatList data={next} keyExtractor={(entry) => entry.videoId} ListHeaderComponent={header} contentContainerStyle={styles.list}
-      renderItem={({ item }) => <MusicTrackRow api={api} track={item} onPress={(entry) => session.skipTo(entry.videoId)} onLongPress={(entry) => void session.dislike(entry)} />} />
+      renderItem={({ item, index }) => {
+        const at = first + index;
+        return <MusicTrackRow api={api} track={item} onPress={(entry) => session.skipTo(entry.videoId)} menuExtras={{ onRemove: () => void session.removeUpcoming(at) }}
+          trailing={editing ? <QueueEditControls t={t} first={index === 0} last={index === next.length - 1}
+            onUp={() => void session.moveUpcoming(at, at - 1)} onDown={() => void session.moveUpcoming(at, at + 1)} onRemove={() => void session.removeUpcoming(at)} /> : undefined} />;
+      }} />
     {sleepSheet ? <TvChoiceSheet<SleepTimerChoice> title={t("sleepTimer")} t={t} value={sleepTimerChoice(sleep.timer)}
       options={SLEEP_TIMER_CHOICES.map((value) => ({ value, label: value === "off" ? t("sleepTimerOff") : value === "end" ? t("musicSleepEndOfSong") : t("sleepTimerMinutes").replace("{count}", value) }))}
       onSelect={(value) => { setSleepTimer(value); setSleepSheet(false); }} onClose={() => setSleepSheet(false)} /> : null}
   </View>;
 }
 
+
+/** Up next while it is being edited: move a song up or down, or take it out. */
+function QueueEditControls({ t, first, last, onUp, onDown, onRemove }: {
+  t: Translate; first: boolean; last: boolean; onUp: () => void; onDown: () => void; onRemove: () => void;
+}) {
+  const button = (label: string, icon: "up" | "down" | "remove", onPress: () => void, disabled = false) =>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} hitSlop={4} onPress={onPress}
+      style={({ pressed }) => [styles.editButton, disabled && styles.disabled, pressed && styles.pressed]}>
+      <MusicIcon name={icon} color={phoneColors.text} size={20} />
+    </Pressable>;
+  return <View style={styles.editControls}>
+    {button(t("musicMoveUp"), "up", onUp, first)}
+    {button(t("musicMoveDown"), "down", onDown, last)}
+    {button(t("musicRemoveFromQueue"), "remove", onRemove)}
+  </View>;
+}
 const styles = StyleSheet.create({
   control: { alignItems: "center", justifyContent: "center" },
   primary: { backgroundColor: phoneColors.text },
@@ -143,6 +187,7 @@ const styles = StyleSheet.create({
   miniTitle: { ...phoneType.title, color: phoneColors.text },
   miniArtist: { ...phoneType.caption, color: phoneColors.textMuted },
   screen: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: phoneColors.background },
+  pane: { flex: 1, backgroundColor: phoneColors.surface },
   top: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16 },
   heading: { ...phoneType.title, color: phoneColors.text },
   topSpacer: { width: 28 },
@@ -159,8 +204,14 @@ const styles = StyleSheet.create({
   times: { alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between" },
   time: { ...phoneType.caption, color: phoneColors.textMuted },
   controls: { alignSelf: "stretch", flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 16 },
-  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10, marginTop: 12 },
+  extras: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: 12 },
+  sleep: { flexDirection: "row", alignItems: "center", gap: 6, padding: 10 },
   sleepLabel: { ...phoneType.caption, color: phoneColors.textMuted },
   sleepOn: { color: phoneColors.accent },
-  section: { ...phoneType.caption, alignSelf: "stretch", fontWeight: "700", color: phoneColors.textMuted, textTransform: "uppercase", letterSpacing: 0.6, paddingTop: 24, paddingBottom: 6 },
+  sectionRow: { alignSelf: "stretch", flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingTop: 24, paddingBottom: 6 },
+  section: { ...phoneType.caption, fontWeight: "700", color: phoneColors.textMuted, textTransform: "uppercase", letterSpacing: 0.6 },
+  edit: { ...phoneType.caption, fontWeight: "700", color: phoneColors.textMuted },
+  editControls: { flexDirection: "row", gap: 2, marginRight: -8 },
+  editButton: { width: 34, height: 36, alignItems: "center", justifyContent: "center" },
+  disabled: { opacity: 0.3 },
 });

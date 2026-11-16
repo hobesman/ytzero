@@ -1,8 +1,9 @@
 import type { MusicPlayerTrack } from "../musicPlayerTypes";
 import {
   MusicApi, MusicApiError, type MusicAlbum, type MusicAlbumPage, type MusicArtistPage, type MusicLibrary, type MusicPlay, type MusicPlaylistPage,
-  type MusicSearchResults, type MusicSeed, type MusicTrack,
+  type MusicPlaylist, type MusicSearchResults, type MusicSeed, type MusicTrack, type MusicUserPlaylist, type MusicUserPlaylistPage,
 } from "./musicApi";
+import type { MusicCollectionKind } from "./musicDownloads";
 import type { MusicDownloadStore } from "./musicDownloads";
 
 type ArtworkSource = { uri: string; headers?: Record<string, string> };
@@ -58,6 +59,10 @@ export function offlineStation(downloads: MusicDownloadStore, seed: MusicSeed, s
   return { seed: seedKey(seed), tracks: order.filter((track) => !excluded.has(track.videoId)).slice(0, count) };
 }
 
+function userPlaylist(entry: { id: string; title: string; thumbnail: string | null; addedAt: number; syncedAt: number | null }, trackCount: number): MusicUserPlaylist {
+  return { id: entry.id, title: entry.title, trackCount, thumbnail: entry.thumbnail ?? "", createdAt: new Date(entry.addedAt).toISOString(), updatedAt: new Date(entry.syncedAt ?? entry.addedAt).toISOString() };
+}
+
 const matches = (query: string, ...values: (string | null | undefined)[]) => values.some((value) => value?.toLocaleLowerCase().includes(query));
 
 /**
@@ -73,13 +78,30 @@ export class OfflineMusicApi extends MusicApi {
     super(instanceUrl, accessToken);
   }
 
+  /** Runs a request, noting whether it reached the server, and falls back to the downloads when it didn't. */
+  private async reach<T>(request: () => Promise<T>, fallback: () => T | null): Promise<T> {
+    try {
+      const result = await request();
+      this.downloads.setReachable(true);
+      return result;
+    } catch (error) {
+      if (!isUnreachable(error)) { this.downloads.setReachable(true); throw error; }
+      this.downloads.setReachable(false);
+      const offline = fallback();
+      if (offline === null) throw error;
+      return offline;
+    }
+  }
+
+  private downloadedPlaylists(kind: "playlist" | "mine") { return this.downloads.collections().filter((entry) => entry.kind === kind); }
+
   private downloadedAlbums(): MusicAlbum[] {
     return this.downloads.collections().filter((entry) => entry.kind === "album").map((entry) => entry.album ?? {
       browseId: entry.id, title: entry.title, artist: entry.subtitle, artistId: null, year: null, thumbnail: entry.thumbnail, kind: "album" as const,
     });
   }
 
-  private collectionTracks(kind: "album" | "playlist", id: string): MusicTrack[] | null {
+  private collectionTracks(kind: MusicCollectionKind, id: string): MusicTrack[] | null {
     const entry = this.downloads.collection(kind, id);
     if (!entry) return null;
     const playable = new Map(this.downloads.playable().map((track) => [track.videoId, track]));
@@ -87,66 +109,90 @@ export class OfflineMusicApi extends MusicApi {
   }
 
   override async album(browseId: string): Promise<MusicAlbumPage> {
-    try { return await super.album(browseId); }
-    catch (error) {
+    let offline = false;
+    const page = await this.reach(() => super.album(browseId), () => {
       const tracks = this.collectionTracks("album", browseId);
       const album = this.downloadedAlbums().find((entry) => entry.browseId === browseId);
-      if (!isUnreachable(error) || !tracks || !album) throw error;
-      return { ...album, tracks, saved: false };
-    }
+      offline = true;
+      return tracks && album ? { ...album, tracks, saved: false } : null;
+    });
+    if (!offline) void this.downloads.refresh("album", page);
+    return page;
   }
 
   override async playlist(playlistId: string): Promise<MusicPlaylistPage> {
-    try { return await super.playlist(playlistId); }
-    catch (error) {
+    let offline = false;
+    const page = await this.reach(() => super.playlist(playlistId), () => {
       const entry = this.downloads.collection("playlist", playlistId);
       const tracks = this.collectionTracks("playlist", playlistId);
-      if (!isUnreachable(error) || !entry || !tracks) throw error;
-      return { playlistId, title: entry.title, subtitle: entry.subtitle, thumbnail: entry.thumbnail, tracks };
-    }
+      offline = true;
+      return entry && tracks ? { playlistId, title: entry.title, subtitle: entry.subtitle, thumbnail: entry.thumbnail, tracks, saved: false } : null;
+    });
+    if (!offline) void this.downloads.refresh("playlist", page);
+    return page;
   }
 
+  override async myPlaylist(id: string): Promise<MusicUserPlaylistPage> {
+    let offline = false;
+    const page = await this.reach(() => super.myPlaylist(id), () => {
+      const entry = this.downloads.collection("mine", id);
+      const tracks = this.collectionTracks("mine", id);
+      offline = true;
+      return entry && tracks ? { ...userPlaylist(entry, tracks.length), tracks } : null;
+    });
+    if (!offline) void this.downloads.refresh("mine", page);
+    return page;
+  }
+
+  override async myPlaylists(): Promise<MusicUserPlaylist[]> {
+    return this.reach(() => super.myPlaylists(), () => this.offlinePlaylists().playlists);
+  }
+
+  private offlinePlaylists(): { playlists: MusicUserPlaylist[]; savedPlaylists: MusicPlaylist[] } {
+    return {
+      playlists: this.downloadedPlaylists("mine").map((entry) => userPlaylist(entry, this.collectionTracks("mine", entry.id)?.length ?? 0)),
+      savedPlaylists: this.downloadedPlaylists("playlist").map((entry) => ({ playlistId: entry.id, title: entry.title, subtitle: entry.subtitle, thumbnail: entry.thumbnail })),
+    };
+  }
+
+  // A downloaded playlist of the profile's own follows its edits at once.
+  override async addToPlaylist(id: string, videoId: string) { return this.edited(id, await super.addToPlaylist(id, videoId)); }
+  override async removeFromPlaylist(id: string, videoId: string) { return this.edited(id, await super.removeFromPlaylist(id, videoId)); }
+  override async reorderPlaylist(id: string, videoIds: string[]) { return this.edited(id, await super.reorderPlaylist(id, videoIds)); }
+  override async renamePlaylist(id: string, title: string) { return this.edited(id, await super.renamePlaylist(id, title)); }
+  private edited<T>(id: string, result: T): T { void this.downloads.syncCollection("mine", id); return result; }
+
   override async artist(channelId: string): Promise<MusicArtistPage> {
-    try { return await super.artist(channelId); }
-    catch (error) {
+    return this.reach(() => super.artist(channelId), () => {
       const topSongs = this.downloads.playable().filter((track) => track.artistId === channelId);
       const albums = this.downloadedAlbums().filter((album) => album.artistId === channelId);
-      if (!isUnreachable(error) || (!topSongs.length && !albums.length)) throw error;
+      if (!topSongs.length && !albums.length) return null;
       const name = topSongs[0]?.artist ?? albums[0]?.artist ?? "";
       return { channelId, name, thumbnail: null, topSongs, albums: albums.filter((album) => album.kind === "album"), singles: albums.filter((album) => album.kind === "single") };
-    }
+    });
   }
 
   override async library(): Promise<MusicLibrary> {
-    try { return await super.library(); }
-    catch (error) {
-      if (!isUnreachable(error)) throw error;
-      return { liked: this.downloads.playable().filter((track) => track.rating === 1), recent: [], albums: this.downloadedAlbums() };
-    }
+    return this.reach(() => super.library(), () => ({
+      liked: this.downloads.playable().filter((track) => track.rating === 1), recent: [], albums: this.downloadedAlbums(), ...this.offlinePlaylists(),
+    }));
   }
 
   override async search(q: string): Promise<MusicSearchResults> {
-    try { return await super.search(q); }
-    catch (error) {
-      if (!isUnreachable(error)) throw error;
-      const query = q.trim().toLocaleLowerCase();
-      return {
-        tracks: this.downloads.playable().filter((track) => matches(query, track.title, track.artist, track.album)),
-        albums: this.downloadedAlbums().filter((album) => matches(query, album.title, album.artist)),
-        artists: [],
-      };
-    }
+    const query = q.trim().toLocaleLowerCase();
+    return this.reach(() => super.search(q), () => ({
+      tracks: this.downloads.playable().filter((track) => matches(query, track.title, track.artist, track.album)),
+      albums: this.downloadedAlbums().filter((album) => matches(query, album.title, album.artist)),
+      artists: [],
+    }));
   }
 
   override async station(seed: MusicSeed, served: string[], skipped: string[], count = 10): Promise<{ seed: string; tracks: MusicTrack[] }> {
-    try { return await super.station(seed, served, skipped, count); }
-    catch (error) {
-      if (!isUnreachable(error)) throw error;
+    return this.reach(() => super.station(seed, served, skipped, count), () => {
       const station = offlineStation(this.downloads, seed, served, skipped, count);
       // With nothing downloaded to play, the screens show why the station didn't start.
-      if (!station.tracks.length && !served.length) throw error;
-      return station;
-    }
+      return !station.tracks.length && !served.length ? null : station;
+    });
   }
 
   /** A downloaded song needs no preparing. */
@@ -156,12 +202,10 @@ export class OfflineMusicApi extends MusicApi {
 
   /** A listen the server can't be told about now is sent later. Incognito listens never get here. */
   override async recordPlay(play: MusicPlay): Promise<{ ok: true }> {
-    try { return await super.recordPlay(play); }
-    catch (error) {
-      if (!isUnreachable(error)) throw error;
+    return this.reach(() => super.recordPlay(play), () => {
       this.downloads.queuePlay(play);
-      return { ok: true };
-    }
+      return { ok: true as const };
+    });
   }
 
   override artworkSource(url: string | null | undefined): ArtworkSource | null {

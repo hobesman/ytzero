@@ -1,15 +1,17 @@
 import { memo, useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { PhoneChip } from "../phone/PhoneChip";
 import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
-import { MusicShelf } from "./MusicAlbumCard";
+import { MusicListShelf, MusicShelf } from "./MusicAlbumCard";
 import type { MusicApi, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage, MusicTrack } from "./musicApi";
 import { PageFrame, usePageData, type MusicPage, type PageProps } from "./MusicPages";
+import { MusicCollectionDownloadButton } from "./MusicDownloadViews";
 import { MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
 
 const TILE = 140;
+const playlistKey = (playlist: MusicPlaylist) => playlist.playlistId;
 
 /** Genre tiles two to a column, so a shelf scrolls sideways through all of them. */
 function columns<T>(items: readonly T[]): T[][] {
@@ -66,23 +68,34 @@ export function MusicGenreScreen({ api, t, id, title, onOpen, onBack }: PageProp
   const load = useCallback(() => api.genre(id), [api, id]);
   const { data: page, failed, retry } = usePageData<MusicGenrePage>(load);
   const open = useCallback((playlist: MusicPlaylist) => onOpen({ kind: "playlist", id: playlist.playlistId }), [onOpen]);
+  const card = useCallback((playlist: MusicPlaylist) => <MusicPlaylistCard api={api} playlist={playlist} onPress={open} />, [api, open]);
+  // Shelves and the cards in them are both virtualized: only those near the screen are built.
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicGenreFailed")} loading={!page} onRetry={retry}>
-    {page ? <ScrollView contentContainerStyle={styles.genrePage}>
-      <Text style={styles.heading}>{page.title || title}</Text>
-      {page.shelves.map((shelf, index) => <MusicShelf key={`${index}:${shelf.title}`} title={shelf.title} count={shelf.playlists.length}>
-        {shelf.playlists.map((playlist) => <MusicPlaylistCard key={playlist.playlistId} api={api} playlist={playlist} onPress={open} />)}
-      </MusicShelf>)}
-    </ScrollView> : null}
+    {page ? <FlatList data={page.shelves} keyExtractor={(shelf, index) => `${index}:${shelf.title}`}
+      contentContainerStyle={styles.genrePage} ListHeaderComponent={<Text style={styles.heading}>{page.title || title}</Text>}
+      renderItem={({ item: shelf }) => <MusicListShelf title={shelf.title} data={shelf.playlists} keyOf={playlistKey} render={card} />}
+      initialNumToRender={3} maxToRenderPerBatch={2} windowSize={5} removeClippedSubviews /> : null}
   </PageFrame>;
 }
 
 /** A playlist: play it as a shuffled station, or start a station from one of its songs. */
 export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: PageProps) {
   const load = useCallback(() => api.playlist(id), [api, id]);
-  const { data: playlist, failed, retry } = usePageData<MusicPlaylistPage>(load);
+  const { data: playlist, setData, failed, retry } = usePageData<MusicPlaylistPage>(load);
+  const [saving, setSaving] = useState(false);
   const warmId = playlist?.tracks.length ? playlist.playlistId : null;
   useEffect(() => { if (warmId) session.warm({ kind: "playlist", playlistId: warmId }); }, [session, warmId]);
   const startSong = useCallback((track: MusicTrack) => void session.start({ kind: "track", videoId: track.videoId }), [session]);
+  // Saving keeps the playlist in the library, as an album is kept.
+  const toggleSaved = async () => {
+    if (!playlist || saving) return;
+    const saved = !playlist.saved;
+    setSaving(true);
+    setData({ ...playlist, saved });
+    try { await api.setPlaylistSaved(playlist.playlistId, saved); }
+    catch { setData((latest) => latest && { ...latest, saved: !saved }); }
+    finally { setSaving(false); }
+  };
   const header = playlist ? <View>
     <View style={styles.header}>
       <MusicArtwork api={api} url={playlist.thumbnail} size={200} radius={10} />
@@ -91,13 +104,15 @@ export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: 
       <View style={styles.actions}>
         <PhoneChip primary label={t("musicShuffle")} disabled={!playlist.tracks.length}
           onPress={() => void session.start({ kind: "playlist", playlistId: playlist.playlistId }, { from: playlist.title })} />
+        <PhoneChip label={playlist.saved ? t("musicSaved") : t("musicSave")} disabled={saving} onPress={() => void toggleSaved()} />
       </View>
+      <MusicCollectionDownloadButton kind="playlist" page={playlist} t={t} />
     </View>
     {playlist.tracks.length ? <PhoneSectionTitle title={t("musicSongs")} /> : null}
   </View> : null;
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicPlaylistFailed")} loading={!playlist} onRetry={retry}>
     {playlist ? <FlatList data={playlist.tracks} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}
-      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={startSong} onLongPress={(track) => void session.dislike(track)} />} /> : null}
+      renderItem={({ item }) => <MusicTrackRow api={api} track={item} active={item.videoId === playingId} onPress={startSong} />} /> : null}
   </PageFrame>;
 }
 

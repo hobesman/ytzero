@@ -1,5 +1,5 @@
 import type { PhoneDownloadsNative } from "../phoneDownloadsNative";
-import type { MusicAlbum, MusicAlbumPage, MusicApi, MusicPlay, MusicPlaylistPage, MusicTrack } from "./musicApi";
+import type { MusicAlbum, MusicAlbumPage, MusicApi, MusicPlay, MusicPlaylistPage, MusicTrack, MusicUserPlaylistPage } from "./musicApi";
 
 /**
  * Songs, albums and playlists saved on an Android phone for offline listening.
@@ -36,7 +36,8 @@ export type MusicDownloadTrack = {
   addedAt: number;
 };
 
-export type MusicCollectionKind = "album" | "playlist";
+/** "mine": one of the profile's own playlists; "playlist": a YouTube Music one. */
+export type MusicCollectionKind = "album" | "playlist" | "mine";
 export type MusicDownloadCollection = {
   owner: string;
   kind: MusicCollectionKind;
@@ -70,7 +71,24 @@ export type MusicDownloadIndex = {
 /** What a download is waiting for right now; not kept on disk. */
 export type MusicDownloadWaiting = "wifi" | "network" | null;
 
-type DownloadApi = Pick<MusicApi, "album" | "playlist" | "recordPlay" | "audioUrl" | "artworkSource">;
+type DownloadApi = Pick<MusicApi, "album" | "playlist" | "myPlaylist" | "recordPlay" | "audioUrl" | "artworkSource">;
+
+type CollectionPage = { title: string; subtitle: string; thumbnail: string | null; album: MusicAlbum | null; tracks: MusicTrack[] };
+
+function collectionPage(kind: MusicCollectionKind, page: MusicAlbumPage | MusicPlaylistPage | MusicUserPlaylistPage): CollectionPage {
+  if (kind === "album" && "browseId" in page) {
+    const { tracks, saved: _saved, ...album } = page;
+    return { title: album.title, subtitle: album.artist, thumbnail: album.thumbnail, album, tracks };
+  }
+  if ("playlistId" in page) return { title: page.title, subtitle: page.subtitle, thumbnail: page.thumbnail, album: null, tracks: page.tracks };
+  // The profile's own playlists show their first song's artwork.
+  const mine = page as MusicUserPlaylistPage;
+  return { title: mine.title, subtitle: "", thumbnail: mine.tracks[0]?.thumbnail || mine.thumbnail || null, album: null, tracks: mine.tracks };
+}
+
+function fetchCollection(api: DownloadApi, kind: MusicCollectionKind, id: string): Promise<MusicAlbumPage | MusicPlaylistPage | MusicUserPlaylistPage> {
+  return kind === "album" ? api.album(id) : kind === "playlist" ? api.playlist(id) : api.myPlaylist(id);
+}
 export type MusicDownloadConnection = { owner: string; accessToken?: string; api: DownloadApi };
 type Timers = { now: () => number; setTimeout: (callback: () => void, ms: number) => unknown; clearTimeout: (handle: unknown) => void };
 
@@ -106,7 +124,7 @@ export function parseMusicDownloadIndex(text: string | null): MusicDownloadIndex
     && typeof item.file === "string" && isTrack(item.track) && ["queued", "downloading", "done", "failed"].includes(item.state))
     .map((item: MusicDownloadTrack) => ({ ...item, downloaded: Number.isFinite(item.downloaded) ? item.downloaded : 0, single: item.single === true })) : [];
   index.collections = Array.isArray(value.collections) ? value.collections.filter((item: any) => typeof item?.owner === "string"
-    && (item.kind === "album" || item.kind === "playlist") && typeof item.id === "string" && Array.isArray(item.trackIds)) : [];
+    && ["album", "playlist", "mine"].includes(item.kind) && typeof item.id === "string" && Array.isArray(item.trackIds)) : [];
   index.pendingPlays = Array.isArray(value.pendingPlays) ? value.pendingPlays.filter((item: any) => typeof item?.owner === "string"
     && typeof item.play?.videoId === "string" && typeof item.play.startedAt === "string") : [];
   index.lastOwner = typeof value.lastOwner === "string" ? value.lastOwner : null;
@@ -118,7 +136,11 @@ export function parseMusicDownloadIndex(text: string | null): MusicDownloadIndex
  * What the screens read, replaced after every change so components see each
  * one. Read it with the `music…` helpers below.
  */
-export type MusicDownloadsView = { index: MusicDownloadIndex; owner: string | null; available: boolean; waiting: MusicDownloadWaiting };
+export type MusicDownloadsView = {
+  index: MusicDownloadIndex; owner: string | null; available: boolean; waiting: MusicDownloadWaiting;
+  /** The last music request didn't reach the server, so the screens show the downloads. */
+  offline: boolean;
+};
 
 export function musicDownloadedTracks(view: MusicDownloadsView): MusicDownloadTrack[] {
   return view.owner ? view.index.tracks.filter((item) => item.owner === view.owner) : [];
@@ -175,13 +197,14 @@ export class MusicDownloadStore {
   private flushing = false;
   private syncing = false;
   private waiting: MusicDownloadWaiting = null;
+  private offline = false;
   private currentView: MusicDownloadsView;
   readonly ready: Promise<void>;
 
   constructor(private readonly native: PhoneDownloadsNative | null, private readonly timers: Timers = {
     now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms), clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
   }) {
-    this.currentView = { index: this.index, owner: null, available: native !== null, waiting: null };
+    this.currentView = { index: this.index, owner: null, available: native !== null, waiting: null, offline: false };
     this.ready = this.load();
   }
 
@@ -203,7 +226,7 @@ export class MusicDownloadStore {
 
   private changed(persist = true) {
     this.index = { ...this.index };
-    this.currentView = { index: this.index, owner: this.owner, available: this.available, waiting: this.waiting };
+    this.currentView = { index: this.index, owner: this.owner, available: this.available, waiting: this.waiting, offline: this.offline };
     this.listeners.forEach((listener) => listener());
     if (!persist || !this.native) return;
     const text = JSON.stringify(this.index);
@@ -243,7 +266,15 @@ export class MusicDownloadStore {
     this.changed();
   }
 
-  private view_(owner = this.owner): MusicDownloadsView { return { index: this.index, owner, available: this.available, waiting: this.waiting }; }
+  private view_(owner = this.owner): MusicDownloadsView { return { index: this.index, owner, available: this.available, waiting: this.waiting, offline: this.offline }; }
+
+  /** Whether music requests reach the server; back online, waiting downloads and listens go ahead. */
+  setReachable(reachable: boolean) {
+    if (this.offline === !reachable) return;
+    this.offline = !reachable;
+    this.changed(false);
+    if (reachable) { void this.flushPlays(); void this.pump(); }
+  }
   find(videoId: string, owner = this.owner): MusicDownloadTrack | null { return musicDownloadTrack(this.view_(owner), videoId); }
   collection(kind: MusicCollectionKind, id: string, owner = this.owner): MusicDownloadCollection | null { return musicDownloadCollection(this.view_(owner), kind, id); }
   collections(owner = this.owner): MusicDownloadCollection[] { return musicDownloadCollections(this.view_(owner)); }
@@ -307,32 +338,60 @@ export class MusicDownloadStore {
     void this.pump();
   }
 
-  async downloadAlbum(page: MusicAlbumPage) {
-    const { tracks, saved: _saved, ...album } = page;
-    await this.saveCollection("album", page.browseId, page.title, page.artist, page.thumbnail, album, tracks);
-  }
+  async downloadAlbum(page: MusicAlbumPage) { await this.saveCollection("album", page.browseId, collectionPage("album", page)); }
+  async downloadPlaylist(page: MusicPlaylistPage) { await this.saveCollection("playlist", page.playlistId, collectionPage("playlist", page)); }
+  /** One of the profile's own playlists. */
+  async downloadMyPlaylist(page: MusicUserPlaylistPage) { await this.saveCollection("mine", page.id, collectionPage("mine", page)); }
 
-  async downloadPlaylist(page: MusicPlaylistPage) {
-    await this.saveCollection("playlist", page.playlistId, page.title, page.subtitle, page.thumbnail, null, page.tracks);
-  }
-
-  private async saveCollection(kind: MusicCollectionKind, id: string, title: string, subtitle: string, thumbnail: string | null,
-    album: MusicAlbum | null, tracks: readonly MusicTrack[]) {
+  private async saveCollection(kind: MusicCollectionKind, id: string, page: CollectionPage) {
     await this.ready;
     const connection = this.connection;
     if (!this.native || !connection) return;
     const now = this.timers.now();
     const existing = this.collection(kind, id, connection.owner);
     const entry: MusicDownloadCollection = {
-      owner: connection.owner, kind, id, title, subtitle, thumbnail, album, trackIds: unique(tracks.map((track) => track.videoId)),
-      artwork: existing?.artwork ?? null, addedAt: existing?.addedAt ?? now, syncedAt: now,
+      owner: connection.owner, kind, id, title: page.title, subtitle: page.subtitle, thumbnail: page.thumbnail, album: page.album,
+      trackIds: unique(page.tracks.map((track) => track.videoId)), artwork: existing?.artwork ?? null, addedAt: existing?.addedAt ?? now, syncedAt: now,
     };
     await this.prune(() => {
       this.index.collections = [...this.index.collections.filter((item) => item !== existing), entry];
-      this.addTracks(connection, tracks, false);
+      this.addTracks(connection, page.tracks, false);
     }, connection.owner);
-    void this.saveArtwork(connection, [thumbnail, ...tracks.map((track) => track.thumbnail)]);
+    void this.saveArtwork(connection, [page.thumbnail, ...page.tracks.map((track) => track.thumbnail)]);
     void this.pump();
+  }
+
+  /**
+   * A saved album or playlist's page just loaded from the server (or the
+   * profile just changed one of its playlists): the download follows it, so
+   * songs added are fetched and songs removed are deleted.
+   */
+  async refresh(kind: MusicCollectionKind, page: MusicAlbumPage | MusicPlaylistPage | MusicUserPlaylistPage) {
+    await this.ready;
+    const connection = this.connection;
+    const id = "browseId" in page ? page.browseId : "playlistId" in page ? page.playlistId : page.id;
+    const current = connection ? this.collection(kind, id, connection.owner) : null;
+    if (!connection || !current) return;
+    const next = collectionPage(kind, page);
+    const trackIds = unique(next.tracks.map((track) => track.videoId));
+    const same = current.title === next.title && current.thumbnail === next.thumbnail && trackIds.join() === current.trackIds.join()
+      && next.tracks.every((track) => this.find(track.videoId, connection.owner) !== null);
+    if (same) return;
+    await this.prune(() => {
+      this.index.collections = this.index.collections.map((item) => item === current
+        ? { ...current, title: next.title, subtitle: next.subtitle, thumbnail: next.thumbnail, album: next.album ?? current.album, trackIds, syncedAt: this.timers.now() } : item);
+      this.addTracks(connection, next.tracks, false);
+    }, connection.owner);
+    void this.saveArtwork(connection, [next.thumbnail, ...next.tracks.map((track) => track.thumbnail)]);
+    void this.pump();
+  }
+
+  /** Re-fetches one saved album or playlist, such as one of the profile's playlists after an edit. */
+  async syncCollection(kind: MusicCollectionKind, id: string) {
+    const connection = this.connection;
+    if (!connection || !this.collection(kind, id, connection.owner)) return;
+    const page = await fetchCollection(connection.api, kind, id).catch(() => null);
+    if (page && this.connection === connection) await this.refresh(kind, page);
   }
 
   /** Fetches each artwork address once per profile; songs and collections share them. */
@@ -419,31 +478,15 @@ export class MusicDownloadStore {
     this.syncing = true;
     try {
       for (const entry of this.collections(connection.owner)) {
-        let tracks: MusicTrack[];
-        let album: MusicAlbum | null = entry.album;
-        let details: Pick<MusicDownloadCollection, "title" | "subtitle" | "thumbnail">;
-        try {
-          if (entry.kind === "album") {
-            const { tracks: list, saved: _saved, ...rest } = await connection.api.album(entry.id);
-            tracks = list; album = rest; details = { title: rest.title, subtitle: rest.artist, thumbnail: rest.thumbnail };
-          } else {
-            const page = await connection.api.playlist(entry.id);
-            tracks = page.tracks; details = { title: page.title, subtitle: page.subtitle, thumbnail: page.thumbnail };
-          }
-        } catch (error) {
+        let page: Awaited<ReturnType<typeof fetchCollection>>;
+        try { page = await fetchCollection(connection.api, entry.kind, entry.id); }
+        catch (error) {
           // Unreachable: try again next time. Gone (a deleted playlist): keep what is saved.
           if (!(error as { status?: number })?.status) return;
           continue;
         }
         if (this.connection !== connection) return;
-        const current = this.collection(entry.kind, entry.id, connection.owner);
-        if (!current) continue;
-        await this.prune(() => {
-          this.index.collections = this.index.collections.map((item) => item === current
-            ? { ...current, ...details, album, trackIds: unique(tracks.map((track) => track.videoId)), syncedAt: this.timers.now() } : item);
-          this.addTracks(connection, tracks, false);
-        }, connection.owner);
-        void this.saveArtwork(connection, [details.thumbnail, ...tracks.map((track) => track.thumbnail)]);
+        await this.refresh(entry.kind, page);
       }
     } finally { this.syncing = false; }
     void this.pump();

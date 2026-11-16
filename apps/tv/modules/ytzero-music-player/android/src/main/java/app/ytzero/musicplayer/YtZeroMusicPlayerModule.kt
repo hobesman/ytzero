@@ -150,6 +150,18 @@ class YtZeroMusicPlayerModule : Module() {
       attach().addMediaItems(tracks.map(::mediaItem))
     }.runOnQueue(Queues.MAIN)
 
+    // Songs the listener queued by hand go in among the station's, not after it.
+    AsyncFunction("insertAt") { index: Int, tracks: List<MusicTrackRecord> ->
+      val player = attach()
+      player.addMediaItems(index.coerceIn(0, player.mediaItemCount), tracks.map(::mediaItem))
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("move") { from: Int, to: Int ->
+      val player = MusicPlayerHolder.existing() ?: return@AsyncFunction
+      val count = player.mediaItemCount
+      if (from in 0 until count && to in 0 until count && from != to) player.moveMediaItem(from, to)
+    }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("removeAt") { index: Int ->
       val player = MusicPlayerHolder.existing() ?: return@AsyncFunction
       if (index in 0 until player.mediaItemCount && index != player.currentMediaItemIndex) player.removeMediaItem(index)

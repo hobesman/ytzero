@@ -31,9 +31,15 @@ export type MusicArtistPage = MusicArtist & { topSongs: MusicTrack[]; albums: Mu
 export type MusicGenre = { id: string; title: string; group: "mood" | "genre"; color: string | null };
 export type MusicPlaylist = { playlistId: string; title: string; subtitle: string; thumbnail: string | null };
 export type MusicGenrePage = { id: string; title: string; shelves: { title: string; playlists: MusicPlaylist[] }[] };
-export type MusicPlaylistPage = MusicPlaylist & { tracks: MusicTrack[] };
+export type MusicPlaylistPage = MusicPlaylist & { tracks: MusicTrack[]; saved?: boolean };
+/** One of the profile's own playlists; its artwork is its first song's. */
+export type MusicUserPlaylist = { id: string; title: string; trackCount: number; thumbnail: string; createdAt: string; updatedAt: string };
+export type MusicUserPlaylistPage = MusicUserPlaylist & { tracks: MusicTrack[] };
 export type MusicSearchResults = { tracks: MusicTrack[]; albums: MusicAlbum[]; artists: MusicArtist[] };
-export type MusicLibrary = { liked: MusicTrack[]; recent: MusicTrack[]; albums: MusicAlbum[] };
+export type MusicLibrary = {
+  liked: MusicTrack[]; recent: MusicTrack[]; albums: MusicAlbum[];
+  playlists: MusicUserPlaylist[]; savedPlaylists: MusicPlaylist[];
+};
 
 export type MusicSeed =
   | { kind: "track"; videoId: string }
@@ -138,7 +144,47 @@ export class MusicApi {
 
   async library(): Promise<MusicLibrary> {
     const result = await this.request<Partial<MusicLibrary>>("/library");
-    return { liked: result.liked ?? [], recent: result.recent ?? [], albums: result.albums ?? [] };
+    return {
+      liked: result.liked ?? [], recent: result.recent ?? [], albums: result.albums ?? [],
+      playlists: result.playlists ?? [], savedPlaylists: result.savedPlaylists ?? [],
+    };
+  }
+
+  setPlaylistSaved(playlistId: string, saved: boolean): Promise<{ ok: true; saved: boolean }> {
+    return this.request(`/playlists/${encodeURIComponent(playlistId)}/saved`, { method: saved ? "PUT" : "DELETE", body: saved ? "{}" : undefined }, 30000);
+  }
+
+  async myPlaylists(): Promise<MusicUserPlaylist[]> {
+    return (await this.request<{ playlists?: MusicUserPlaylist[] }>("/my-playlists")).playlists ?? [];
+  }
+
+  myPlaylist(id: string): Promise<MusicUserPlaylistPage> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}`);
+  }
+
+  async createPlaylist(title: string): Promise<MusicUserPlaylist> {
+    return (await this.request<{ playlist: MusicUserPlaylist }>("/my-playlists", { method: "POST", body: JSON.stringify({ title }) })).playlist;
+  }
+
+  renamePlaylist(id: string, title: string): Promise<{ ok: true; title: string }> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ title }) });
+  }
+
+  deletePlaylist(id: string): Promise<{ ok: true }> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  /** `added` is false when the song was already in the playlist. */
+  addToPlaylist(id: string, videoId: string): Promise<{ ok: true; added: boolean }> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}/tracks`, { method: "POST", body: JSON.stringify({ videoId }) });
+  }
+
+  removeFromPlaylist(id: string, videoId: string): Promise<{ ok: true }> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}/tracks/${encodeURIComponent(videoId)}`, { method: "DELETE" });
+  }
+
+  reorderPlaylist(id: string, videoIds: string[]): Promise<{ ok: true }> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}/order`, { method: "PUT", body: JSON.stringify({ videoIds }) });
   }
 
   audioUrl(videoId: string): string {

@@ -3,7 +3,7 @@ import type { Language } from "./types";
 type Messages = {
   openSignInPage: string; pairPhoneDescription: string; playbackSpeed: string; streamQuality: string; qualityAuto: string; qualityFast: string; qualityFastHint: string;
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
-  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; account: string;
+  navLibrary: string; phoneLayout: string; phoneLayoutHint: string; landscapeLayout: string; landscapeLayoutHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
   addProfile: string; savedProfileExpired: string;
   passwordSignIn: string; username: string; password: string; signIn: string; invalidCredentials: string; tooManyAttempts: string; passwordSignInUnavailable: string;
@@ -31,6 +31,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Library",
     phoneLayout: "Phone layout",
     phoneLayoutHint: "Use the layout designed for phones. Turn off for the TV layout.",
+    landscapeLayout: "Landscape layout",
+    landscapeLayoutHint: "Keep the app sideways, with navigation down the side and the music player beside your library. For car screens and tablets on a stand.",
     account: "Account",
     miniPlayerExpand: "Expand player",
     miniPlayerClose: "Close player",
@@ -59,6 +61,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Biblioteka",
     phoneLayout: "Układ na telefon",
     phoneLayoutHint: "Używaj układu zaprojektowanego dla telefonów. Wyłącz, aby używać układu TV.",
+    landscapeLayout: "Układ poziomy",
+    landscapeLayoutHint: "Utrzymuj aplikację w poziomie, z nawigacją z boku i odtwarzaczem muzyki obok biblioteki. Do ekranów w samochodzie i tabletów na stojaku.",
     account: "Konto",
     miniPlayerExpand: "Rozwiń odtwarzacz",
     miniPlayerClose: "Zamknij odtwarzacz",
@@ -87,6 +91,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Mediathek",
     phoneLayout: "Smartphone-Layout",
     phoneLayoutHint: "Das für Smartphones gestaltete Layout verwenden. Ausschalten für das TV-Layout.",
+    landscapeLayout: "Querformat-Layout",
+    landscapeLayoutHint: "Die App im Querformat halten, mit Navigation an der Seite und dem Musikplayer neben der Mediathek. Für Autodisplays und Tablets im Ständer.",
     account: "Konto",
     miniPlayerExpand: "Player vergrößern",
     miniPlayerClose: "Player schließen",
@@ -115,6 +121,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Bibliothèque",
     phoneLayout: "Disposition téléphone",
     phoneLayoutHint: "Utiliser la disposition conçue pour les téléphones. Désactivez-la pour la disposition TV.",
+    landscapeLayout: "Disposition paysage",
+    landscapeLayoutHint: "Garder l’application à l’horizontale, avec la navigation sur le côté et le lecteur de musique à côté de la bibliothèque. Pour les écrans de voiture et les tablettes sur support.",
     account: "Compte",
     miniPlayerExpand: "Agrandir le lecteur",
     miniPlayerClose: "Fermer le lecteur",
@@ -143,6 +151,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Biblioteca",
     phoneLayout: "Diseño para teléfono",
     phoneLayoutHint: "Usa el diseño pensado para teléfonos. Desactívalo para usar el diseño de TV.",
+    landscapeLayout: "Diseño horizontal",
+    landscapeLayoutHint: "Mantén la aplicación en horizontal, con la navegación a un lado y el reproductor de música junto a la biblioteca. Para pantallas de coche y tabletas en un soporte.",
     account: "Cuenta",
     miniPlayerExpand: "Ampliar reproductor",
     miniPlayerClose: "Cerrar reproductor",
@@ -171,6 +181,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Biblioteca",
     phoneLayout: "Layout para celular",
     phoneLayoutHint: "Use o layout feito para celulares. Desative para usar o layout de TV.",
+    landscapeLayout: "Layout horizontal",
+    landscapeLayoutHint: "Mantenha o app na horizontal, com a navegação na lateral e o player de música ao lado da biblioteca. Para telas de carro e tablets em suporte.",
     account: "Conta",
     miniPlayerExpand: "Expandir player",
     miniPlayerClose: "Fechar player",
@@ -199,6 +211,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Библиотека",
     phoneLayout: "Макет для телефона",
     phoneLayoutHint: "Использовать макет для телефонов. Отключите, чтобы использовать макет для ТВ.",
+    landscapeLayout: "Горизонтальный макет",
+    landscapeLayoutHint: "Держать приложение в горизонтальной ориентации: навигация сбоку, музыкальный плеер рядом с библиотекой. Для автомобильных экранов и планшетов на подставке.",
     account: "Аккаунт",
     miniPlayerExpand: "Развернуть плеер",
     miniPlayerClose: "Закрыть плеер",
@@ -227,6 +241,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "ライブラリ",
     phoneLayout: "スマートフォン用レイアウト",
     phoneLayoutHint: "スマートフォン向けのレイアウトを使います。オフにするとテレビ用レイアウトになります。",
+    landscapeLayout: "横向きレイアウト",
+    landscapeLayoutHint: "アプリを横向きに固定し、ナビゲーションを横に、音楽プレーヤーをライブラリの隣に表示します。車の画面やスタンドに置いたタブレット向けです。",
     account: "アカウント",
     miniPlayerExpand: "プレーヤーを拡大",
     miniPlayerClose: "プレーヤーを閉じる",
@@ -255,6 +271,8 @@ export const phoneMessages: Record<Language, Messages> = {
     navLibrary: "Könyvtár",
     phoneLayout: "Telefonos elrendezés",
     phoneLayoutHint: "A telefonokra tervezett elrendezés használata. Kapcsold ki a TV-elrendezéshez.",
+    landscapeLayout: "Fekvő elrendezés",
+    landscapeLayoutHint: "Az alkalmazás fekvő helyzetben marad, oldalt a navigációval, a zenelejátszóval a könyvtár mellett. Autós kijelzőkhöz és állványra tett táblagépekhez.",
     account: "Fiók",
     miniPlayerExpand: "Lejátszó kinagyítása",
     miniPlayerClose: "Lejátszó bezárása",

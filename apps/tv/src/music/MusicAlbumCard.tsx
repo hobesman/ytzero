@@ -1,5 +1,5 @@
-import { memo, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { memo, type ReactElement, type ReactNode } from "react";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
@@ -45,6 +45,23 @@ export function MusicShelf({ title, children, count }: { title: string; children
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf} keyboardShouldPersistTaps="handled">
       {children}
     </ScrollView>
+  </View>;
+}
+
+/**
+ * A sideways shelf of cards that mounts only the ones near the screen. A
+ * category page has a dozen shelves of artwork; building every card at once
+ * loaded all their pictures together and made the page stutter while scrolling.
+ */
+export function MusicListShelf<T>({ title, data, keyOf, render }: {
+  title: string; data: readonly T[]; keyOf: (item: T) => string; render: (item: T) => ReactElement;
+}) {
+  if (!data.length) return null;
+  return <View>
+    <PhoneSectionTitle title={title} />
+    <FlatList horizontal data={data} keyExtractor={keyOf} renderItem={({ item }) => render(item)}
+      showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf} keyboardShouldPersistTaps="handled"
+      initialNumToRender={4} maxToRenderPerBatch={4} windowSize={3} removeClippedSubviews />
   </View>;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { PhoneDownloadsNative } from "../phoneDownloadsNative";
-import { MusicApiError, type MusicAlbumPage, type MusicPlay, type MusicPlaylistPage, type MusicTrack } from "./musicApi";
+import { MusicApiError, type MusicAlbumPage, type MusicPlay, type MusicPlaylistPage, type MusicTrack, type MusicUserPlaylistPage } from "./musicApi";
 import {
   MUSIC_DOWNLOAD_PIECE_BYTES, MusicDownloadStore, musicArtworkFile, musicAudioFile, musicCollectionProgress, musicDownloadBytes,
   musicDownloadedSingles, parseMusicDownloadIndex, type MusicDownloadConnection,
@@ -59,17 +59,19 @@ function fakeNative(sizes: Map<string, number>) {
 function fakeServer() {
   const albums = new Map<string, MusicAlbumPage>();
   const playlists = new Map<string, MusicPlaylistPage>();
+  const mine = new Map<string, MusicUserPlaylistPage>();
   const plays: MusicPlay[] = [];
   let online = true;
   const reach = () => { if (!online) throw new TypeError("Network request failed"); };
   const api: MusicDownloadConnection["api"] = {
     album: async (id) => { reach(); const page = albums.get(id); if (!page) throw new MusicApiError("not found", 404); return page; },
     playlist: async (id) => { reach(); const page = playlists.get(id); if (!page) throw new MusicApiError("not found", 404); return page; },
+    myPlaylist: async (id) => { reach(); const page = mine.get(id); if (!page) throw new MusicApiError("not found", 404); return page; },
     recordPlay: async (play) => { reach(); plays.push(play); return { ok: true }; },
     audioUrl: (id) => `https://yt.example/api/music/tracks/${encodeURIComponent(id)}/audio`,
     artworkSource: (url) => url ? { uri: `https://yt.example/api/img?u=${encodeURIComponent(url)}`, headers: { Authorization: "Bearer token" } } : null,
   };
-  return { api, albums, playlists, plays, setOnline(value: boolean) { online = value; } };
+  return { api, albums, playlists, mine, plays, setOnline(value: boolean) { online = value; } };
 }
 
 const timers = () => {
@@ -161,6 +163,27 @@ describe("music downloads", () => {
     await store.removeAll();
     expect(store.tracks()).toEqual([]);
     expect(device.files.has(musicAudioFile(owner, "a"))).toBe(false);
+  });
+
+  test("your own playlist follows its edits, at once and on the next connect", async () => {
+    const { store, server, device, owner } = await setup([["a", 10], ["b", 10], ["c", 10]]);
+    const page = { id: "7", title: "Road trip", trackCount: 2, thumbnail: "", createdAt: "2026-11-01T00:00:00.000Z", updatedAt: "2026-11-01T00:00:00.000Z",
+      tracks: [track("a"), track("b")] };
+    server.mine.set("7", page);
+    await store.downloadMyPlaylist(page);
+    await flush();
+    expect(store.collection("mine", "7")?.thumbnail).toBe("https://lh3/a.jpg");
+    // Edited on this phone: the page that loads next brings the download along.
+    await store.refresh("mine", { ...page, tracks: [track("b"), track("c")] });
+    await flush();
+    expect(store.collection("mine", "7")?.trackIds).toEqual(["b", "c"]);
+    expect(device.files.has(musicAudioFile(owner, "a"))).toBe(false);
+    expect(store.find("c")?.state).toBe("done");
+    // Edited elsewhere (the website): picked up when the phone connects again.
+    server.mine.set("7", { ...page, title: "Road trip 2", tracks: [track("c")] });
+    await store.syncCollection("mine", "7");
+    expect(store.collection("mine", "7")).toMatchObject({ title: "Road trip 2", trackIds: ["c"] });
+    expect(store.find("b")).toBeNull();
   });
 
   test("a playlist picks up its changes the next time the server is reachable", async () => {
@@ -258,6 +281,8 @@ describe("offline music API", () => {
     const context = await setup([["a", 10], ["b", 10], ["c", 10]]);
     await context.store.downloadAlbum(album("X", [track("a"), track("b", { rating: 1 })]));
     await context.store.downloadTrack(track("c", { artistId: "UCother" }));
+    await context.store.downloadMyPlaylist({ id: "7", title: "Mine", trackCount: 1, thumbnail: "", createdAt: "2026-11-01T00:00:00.000Z",
+      updatedAt: "2026-11-01T00:00:00.000Z", tracks: [track("c", { artistId: "UCother" })] });
     await flush();
     const api = new OfflineMusicApi("https://yt.example", "token", context.store);
     const fetchFailing = globalThis.fetch;
@@ -277,12 +302,15 @@ describe("offline music API", () => {
   });
 
   test("with no server the screens get the downloaded library", async () => {
-    const { api, restore } = await offline();
+    const { api, store, restore } = await offline();
     try {
       expect((await api.album("X")).tracks.map((entry) => entry.videoId)).toEqual(["a", "b"]);
       const library = await api.library();
       expect(library.liked.map((entry) => entry.videoId)).toEqual(["b"]);
       expect(library.albums.map((entry) => entry.browseId)).toEqual(["X"]);
+      expect(library.playlists.map((entry) => [entry.id, entry.trackCount])).toEqual([["7", 1]]);
+      expect((await api.myPlaylist("7")).tracks.map((entry) => entry.videoId)).toEqual(["c"]);
+      expect(store.view().offline).toBe(true);
       expect((await api.search("song c")).tracks.map((entry) => entry.videoId)).toEqual(["c"]);
       expect((await api.artist("UCother")).topSongs.map((entry) => entry.videoId)).toEqual(["c"]);
       await expect(api.album("not-downloaded")).rejects.toThrow();
