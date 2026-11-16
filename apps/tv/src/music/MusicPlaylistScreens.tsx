@@ -7,6 +7,7 @@ import { PhoneTextSheet } from "../phone/PhoneTextSheet";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import type { Language } from "../types";
 import type { MusicApi, MusicTrack, MusicUserPlaylist, MusicUserPlaylistPage } from "./musicApi";
+import { MusicCollectionDownloadButton } from "./MusicDownloadViews";
 import { MusicIcon } from "./MusicIcon";
 import { PageFrame, usePageData, type MusicPage, type PageProps } from "./MusicPages";
 import { formatSongCount } from "./musicSongCount";
@@ -123,6 +124,7 @@ export function MusicUserPlaylistScreen({ api, session, t, language, playingId, 
         {tracks.length ? <PhoneChip label={editing ? t("musicDoneEditing") : t("musicEditPlaylist")} onPress={() => setEditing(!editing)} /> : null}
         <PhoneChip label={t("musicDelete")} onPress={confirmDelete} />
       </View>
+      <MusicCollectionDownloadButton kind="mine" page={playlist} t={t} />
     </View>
     {!tracks.length ? <Text style={styles.empty}>{t("musicPlaylistEmpty")}</Text> : null}
   </View> : null;

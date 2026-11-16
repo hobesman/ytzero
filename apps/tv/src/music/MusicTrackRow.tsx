@@ -2,6 +2,7 @@ import { memo, type ReactNode } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import type { MusicApi, MusicTrack } from "./musicApi";
+import { MusicTrackDownloadMark } from "./MusicDownloadMark";
 import { MusicIcon } from "./MusicIcon";
 import { useMusicTrackMenu, type MusicTrackMenuExtras } from "./musicTrackMenuContext";
 
@@ -39,6 +40,7 @@ export const MusicTrackRow = memo(function MusicTrackRow({ api, track, active, o
       <Text numberOfLines={1} style={[styles.title, active && styles.active]}>{track.title}</Text>
       <Text numberOfLines={1} style={styles.detail}>{detail}</Text>
     </View>
+    <MusicTrackDownloadMark videoId={track.videoId} />
     {track.rating === 1 ? <MusicIcon name="liked" color={phoneColors.textMuted} size={16} /> : null}
     <Text style={styles.duration}>{durationLabel(track.duration)}</Text>
     {trailing ?? (menu ? <MusicTrackMenuButton track={track} extras={menuExtras} /> : null)}

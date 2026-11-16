@@ -11,6 +11,7 @@ import { phoneColors, phoneMetrics, phoneType } from "../phone/phoneTheme";
 import type { Language } from "../types";
 import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicHomeScreen, MusicLibraryScreen, MusicSearchScreen } from "./MusicBrowseScreens";
+import { MusicOfflineNotice } from "./MusicDownloadViews";
 import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
 import { MusicGenreScreen, MusicPlaylistScreen } from "./MusicGenreScreens";
@@ -123,6 +124,7 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
       <PhoneSideRail items={tabs} selected={tab} onSelect={selectTab} top={<MusicIcon name="note" color={phoneColors.accent} size={28} />} bottom={avatar} />
       <View style={styles.main}>
         <View style={styles.topBar}><Text numberOfLines={1} style={styles.title}>{title}</Text></View>
+        <MusicOfflineNotice t={t} />
         {body}
         {noticeBar}
         {/* Only while a station is starting: once a song plays, it is in the pane. */}
@@ -142,6 +144,7 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
       {avatar}
     </View>
+    <MusicOfflineNotice t={t} />
     {body}
     {noticeBar}
     <MusicMiniBar api={musicApi} session={session} state={state} t={t} onOpen={() => setPlayerOpen(true)} />

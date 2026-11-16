@@ -3,6 +3,8 @@ import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import type { MusicApi, MusicTrack } from "./musicApi";
+import { MusicDownloadGlyph } from "./MusicDownloadMark";
+import { useMusicTrackDownloadAction } from "./MusicDownloadViews";
 import { MusicIcon, type MusicIconName } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { MusicArtwork } from "./MusicTrackRow";
@@ -16,6 +18,8 @@ export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: 
   const show = useCallback<OpenMusicTrackMenu>((track, extras = {}) => setOpen({ track, extras }), []);
   const menu = useMemo(() => ({ open: show, label: t("musicMoreOptions") }), [show, t]);
   const close = () => setOpen(null);
+  // Download or Remove download, on phones that keep music for offline listening.
+  const download = useMusicTrackDownloadAction(open?.track ?? null, t);
   const rows = useMemo(() => {
     if (!open) return [];
     const { track, extras } = open;
@@ -24,14 +28,15 @@ export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: 
       if (session.snapshot().queue) onNotice(notice);
       void session.enqueue(track, placement);
     };
-    const list: { key: string; icon: MusicIconName; label: string; run: () => void }[] = [
+    const list: { key: string; icon: MusicIconName | ReactNode; label: string; run: () => void }[] = [
       { key: "next", icon: "queueNext", label: t("musicPlayNext"), run: queue("next", t("musicQueuedNext")) },
       { key: "last", icon: "queueAdd", label: t("musicAddToQueue"), run: queue("last", t("musicQueuedLast")) },
     ];
+    if (download) list.push({ key: "download", icon: <MusicDownloadGlyph progress={{ state: "none", fraction: null, done: 0, count: 1 }} color={phoneColors.text} size={22} />, ...download });
     if (extras.onRemove) list.push({ key: "remove", icon: "remove", label: t("musicRemoveFromQueue"), run: extras.onRemove });
     list.push({ key: "dislike", icon: "dislike", label: t("musicNotThis"), run: () => void session.dislike(track) });
     return list;
-  }, [onNotice, open, session, t]);
+  }, [download, onNotice, open, session, t]);
   return <MusicTrackMenuContext.Provider value={menu}>
     {children}
     {open ? <Modal transparent visible animationType="fade" onRequestClose={close}>
@@ -46,7 +51,7 @@ export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: 
         </View>
         {rows.map((row) => <Pressable key={row.key} accessibilityRole="button" accessibilityLabel={row.label}
           onPress={() => { close(); row.run(); }} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-          <MusicIcon name={row.icon} color={phoneColors.text} size={22} />
+          {typeof row.icon === "string" ? <MusicIcon name={row.icon as MusicIconName} color={phoneColors.text} size={22} /> : row.icon}
           <Text style={styles.label}>{row.label}</Text>
         </Pressable>)}
       </View>

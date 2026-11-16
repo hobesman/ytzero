@@ -7,6 +7,7 @@ import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { MusicListShelf, MusicShelf } from "./MusicAlbumCard";
 import type { MusicApi, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage, MusicTrack } from "./musicApi";
 import { PageFrame, usePageData, type MusicPage, type PageProps } from "./MusicPages";
+import { MusicCollectionDownloadButton } from "./MusicDownloadViews";
 import { MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
 
 const TILE = 140;
@@ -105,6 +106,7 @@ export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: 
           onPress={() => void session.start({ kind: "playlist", playlistId: playlist.playlistId }, { from: playlist.title })} />
         <PhoneChip label={playlist.saved ? t("musicSaved") : t("musicSave")} disabled={saving} onPress={() => void toggleSaved()} />
       </View>
+      <MusicCollectionDownloadButton kind="playlist" page={playlist} t={t} />
     </View>
     {playlist.tracks.length ? <PhoneSectionTitle title={t("musicSongs")} /> : null}
   </View> : null;
