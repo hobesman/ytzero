@@ -21,6 +21,10 @@ random order, one after another. "…play a random video from Mark Rober" plays
 just one. Listening counts as watching: it resumes where you left off on
 another device, shows in Continue watching, and is marked watched at the end.
 
+To hear what's playing, say "Alexa, ask Hoban Music what's playing". The skill
+answers from the song it sent, so it stays right even when Alexa's own "what
+song is this?" goes stale, which can happen after a song fails to resume.
+
 Both skills support pause, resume and start over, by voice and with the
 device's buttons. The music skill and a shuffled channel also support next. In
 the video skill, say "skip forward 2 minutes" or "go back 30 seconds".

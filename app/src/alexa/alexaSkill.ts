@@ -46,7 +46,7 @@ export interface AlexaSkillDependencies {
 
 const MAX_FAILURES_IN_A_ROW = 3;
 const LISTEN_LIMIT = 256;
-const HELP = "You can say play a song, play songs by an artist, play an artist's radio, play the album, play eighties music, play my liked songs, or play my mix.";
+const HELP = "You can say play a song, play songs by an artist, play an artist's radio, play the album, play eighties music, play my liked songs, or play my mix. Ask what's playing to hear the song's name.";
 const ASK = "What would you like to hear?";
 const UNREACHABLE = "Sorry, I couldn't reach YouTube Music right now. Please try again in a moment.";
 
@@ -216,6 +216,19 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     return silent();
   }
 
+  /**
+   * The song the skill handed the Echo for what's playing now. Alexa's own
+   * "what song is this?" can go stale after a failed resume; this reads the
+   * stream token, so it names the song actually sent. Speaking without a
+   * directive lets the music carry on afterwards.
+   */
+  async function whatsPlaying(envelope: AlexaEnvelope): Promise<AlexaResponse> {
+    const state = decodePlaybackToken(envelope.context?.AudioPlayer?.token);
+    const track = state ? await findTrack(state.videoId) : null;
+    if (!track) return speak("Nothing from YT Zero is playing right now.");
+    return speak(track.artist ? `This is ${track.title} by ${track.artist}.` : `This is ${track.title}.`);
+  }
+
   async function intent(userId: number, envelope: AlexaEnvelope): Promise<AlexaResponse> {
     const name = envelope.request?.intent?.name ?? "";
     if (SEED_INTENTS.has(name)) {
@@ -226,6 +239,7 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     if (name === "AMAZON.ResumeIntent") return resume(userId, envelope, false);
     if (name === "AMAZON.StartOverIntent") return resume(userId, envelope, true);
     if (name === "AMAZON.NextIntent") return skip(userId, envelope.context?.AudioPlayer?.token, true);
+    if (name === "WhatsPlayingIntent") return whatsPlaying(envelope);
     if (UNSUPPORTED_INTENTS.has(name)) return speak("Sorry, YT Zero can't do that yet.");
     return speak(HELP, ASK);
   }

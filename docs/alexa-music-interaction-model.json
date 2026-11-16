@@ -92,6 +92,20 @@
             "shuffle my music"
           ]
         },
+        {
+          "name": "WhatsPlayingIntent",
+          "slots": [],
+          "samples": [
+            "what's playing",
+            "what is playing",
+            "what song is this",
+            "what song is playing",
+            "what is this song",
+            "who is this",
+            "who sings this",
+            "what am I listening to"
+          ]
+        },
         { "name": "AMAZON.PauseIntent", "samples": [] },
         { "name": "AMAZON.ResumeIntent", "samples": [] },
         { "name": "AMAZON.NextIntent", "samples": [] },
