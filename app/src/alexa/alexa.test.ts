@@ -245,6 +245,17 @@ describe("alexa skill", () => {
     expect(plays.map((play) => [play.startedAt.getTime(), play.endReason, play.listenedSeconds])).toEqual([[NOW, "stopped", 45], [NOW, "completed", 200]]);
   });
 
+  test("what's playing names the song the skill sent, and leaves the music playing", async () => {
+    const { skill } = skillHarness();
+    const token = directiveOf(await skill.handle(7, intent("PlaySongIntent", "song one"))).audioItem.stream.token;
+    const asked = await skill.handle(7, intent("WhatsPlayingIntent", undefined, { token, offsetInMilliseconds: 30_000 }));
+    expect(asked.response.outputSpeech).toEqual({ type: "PlainText", text: "This is Song 1 by Artist." });
+    expect(asked.response.directives).toBeUndefined();
+    expect(asked.response.shouldEndSession).toBe(true);
+    const nothing = await skill.handle(7, intent("WhatsPlayingIntent"));
+    expect(nothing.response.outputSpeech).toEqual({ type: "PlainText", text: "Nothing from YT Zero is playing right now." });
+  });
+
   test("a song that breaks off starts again where it stopped, and moves on only if it fails again", async () => {
     const { skill } = skillHarness();
     const token = directiveOf(await skill.handle(7, intent("PlaySongIntent", "song one"))).audioItem.stream.token;
