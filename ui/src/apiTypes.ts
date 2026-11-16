@@ -306,7 +306,7 @@ export interface AppSettings {
   hide_members_only_on_channel: string;
   watched_style: string;
   sidebar_nav: string;
-  sponsorblock_enabled: string;
+  sponsorblock_enabled: string; music_volume_leveling: string;
   sponsorblock_categories: string;
   dearrow_titles_enabled: string;
   dearrow_thumbnails_enabled: string;

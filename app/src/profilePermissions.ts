@@ -54,7 +54,7 @@ export const SETTING_PERMISSION_AREAS: Readonly<Record<string, ProfilePermission
   sponsorblock_enabled: "playback", sponsorblock_categories: "playback",
   dearrow_titles_enabled: "playback", dearrow_thumbnails_enabled: "playback",
   feed_autoplay_enabled: "playback", feed_autoplay_behavior: "playback",
-  feed_autoplay_direction: "playback", update_check_interval: "profiles",
+  feed_autoplay_direction: "playback", update_check_interval: "profiles", music_volume_leveling: "playback",
 };
 
 export function permissionAreaForMutation(path: string): ProfilePermissionArea | null {
