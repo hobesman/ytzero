@@ -54,7 +54,7 @@ const lineLimits: Record<string, number> = {
   "app/src/plugins.ts": 1065,
   "app/src/pluginCatalog.ts": 404,
   "ui/src/api.ts": 593,
-  "ui/src/apiTypes.ts": 1220,
+  "ui/src/apiTypes.ts": 1168,
   "app/src/refresher.ts": 1428,
   "app/src/refreshScheduler.ts": 106,
   "app/src/downloader.ts": 1260,
