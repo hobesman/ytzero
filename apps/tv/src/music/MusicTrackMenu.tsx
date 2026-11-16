@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, Share, StyleSheet, Text, View } from "react-native";
 import type { Translate } from "../i18n";
+import { shareMessage, youtubeMusicUrl } from "../shareLinks";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicDownloadGlyph } from "./MusicDownloadMark";
@@ -33,6 +34,10 @@ export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: 
       { key: "last", icon: "queueAdd", label: t("musicAddToQueue"), run: queue("last", t("musicQueuedLast")) },
     ];
     if (download) list.push({ key: "download", icon: <MusicDownloadGlyph progress={{ state: "none", fraction: null, done: 0, count: 1 }} color={phoneColors.text} size={22} />, ...download });
+    // The music.youtube.com link: music mode's songs aren't in the profile's video library, so there's no YT Zero link for them.
+    const link = youtubeMusicUrl(track.videoId);
+    if (link) list.push({ key: "share", icon: "share", label: t("shareSong"),
+      run: () => void Share.share({ message: shareMessage(track.title, link, track.artist) }).catch(() => {}) });
     if (extras.onRemove) list.push({ key: "remove", icon: "remove", label: t("musicRemoveFromQueue"), run: extras.onRemove });
     list.push({ key: "dislike", icon: "dislike", label: t("musicNotThis"), run: () => void session.dislike(track) });
     return list;

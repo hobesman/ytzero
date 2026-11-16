@@ -1,7 +1,7 @@
 import Svg, { Path, Rect } from "react-native-svg";
 
 export type MusicIconName = "play" | "pause" | "next" | "previous" | "like" | "liked" | "dislike" | "note" | "sleep" | "down" | "shuffle" | "back" | "save" | "saved" | "station"
-  | "more" | "queueNext" | "queueAdd" | "remove" | "up" | "lyrics";
+  | "more" | "queueNext" | "queueAdd" | "remove" | "up" | "lyrics" | "share";
 
 /** The music player's control glyphs. */
 export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; color: string; size?: number }) {
@@ -29,5 +29,6 @@ export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; col
     case "queueAdd": return svg(<Path d="M4 6h12M4 11h12M4 16h7M18 14v6M15 17h6" {...stroke} />);
     case "remove": return svg(<Path d="M6 6l12 12M18 6 6 18" {...stroke} />);
     case "up": return svg(<Path d="m6 15 6-6 6 6" {...stroke} />);
+    case "share": return svg(<Path d="M12 15V4M8 7.5 12 4l4 3.5M7 11H5.5A1.5 1.5 0 0 0 4 12.5v6A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5H17" {...stroke} />);
   }
 }

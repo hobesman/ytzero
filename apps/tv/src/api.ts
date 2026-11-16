@@ -300,6 +300,36 @@ export class YtZeroApi {
     return this.request("/bookmarks");
   }
 
+  /**
+   * Whether this profile may publish a YT Zero link for a video, and the link
+   * if it already has one. Null when public sharing is off on the instance or
+   * not allowed for this profile.
+   */
+  async videoPublicShare(videoId: string): Promise<{ url: string | null } | null> {
+    try {
+      const result = await this.request<{ policy: { enabled: boolean }; shares: { url: string; active: boolean }[] }>(
+        `/public-shares?resource_type=video&resource_id=${encodeURIComponent(videoId)}`);
+      if (!result.policy.enabled) return null;
+      // An expired link is left to createVideoPublicShare, which reports it.
+      return { url: result.shares.find((share) => share.active)?.url ?? null };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 403) return null;
+      throw error;
+    }
+  }
+
+  /**
+   * The profile's public YT Zero link for a video: its existing one, or a new
+   * one with the instance's default limits. An existing link that has expired
+   * or used up its plays comes back with `active` false.
+   */
+  async createVideoPublicShare(videoId: string): Promise<{ url: string; active: boolean }> {
+    const result = await this.request<{ share: { url: string; active: boolean } }>("/public-shares", {
+      method: "POST", body: JSON.stringify({ resource_type: "video", resource_id: videoId }),
+    });
+    return result.share;
+  }
+
   async video(id: string): Promise<{ video: Video; related: Video[] }> {
     try { return await this.request(`/videos/${encodeURIComponent(id)}`); }
     catch (error) {
