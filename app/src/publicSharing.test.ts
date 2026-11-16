@@ -153,6 +153,22 @@ if (process.env[ISOLATION_FLAG] !== "1") {
       expect((await router.request(`http://localhost/${share.token}/video/private001`)).status).toBe(404);
     });
 
+    test("the shell carries a link preview without using a play, and none once the link is used up", async () => {
+      const share = await sharing.createPublicShare(1, "video", "public001");
+      const router = createPublicShareRouter(uiDir);
+      const plays = () => (db.prepare("SELECT play_count FROM public_share_limits WHERE share_id=?").get(share.id) as { play_count: number }).play_count;
+      const before = plays();
+      const html = await (await router.request(`http://localhost/${share.token}`)).text();
+      expect(html).toContain(`<meta property="og:title" content="Public video" />`);
+      expect(html).toContain(`<meta property="og:image" content="http://localhost/share/${share.token}/thumbnail/public001" />`);
+      expect(html).toContain("<title>Public video</title>");
+      expect(plays()).toBe(before);
+      db.prepare("UPDATE public_share_limits SET play_count=max_plays WHERE share_id=?").run(share.id);
+      const spent = await (await router.request(`http://localhost/${share.token}`)).text();
+      expect(spent).not.toContain("Public video");
+      expect(spent).not.toContain("og:image");
+    });
+
     test("enforces the lightweight-request burst and refill", () => {
       let now = 0;
       const limiter = new PublicShareRateLimiter(() => now);

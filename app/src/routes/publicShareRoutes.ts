@@ -19,7 +19,9 @@ import {
   type PublicShareRow,
   type PublicShareVideo,
 } from "../publicSharing";
-import { admitPublicSharePlay, publicShareVisitorAdmitted, publicShareVisitorKey, type PublicShareAdmission } from "../publicShareLimits";
+import { admitPublicSharePlay, publicShareLimitReason, publicShareVisitorAdmitted, publicShareVisitorKey, type PublicShareAdmission } from "../publicShareLimits";
+import { publicBaseUrl } from "../publicBaseUrl";
+import { injectPublicSharePreview, loadPublicSharePreview } from "../publicSharePreview";
 import {
   defaultPublicShareStreamingBackend,
   isPublicShareStreamFile,
@@ -492,7 +494,10 @@ export function createPublicShareRouter(uiDir: string, options: { streaming?: Pu
     if (videoId && !await publicShareContainsVideo(resolved.share, videoId)) return notFound(c);
     const file = Bun.file(`${uiDir}/index.html`);
     if (!await file.exists()) return notFound(c);
-    return new Response(file, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    const preview = await loadPublicSharePreview({
+      resolved, pathVideoId: videoId, baseUrl: publicBaseUrl(c.req.url), siteName: getSetting("app_name") || "YT Zero", active: !publicShareLimitReason(resolved.share),
+    }, { videoIds: publicShareVideoIds, video: publicShareVideo });
+    return new Response(injectPublicSharePreview(await file.text(), preview), { headers: { "Content-Type": "text/html; charset=utf-8" } });
   };
   router.get("/:token", shell);
   router.get("/:token/video/:videoId", shell);
