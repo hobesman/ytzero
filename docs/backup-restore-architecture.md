@@ -709,6 +709,15 @@ archive with no such capability restores with public sharing denied.
   to the instance and is excluded from portable and exact server backups; no
   server backup adapter or archive shape changes.
 
+- The Android phone app's automatic update downloads (`ytzero.phone.auto-update`,
+  SecureStore) are machine-bound configuration for that phone, shared across
+  profiles. Missing or invalid values mean on. A downloaded update waits in the
+  app's cache (`cache/updates/ytzero-<build>.apk`) and the last install's
+  outcome and its notification text in the `ytzero.app-update` shared
+  preferences; both are transient state, deleted once the new build runs.
+  None of it is sent to the instance, and all of it is excluded from portable
+  and exact server backups; no server backup adapter or archive shape changes.
+
 - The Android app's stream quality (`ytzero.tv.stream-quality`, SecureStore) is
   machine-bound playback configuration for that device, shared across
   profiles: `auto` (the default for missing or invalid values) or a height cap.

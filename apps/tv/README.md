@@ -177,13 +177,23 @@ The **Android APK** workflow (`.github/workflows/android-apk.yml`) builds the
 arm64 release APK on every push to `main` that touches `apps/tv`, and publishes
 it as a GitHub release tagged `android-<build>`. The build number is the APK's
 `versionCode` (set through `app.config.ts`) and is inlined into the bundle as
-`EXPO_PUBLIC_ANDROID_BUILD`. On an Android phone, **Settings → App updates**
-compares it with the newest release and offers the APK download, and the avatar
-menu shows **Update available** while a newer build waits. Builds made by hand
-carry no number, so any release counts as newer. Releases are signed with the
-stock Expo debug keystore, the same key as the hand-made builds, so they install
-as updates; the workflow fails if the signing key ever changes. The check is
-kept in memory only and stores nothing on the device.
+`EXPO_PUBLIC_ANDROID_BUILD`. On an Android phone the app checks the newest
+release at start and hourly while it's open, and **Settings → App updates** and
+the avatar menu offer it. The app installs its own updates
+(`modules/ytzero-app-update`): it downloads the APK into its cache, keeps it
+only if its SHA-256 matches the digest GitHub lists for the release asset, and
+hands it to Android's `PackageInstaller`. The first time, Android asks the user
+to allow YT Zero to install apps and to confirm the update; on Android 12 and
+later, once YT Zero installed the running build itself, later updates usually
+install without asking. Android stops the app to update it, and the new build
+deletes the installer and posts a notification that reopens it. With
+**Download updates automatically** on (the default), a new build downloads by
+itself on Wi-Fi while the app is open, and waits for the user to install it.
+A build without the module, or a release without a digest, falls back to
+opening the APK in the browser. Builds made by hand carry no number, so any
+release counts as newer. Releases are signed with the stock Expo debug
+keystore, the same key as the hand-made builds, so they install as updates;
+the workflow fails if the signing key ever changes.
 See [`../../docs/tv-app-research.md`](../../docs/tv-app-research.md) for the
 architecture and constraints, and [`../../docs/tvos-design-audit.md`](../../docs/tvos-design-audit.md)
 for the design decisions and validation.
