@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated } from "react-native";
+import { useLowResource } from "./lowResource";
 import { getIncreasedContrast, observeIncreasedContrast } from "./systemAppearance";
 
 export const motion = {
@@ -21,6 +22,8 @@ export function TvMotionProvider({ children }: { children: ReactNode }) {
   const [opaque, setOpaque] = useState(false);
   const [contrast, setContrast] = useState(false);
   const [ready, setReady] = useState(false);
+  // Low-resource mode turns animation and blurred glass off, as the system settings would.
+  const low = useLowResource();
   useEffect(() => {
     let active = true;
     let changed = false;
@@ -43,7 +46,7 @@ export function TvMotionProvider({ children }: { children: ReactNode }) {
     }).catch(() => {}).finally(() => { if (active) setReady(true); });
     return () => { active = false; listener.remove(); transparency.remove(); contrastListener.remove(); };
   }, []);
-  return <MotionReady.Provider value={ready}><ReducedMotion.Provider value={reduced}><ReducedTransparency.Provider value={opaque}><IncreasedContrast.Provider value={contrast}>{children}</IncreasedContrast.Provider></ReducedTransparency.Provider></ReducedMotion.Provider></MotionReady.Provider>;
+  return <MotionReady.Provider value={ready}><ReducedMotion.Provider value={reduced || low}><ReducedTransparency.Provider value={opaque || low}><IncreasedContrast.Provider value={contrast}>{children}</IncreasedContrast.Provider></ReducedTransparency.Provider></ReducedMotion.Provider></MotionReady.Provider>;
 }
 
 export const useReducedMotion = () => useContext(ReducedMotion);

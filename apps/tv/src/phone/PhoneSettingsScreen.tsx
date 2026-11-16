@@ -4,6 +4,7 @@ import type { YtZeroApi } from "../api";
 import { deviceStore } from "../deviceStore";
 import type { Translate } from "../i18n";
 import { saveStreamQuality, streamQuality } from "../streamQuality";
+import { saveLowResource, useLowResource } from "../lowResource";
 import { PhoneBufferSetting } from "./PhoneBufferSetting";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
 import { PhoneAppUpdateSettings } from "./PhoneAppUpdateSettings";
@@ -23,6 +24,7 @@ export type PhoneSettings = {
 export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; settings: PhoneSettings; t: Translate }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const lowResource = useLowResource();
   // The same device choice as the player's quality menu: on is "fast", off is "auto".
   const [fastStart, setFastStart] = useState(() => streamQuality() === "fast");
   const changeFastStart = async (value: boolean) => {
@@ -43,6 +45,7 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
     <PhoneBufferSetting t={t} onError={() => setFailed(true)} />
     <PhoneListRow title={t("phoneLayout")} detail={t("phoneLayoutHint")} trailing={toggle(settings.phoneLayout, settings.onPhoneLayoutChange)} />
     <PhoneListRow title={t("landscapeLayout")} detail={t("landscapeLayoutHint")} trailing={toggle(settings.landscapeLayout, settings.onLandscapeLayoutChange)} />
+    <PhoneListRow title={t("lowResource")} detail={t("lowResourceHint")} trailing={toggle(lowResource, (value) => saveLowResource(deviceStore, value))} />
     <PhoneDownloadSettings t={t} />
     <PhoneSectionTitle title={t("connection")} />
     <PhoneListRow title={t("currentInstance")} detail={settings.instanceUrl} />

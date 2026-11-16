@@ -20,6 +20,7 @@ import { TvSetupLayout } from "./src/components/TvSetupLayout";
 import { loadLandscapeLayout, loadOpenDetails, loadPhoneLayout, saveLandscapeLayout, saveOpenDetails, savePhoneLayout, shouldPlayVideo } from "./src/devicePreferences";
 import { LandscapeLayoutContext } from "./src/landscapeLayout";
 import { loadStreamQuality } from "./src/streamQuality";
+import { loadLowResource } from "./src/lowResource";
 import { loadForwardBuffer } from "./src/forwardBuffer";
 import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { TvSidebar } from "./src/components/TvSidebar";
@@ -40,6 +41,7 @@ import { useMusicMode } from "./src/music/useMusicMode";
 import { MusicApi } from "./src/music/musicApi";
 import { MusicOfflineApp, MusicOfflineButton } from "./src/music/MusicOfflineApp";
 import { musicDownloads } from "./src/music/useMusicDownloads";
+import { musicPlayer } from "./src/musicPlayer";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { PhoneShortsContext } from "./src/phone/PhoneShorts";
 import { PhoneShortsPlayer } from "./src/phone/PhoneShortsPlayer";
@@ -248,7 +250,7 @@ function TvApp() {
   // Phones: Shorts play in their own vertical player, which closes any regular video and the mini player.
   const [shorts, setShorts] = useState<ShortsSession | null>(null);
 
-  // Phones: music mode replaces the video screens; entering it closes any video.
+  // Phones: music mode replaces the video screens; entering it closes any video. The music station carries on in video mode.
   const musicMode = useMusicMode({ available: phoneMode, instanceUrl, accessToken, profileId: profileState?.active.id, isChild: Boolean(profileState?.active.is_child), incognito });
   useEffect(() => {
     if (!musicMode.music) return;
@@ -266,9 +268,12 @@ function TvApp() {
     setPlayerDocked(false);
     if (screenRef.current === "detail") setScreen("/");
     setShorts({ items, index, loadMore });
+    void musicPlayer.pause();
   }, []);
   const openVideo = useCallback<OpenVideo>((video, context, play, position) => {
     if (phoneModeRef.current && isShort(video)) { openShorts([video], 0); return; }
+    // A video taking over pauses the music station; its queue stays for music mode.
+    if (phoneModeRef.current && shouldPlayVideo(openDetailsRef.current, play)) void musicPlayer.pause();
     if (screenRef.current !== "detail") returnFocus.current = queueVisibleRef.current ? queueTrigger : lastActivatedVideoTarget() ?? contentFocusFallback;
     setSelected(video);
     // Selecting the current film in the queue is a new playback request too.
@@ -503,7 +508,8 @@ function TvApp() {
     void (async () => {
       try {
         const [stored, detailsPreference, phonePreference, landscapePreference] = await Promise.all([loadConnection(), loadOpenDetails(deviceStore, legacyDeviceStore).catch(() => false), loadPhoneLayout(deviceStore, phoneDesignAvailable).catch(() => phoneDesignAvailable),
-          loadLandscapeLayout(deviceStore).catch(() => false), loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5)]);
+          loadLandscapeLayout(deviceStore).catch(() => false), loadStreamQuality(deviceStore).catch(() => "auto"), loadForwardBuffer(deviceStore).catch(() => 5),
+          loadLowResource(deviceStore).catch(() => false)]);
         if (!active) return;
         setOpenDetails(detailsPreference);
         setPhoneDesign(phonePreference);

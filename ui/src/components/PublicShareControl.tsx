@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Link2, RefreshCw, Trash2 } from "lucide-react";
-import { api, type ManagedPublicShare, type PublicShareResourceType } from "../api";
+import { api, type ManagedPublicShare, type PublicShareResourceType, type PublicShareUpdate } from "../api";
 import { useI18n } from "../i18n";
 import { withShareTimestamp } from "../shareTimestamp";
 import Popconfirm from "./Popconfirm";
+import PublicShareLimitsEditor from "./PublicShareLimitsEditor";
 import { Alert, Badge, Button, FormActions, IconButton, Inline, Input, LocalToast, Popover, SettingRow, Stack, Switch, Text } from "./ui";
 import "./PublicShareControl.css";
 
@@ -12,6 +13,8 @@ export function publicShareStatusLabel(share: ManagedPublicShare, t: ReturnType<
   if (share.suspension_reason === "policy_disabled") return t("publicSharePolicyDisabled");
   if (share.suspension_reason === "permission_suspended") return t("publicSharePermissionSuspended");
   if (share.suspension_reason === "resource_unavailable") return t("publicShareResourceUnavailable");
+  if (share.suspension_reason === "expired") return t("publicShareStatusExpired");
+  if (share.suspension_reason === "plays_exhausted") return t("publicShareStatusPlaysExhausted");
   return t("publicShareSuspended");
 }
 
@@ -64,10 +67,15 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
     disabled={disabled}
     ariaLabel={t("publicShareLocalMedia")}
     onCheckedChange={(allowed) => void perform(
-      () => api.updatePublicShareLocalMedia(share.id, allowed).then((result) => result.share),
+      () => api.updatePublicShare(share.id, { allow_local_media: allowed }).then((result) => result.share),
       allowed ? t("publicShareTokenRotated") : undefined,
     )}
   />;
+  const update = (patch: PublicShareUpdate, success?: string) => void perform(
+    () => api.updatePublicShare(share.id, patch).then((result) => result.share),
+    success,
+  );
+  const limitsEditor = <PublicShareLimitsEditor share={share} disabled={disabled} settingsLayout={settingsLayout} onUpdate={update} />;
   const actions = <>
     <Popconfirm message={t("publicShareRotateConfirm")} confirmVariant="primary" onConfirm={() => void perform(() => api.rotatePublicShare(share.id).then((result) => result.share), t("publicShareTokenRotated"))}>
       <Button size="sm" disabled={disabled} leadingIcon={<RefreshCw />}>{t("publicShareRotate")}</Button>
@@ -88,6 +96,7 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
     <SettingRow label={t("publicShareLocalMedia")} description={t("publicShareLocalMediaHint")}>
       {localMediaControl}
     </SettingRow>
+    {limitsEditor}
     <FormActions>{actions}</FormActions>
   </div>;
 
@@ -105,10 +114,11 @@ export function PublicShareEditor({ share, pending = false, settingsLayout = fal
       label={t("publicShareLocalMedia")}
       description={t("publicShareLocalMediaHint")}
       onCheckedChange={(allowed) => void perform(
-        () => api.updatePublicShareLocalMedia(share.id, allowed).then((result) => result.share),
+        () => api.updatePublicShare(share.id, { allow_local_media: allowed }).then((result) => result.share),
         allowed ? t("publicShareTokenRotated") : undefined,
       )}
     />
+    {limitsEditor}
     <Inline justify="end">
       {actions}
     </Inline>
