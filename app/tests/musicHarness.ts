@@ -8,6 +8,8 @@ const { createMusicLoudness } = await import("../src/music/musicLoudness");
 const { createYouTubeMusicClient } = await import("../src/music/youtubeMusicClient");
 const { createMusicAudio } = await import("../src/music/musicAudio");
 const { exportMusicBackup, restoreMusicBackup } = await import("../src/music/musicBackup");
+const { createMusicLyrics } = await import("../src/music/musicLyrics");
+const { createLrclibClient } = await import("../src/music/lrclib");
 
 // Some video-mode state already exists, as on a real server.
 db.prepare("INSERT INTO channels(channel_id,title,url) VALUES('UCvideo','Video channel','https://youtube.com/channel/UCvideo')").run();
@@ -82,9 +84,17 @@ api.use("*", async (context, next) => {
   context.set("userId", Number(context.req.header("x-profile") ?? 1));
   await next();
 });
+// LRCLIB is stubbed too, and records what it was asked.
+const lrclibUrls: string[] = [];
+const lrclib = createLrclibClient({ fetch: async (url) => {
+  lrclibUrls.push(url);
+  return url.includes("/api/get") ? Response.json({ duration: 200, syncedLyrics: "[00:01.00] A line\n[00:04.50] Another" }) : Response.json([]);
+} });
+const client = createYouTubeMusicClient({ fetch: fakeFetch });
 registerMusicRoutes(api, {
   currentUserId: (context) => context.get("userId"),
-  client: createYouTubeMusicClient({ fetch: fakeFetch }),
+  client,
+  lyrics: createMusicLyrics({ client, lrclib }),
   audio: createMusicAudio({ getAudioResponse, getAudioHeadResponse }),
   // Loudness comes from YouTube's player, not YouTube Music: every song here is 3.5 dB too loud.
   loudness: createMusicLoudness({ fetch: async (url) => { loudnessRequests.push(url); return Response.json({ playerConfig: { audioConfig: { loudnessDb: 3.5 } } }); } }),
@@ -160,6 +170,9 @@ const playlistStart = await (await call("/music/station", "POST", { seed: { kind
 const playlistAfter = await (await call("/music/station", "POST", { seed: { kind: "playlist", playlistId: PLAYLIST }, served: playlistIds, count: 3 })).json() as any;
 const badPlaylistStatus = (await call("/music/playlists/nope")).status;
 const childGenresStatus = (await call("/music/genres", "GET", undefined, child.id)).status;
+const childLyricsStatus = (await call("/music/tracks/seedSong001/lyrics", "GET", undefined, child.id)).status;
+const unknownLyricsStatus = (await call("/music/tracks/unknownSong/lyrics")).status;
+const lyrics = await (await call("/music/tracks/seedSong001/lyrics")).json();
 
 // A profile's own playlists, and saving a YouTube Music playlist.
 const createdResponse = await call("/music/my-playlists", "POST", { title: "  Road \n trip " });
@@ -278,6 +291,10 @@ console.log("RESULT " + JSON.stringify({
   playlistAfterIds: playlistAfter.tracks.map((track: any) => track.videoId),
   badPlaylistStatus,
   childGenresStatus,
+  childLyricsStatus,
+  unknownLyricsStatus,
+  lyrics,
+  lrclibUrls,
   emptyTitleStatus,
   createdStatus: createdResponse.status,
   createdTitle: mine.title,

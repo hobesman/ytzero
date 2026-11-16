@@ -7,8 +7,9 @@ import {
   GENRE_ID, PLAYLIST_ID, parseGenrePage, parseMoodsAndGenres, parsePlaylistPage, parsePlaylistSearch,
   type MusicGenre, type MusicGenrePage, type MusicPlaylist, type MusicPlaylistPage,
 } from "./youtubeMusicGenreParsers";
+import { lyricsBrowseId, parseLyricsPage, type YouTubeMusicLyrics } from "./youtubeMusicLyricsParsers";
 
-export type { MusicTrack, MusicAlbum, MusicAlbumPage, MusicArtist, MusicArtistPage, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage };
+export type { MusicTrack, MusicAlbum, MusicAlbumPage, MusicArtist, MusicArtistPage, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage, YouTubeMusicLyrics };
 
 const MUSIC_ORIGIN = "https://music.youtube.com";
 const FALLBACK_MUSIC_CLIENT_VERSION = "1.20241106.01.00";
@@ -135,7 +136,16 @@ export function createYouTubeMusicClient(options: YouTubeMusicClientOptions = {}
     return parsePlaylistSearch(await remix(userId, "search", { query, params: FEATURED_PLAYLISTS_FILTER }));
   }
 
-  return { searchSongs, searchAll, radio, album, artist, genres, genre, playlist, searchPlaylists };
+  /** The song's lyrics from YouTube Music's Lyrics tab, or null when it has none. */
+  async function lyrics(userId: number, videoId: string): Promise<YouTubeMusicLyrics | null> {
+    if (!VIDEO_ID.test(videoId)) return null;
+    const version = await musicClientVersion(userId);
+    const next = await innertube(userId, MUSIC_ORIGIN, "next", { clientName: "WEB_REMIX", clientVersion: version }, { videoId, isAudioOnly: true });
+    const browseId = lyricsBrowseId(next);
+    return browseId ? parseLyricsPage(await remix(userId, "browse", { browseId })) : null;
+  }
+
+  return { searchSongs, searchAll, radio, album, artist, genres, genre, playlist, searchPlaylists, lyrics };
 }
 
 export type YouTubeMusicClient = ReturnType<typeof createYouTubeMusicClient>;

@@ -1,0 +1,59 @@
+{
+ "contents": {
+  "singleColumnMusicWatchNextResultsRenderer": {
+   "tabbedRenderer": {
+    "watchNextTabbedResultsRenderer": {
+     "tabs": [
+      {
+       "tabRenderer": {
+        "title": "Up next",
+        "trackingParams": "CBcQn7QFGAMiEwiqrI_fhouYAxVlQy0EHWAXEWg="
+       }
+      },
+      {
+       "tabRenderer": {
+        "endpoint": {
+         "clickTrackingParams": "CBYQpLQFGAQiEwiqrI_fhouYAxVlQy0EHWAXEWjKAQTRsqOz",
+         "browseEndpoint": {
+          "browseId": "MPLYt_yv_jhFDyDgMVUI",
+          "browseEndpointContextSupportedConfigs": {
+           "browseEndpointContextMusicConfig": {
+            "pageType": "MUSIC_PAGE_TYPE_TRACK_LYRICS"
+           }
+          }
+         }
+        },
+        "title": "Lyrics",
+        "trackingParams": "CBYQpLQFGAQiEwiqrI_fhouYAxVlQy0EHWAXEWg=",
+        "unselectable": true
+       }
+      },
+      {
+       "tabRenderer": {
+        "title": "Comments",
+        "trackingParams": "CBMQpIARGAUiEwiqrI_fhouYAxVlQy0EHWAXEWg="
+       }
+      },
+      {
+       "tabRenderer": {
+        "endpoint": {
+         "clickTrackingParams": "CBIQlM0FGAYiEwiqrI_fhouYAxVlQy0EHWAXEWjKAQTRsqOz",
+         "browseEndpoint": {
+          "browseId": "MPTRt_wUbiMNbaE6O",
+          "browseEndpointContextSupportedConfigs": {
+           "browseEndpointContextMusicConfig": {
+            "pageType": "MUSIC_PAGE_TYPE_TRACK_RELATED"
+           }
+          }
+         }
+        },
+        "title": "Related",
+        "trackingParams": "CBIQlM0FGAYiEwiqrI_fhouYAxVlQy0EHWAXEWg="
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}
