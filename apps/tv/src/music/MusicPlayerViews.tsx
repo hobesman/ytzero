@@ -7,6 +7,7 @@ import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { onSleepTimerChange, setSleepTimer, sleepCountdownLabel, sleepTimer, sleepTimerChoice, sleepTimerRemaining, SLEEP_TIMER_CHOICES, type SleepTimerChoice } from "../sleepTimer";
 import type { MusicApi, MusicTrack } from "./musicApi";
 import { MusicIcon } from "./MusicIcon";
+import { MusicLyricsView } from "./MusicLyricsView";
 import { current, playingFrom, upNext } from "./musicQueue";
 import type { MusicSession, MusicSessionState } from "./musicSession";
 import { durationLabel, MusicArtwork, MusicTrackRow } from "./MusicTrackRow";
@@ -79,6 +80,7 @@ export function MusicNowPlaying({ api, session, state, t, onClose, onAddToPlayli
   const width = paneWidth ?? window.width;
   const height = window.height;
   const [sleepSheet, setSleepSheet] = useState(false);
+  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [barWidth, setBarWidth] = useState(1);
   const sleep = useSleepTimerState();
@@ -95,7 +97,8 @@ export function MusicNowPlaying({ api, session, state, t, onClose, onAddToPlayli
   const art = Math.min(width - 64, height * (embedded ? 0.32 : 0.38));
   const sleepLabel = sleep.remaining !== null ? sleepCountdownLabel(sleep.remaining) : sleep.timer.kind === "end" ? t("musicSleepEndOfSong") : null;
   const header = <View style={styles.player}>
-    <MusicArtwork api={api} url={track.thumbnail} size={art} radius={12} />
+    {lyricsOpen ? <MusicLyricsView api={api} session={session} t={t} track={track} height={art} />
+      : <Pressable accessibilityRole="button" accessibilityLabel={t("musicLyrics")} onPress={() => setLyricsOpen(true)}><MusicArtwork api={api} url={track.thumbnail} size={art} radius={12} /></Pressable>}
     <View style={styles.copy}>
       <Text numberOfLines={2} style={styles.title}>{track.title}</Text>
       <Text numberOfLines={1} style={styles.artist}>{[track.artist, track.album].filter(Boolean).join(" · ")}</Text>
@@ -124,6 +127,10 @@ export function MusicNowPlaying({ api, session, state, t, onClose, onAddToPlayli
       <Pressable accessibilityRole="button" accessibilityLabel={`${t("sleepTimer")}: ${sleepLabel ?? t("sleepTimerOff")}`} onPress={() => setSleepSheet(true)} style={styles.sleep}>
         <MusicIcon name="sleep" color={sleepLabel ? phoneColors.accent : phoneColors.textMuted} size={18} />
         <Text style={[styles.sleepLabel, sleepLabel ? styles.sleepOn : null]}>{sleepLabel ?? t("sleepTimer")}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" accessibilityState={{ selected: lyricsOpen }} accessibilityLabel={t("musicLyrics")} onPress={() => setLyricsOpen(!lyricsOpen)} style={styles.sleep}>
+        <MusicIcon name="lyrics" color={lyricsOpen ? phoneColors.accent : phoneColors.textMuted} size={18} />
+        <Text style={[styles.sleepLabel, lyricsOpen ? styles.sleepOn : null]}>{t("musicLyrics")}</Text>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={t("musicAddToPlaylist")} onPress={() => onAddToPlaylist(track)} style={styles.sleep}>
         <MusicIcon name="queueAdd" color={phoneColors.textMuted} size={18} />

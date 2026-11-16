@@ -41,6 +41,11 @@ export type MusicLibrary = {
   playlists: MusicUserPlaylist[]; savedPlaylists: MusicPlaylist[];
 };
 
+/** A song's lyrics: time-synced lines when known, else plain text. `source` is who to credit. */
+export type MusicLyrics = {
+  videoId: string; synced: { time: number; text: string }[] | null; plain: string | null; instrumental: boolean; source: string | null;
+};
+
 export type MusicSeed =
   | { kind: "track"; videoId: string }
   | { kind: "liked" }
@@ -185,6 +190,10 @@ export class MusicApi {
 
   reorderPlaylist(id: string, videoIds: string[]): Promise<{ ok: true }> {
     return this.request(`/my-playlists/${encodeURIComponent(id)}/order`, { method: "PUT", body: JSON.stringify({ videoIds }) });
+  }
+
+  lyrics(videoId: string): Promise<MusicLyrics> {
+    return this.request(`/tracks/${encodeURIComponent(videoId)}/lyrics`, {}, 30000);
   }
 
   audioUrl(videoId: string): string {
