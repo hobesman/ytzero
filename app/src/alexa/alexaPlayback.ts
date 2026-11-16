@@ -14,6 +14,8 @@ export interface AlexaPlaybackState {
   skipped: string[];
   /** Songs in a row that failed to play, to stop a broken stream from skipping forever. */
   failures: number;
+  /** This song already failed once and was started again from where it stopped. */
+  retried?: boolean;
 }
 
 const TOKEN_PREFIX = "yz1.";
@@ -32,6 +34,7 @@ export function encodePlaybackToken(state: AlexaPlaybackState): string {
     h: packIds(state.served, SERVED_HISTORY_LIMIT),
     k: packIds(state.skipped, SKIPPED_HISTORY_LIMIT),
     f: state.failures || undefined,
+    r: state.retried ? 1 : undefined,
   };
   return TOKEN_PREFIX + Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
@@ -54,7 +57,13 @@ export function decodePlaybackToken(token: unknown): AlexaPlaybackState | null {
     served: unpackIds(payload.h),
     skipped: unpackIds(payload.k),
     failures: Number.isSafeInteger(failures) && failures > 0 ? failures : 0,
+    ...(payload.r === 1 ? { retried: true } : {}),
   };
+}
+
+/** The same song again after it failed, to start from where it stopped. */
+export function retriedState(state: AlexaPlaybackState): AlexaPlaybackState {
+  return { ...state, failures: state.failures + 1, retried: true };
 }
 
 /** The state once the current song has moved into the history. */
