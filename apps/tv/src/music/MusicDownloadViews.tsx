@@ -119,9 +119,16 @@ export function MusicDownloadsSection({ api, session, t, language, playingId, on
       })}
     </ScrollView> : null}
     {singles.map((item) => <MusicTrackRow key={item.videoId} api={api} track={item.track} active={item.videoId === playingId} onPress={playSingle} />)}
-    <PhoneListRow title={t("musicDownloadWifiOnly")} detail={t("musicDownloadWifiOnlyHint")} trailing={<Switch value={view.index.wifiOnly}
-      onValueChange={(value) => musicDownloads.setWifiOnly(value)} trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />} />
+    <MusicDownloadWifiSetting t={t} />
   </View>;
+}
+
+/** Whether songs wait for Wi-Fi to download; in the Library's downloads and in Settings. */
+export function MusicDownloadWifiSetting({ t }: { t: Translate }) {
+  const view = useMusicDownloads();
+  if (!musicDownloads.available) return null;
+  return <PhoneListRow title={t("musicDownloadWifiOnly")} detail={t("musicDownloadWifiOnlyHint")} trailing={<Switch value={view.index.wifiOnly}
+    onValueChange={(value) => musicDownloads.setWifiOnly(value)} trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />} />;
 }
 
 /** Shown at the top of music mode while the server can't be reached. */

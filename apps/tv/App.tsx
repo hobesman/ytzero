@@ -771,10 +771,10 @@ function TvApp() {
     openVideo(video, context, play, position);
   }, [openVideo]);
   const phoneSettings = useMemo(() => ({
-    instanceUrl, openDetails, phoneLayout: phoneDesign, landscapeLayout: landscapeDesign,
+    instanceUrl, music: musicMode.canUseMusic, openDetails, phoneLayout: phoneDesign, landscapeLayout: landscapeDesign,
     onOpenDetailsChange: async (value: boolean) => { await saveOpenDetails(deviceStore, value); setOpenDetails(value); },
     onPhoneLayoutChange: changePhoneDesign, onLandscapeLayoutChange: changeLandscapeDesign, onChangeInstance: startInstanceChange, onSignOut: signOut,
-  }), [changeLandscapeDesign, changePhoneDesign, instanceUrl, landscapeDesign, openDetails, phoneDesign, signOut, startInstanceChange]);
+  }), [changeLandscapeDesign, changePhoneDesign, instanceUrl, landscapeDesign, musicMode.canUseMusic, openDetails, phoneDesign, signOut, startInstanceChange]);
 
   // Phones: Back minimizes the player and returns to where the video was opened.
   const dockPlayer = useCallback(() => {
@@ -968,7 +968,7 @@ function TvApp() {
           onExit={() => { setSelected(null); setBootAttempt((value) => value + 1); }} />
       : phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
         ? <MusicApp key={profileState.active.id} api={api} musicApi={musicMode.musicApi} session={musicMode.session} t={t} language={language} profiles={phoneProfiles(profileState)}
-          onSwitchToVideo={() => musicMode.setMusic(false)} />
+          settings={phoneSettings} onSwitchToVideo={() => musicMode.setMusic(false)} />
       : phoneMode && hasShell && api && profileState ? <PhoneShortsContext.Provider value={openShorts}><PhoneApp key={profileState.active.id} api={api} t={t} language={language} hidden={screen === "detail" || Boolean(shorts)}
         brandName={brandName} brandColor={brandColor} profiles={phoneProfiles(profileState)}
         navConfig={sidebarNav} sort={feedSort} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} channelRequest={phoneChannelRequest}
