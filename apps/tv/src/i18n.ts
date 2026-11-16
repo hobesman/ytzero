@@ -1,4 +1,5 @@
 import type { Language } from "./types";
+import { withAppName } from "./branding";
 import { searchMessages } from "./searchMessages";
 import { emptyMessages } from "./emptyMessages";
 import { libraryMessages } from "./libraryMessages";
@@ -35,39 +36,39 @@ type DeviceSettingsMessages = {
 const deviceSettingsMessages: Record<Language, DeviceSettingsMessages> = {
   en: {
     devicePlayback: "Playback", openDetailsFirst: "Open details before playback", openDetailsFirstHint: "Applies to this television. By default, selecting a video starts playback immediately.",
-    deviceSettingsTitle: "Settings", deviceSettingsDescription: "Connection and session settings for this television.", connection: "Connection", currentInstance: "Current instance", changeInstanceHint: "Forget this address and connect the television to another YT Zero instance.", session: "Session", signOutHint: "Remove this television's access to the current profile.", more: "More", less: "Less",
+    deviceSettingsTitle: "Settings", deviceSettingsDescription: "Connection and session settings for this television.", connection: "Connection", currentInstance: "Current instance", changeInstanceHint: "Forget this address and connect the television to another {app} instance.", session: "Session", signOutHint: "Remove this television's access to the current profile.", more: "More", less: "Less",
   },
   pl: {
     devicePlayback: "Odtwarzanie", openDetailsFirst: "Otwieraj szczegóły przed odtwarzaniem", openDetailsFirstHint: "Dotyczy tego telewizora. Domyślnie wybranie filmu od razu rozpoczyna odtwarzanie.",
-    deviceSettingsTitle: "Ustawienia", deviceSettingsDescription: "Połączenie i sesja tego telewizora.", connection: "Połączenie", currentInstance: "Bieżąca instancja", changeInstanceHint: "Usuń ten adres i połącz telewizor z inną instancją YT Zero.", session: "Sesja", signOutHint: "Usuń dostęp tego telewizora do bieżącego profilu.", more: "Więcej", less: "Mniej",
+    deviceSettingsTitle: "Ustawienia", deviceSettingsDescription: "Połączenie i sesja tego telewizora.", connection: "Połączenie", currentInstance: "Bieżąca instancja", changeInstanceHint: "Usuń ten adres i połącz telewizor z inną instancją {app}.", session: "Sesja", signOutHint: "Usuń dostęp tego telewizora do bieżącego profilu.", more: "Więcej", less: "Mniej",
   },
   de: {
     devicePlayback: "Wiedergabe", openDetailsFirst: "Details vor der Wiedergabe öffnen", openDetailsFirstHint: "Gilt für diesen Fernseher. Standardmäßig startet die Auswahl eines Videos sofort die Wiedergabe.",
-    deviceSettingsTitle: "Einstellungen", deviceSettingsDescription: "Verbindungs- und Sitzungseinstellungen für diesen Fernseher.", connection: "Verbindung", currentInstance: "Aktuelle Instanz", changeInstanceHint: "Diese Adresse entfernen und den Fernseher mit einer anderen YT-Zero-Instanz verbinden.", session: "Sitzung", signOutHint: "Den Zugriff dieses Fernsehers auf das aktuelle Profil entfernen.", more: "Mehr", less: "Weniger",
+    deviceSettingsTitle: "Einstellungen", deviceSettingsDescription: "Verbindungs- und Sitzungseinstellungen für diesen Fernseher.", connection: "Verbindung", currentInstance: "Aktuelle Instanz", changeInstanceHint: "Diese Adresse entfernen und den Fernseher mit einer anderen {app}-Instanz verbinden.", session: "Sitzung", signOutHint: "Den Zugriff dieses Fernsehers auf das aktuelle Profil entfernen.", more: "Mehr", less: "Weniger",
   },
   fr: {
     devicePlayback: "Lecture", openDetailsFirst: "Ouvrir les détails avant la lecture", openDetailsFirstHint: "S’applique à ce téléviseur. Par défaut, sélectionner une vidéo lance immédiatement la lecture.",
-    deviceSettingsTitle: "Réglages", deviceSettingsDescription: "Connexion et session de ce téléviseur.", connection: "Connexion", currentInstance: "Instance actuelle", changeInstanceHint: "Oublier cette adresse et connecter le téléviseur à une autre instance YT Zero.", session: "Session", signOutHint: "Supprimer l’accès de ce téléviseur au profil actuel.", more: "Plus", less: "Moins",
+    deviceSettingsTitle: "Réglages", deviceSettingsDescription: "Connexion et session de ce téléviseur.", connection: "Connexion", currentInstance: "Instance actuelle", changeInstanceHint: "Oublier cette adresse et connecter le téléviseur à une autre instance {app}.", session: "Session", signOutHint: "Supprimer l’accès de ce téléviseur au profil actuel.", more: "Plus", less: "Moins",
   },
   es: {
     devicePlayback: "Reproducción", openDetailsFirst: "Abrir los detalles antes de reproducir", openDetailsFirstHint: "Se aplica a este televisor. De forma predeterminada, seleccionar un vídeo inicia la reproducción inmediatamente.",
-    deviceSettingsTitle: "Ajustes", deviceSettingsDescription: "Conexión y sesión de este televisor.", connection: "Conexión", currentInstance: "Instancia actual", changeInstanceHint: "Olvida esta dirección y conecta el televisor a otra instancia de YT Zero.", session: "Sesión", signOutHint: "Elimina el acceso de este televisor al perfil actual.", more: "Más", less: "Menos",
+    deviceSettingsTitle: "Ajustes", deviceSettingsDescription: "Conexión y sesión de este televisor.", connection: "Conexión", currentInstance: "Instancia actual", changeInstanceHint: "Olvida esta dirección y conecta el televisor a otra instancia de {app}.", session: "Sesión", signOutHint: "Elimina el acceso de este televisor al perfil actual.", more: "Más", less: "Menos",
   },
   "pt-BR": {
     devicePlayback: "Reprodução", openDetailsFirst: "Abrir detalhes antes de reproduzir", openDetailsFirstHint: "Aplica-se a esta televisão. Por padrão, selecionar um vídeo inicia a reprodução imediatamente.",
-    deviceSettingsTitle: "Configurações", deviceSettingsDescription: "Conexão e sessão desta televisão.", connection: "Conexão", currentInstance: "Instância atual", changeInstanceHint: "Esqueça este endereço e conecte a televisão a outra instância do YT Zero.", session: "Sessão", signOutHint: "Remova o acesso desta televisão ao perfil atual.", more: "Mais", less: "Menos",
+    deviceSettingsTitle: "Configurações", deviceSettingsDescription: "Conexão e sessão desta televisão.", connection: "Conexão", currentInstance: "Instância atual", changeInstanceHint: "Esqueça este endereço e conecte a televisão a outra instância do {app}.", session: "Sessão", signOutHint: "Remova o acesso desta televisão ao perfil atual.", more: "Mais", less: "Menos",
   },
   ru: {
     devicePlayback: "Воспроизведение", openDetailsFirst: "Открывать сведения перед воспроизведением", openDetailsFirstHint: "Применяется к этому телевизору. По умолчанию выбор видео сразу запускает воспроизведение.",
-    deviceSettingsTitle: "Настройки", deviceSettingsDescription: "Подключение и сеанс этого телевизора.", connection: "Подключение", currentInstance: "Текущая установка", changeInstanceHint: "Удалить этот адрес и подключить телевизор к другой установке YT Zero.", session: "Сеанс", signOutHint: "Удалить доступ этого телевизора к текущему профилю.", more: "Ещё", less: "Скрыть",
+    deviceSettingsTitle: "Настройки", deviceSettingsDescription: "Подключение и сеанс этого телевизора.", connection: "Подключение", currentInstance: "Текущая установка", changeInstanceHint: "Удалить этот адрес и подключить телевизор к другой установке {app}.", session: "Сеанс", signOutHint: "Удалить доступ этого телевизора к текущему профилю.", more: "Ещё", less: "Скрыть",
   },
   ja: {
     devicePlayback: "再生", openDetailsFirst: "再生前に詳細を開く", openDetailsFirstHint: "このテレビに適用されます。初期設定では、動画を選択するとすぐに再生が始まります。",
-    deviceSettingsTitle: "設定", deviceSettingsDescription: "このテレビの接続とセッションの設定です。", connection: "接続", currentInstance: "現在のインスタンス", changeInstanceHint: "このアドレスを削除し、別の YT Zero インスタンスに接続します。", session: "セッション", signOutHint: "このテレビから現在のプロフィールへのアクセスを削除します。", more: "その他", less: "閉じる",
+    deviceSettingsTitle: "設定", deviceSettingsDescription: "このテレビの接続とセッションの設定です。", connection: "接続", currentInstance: "現在のインスタンス", changeInstanceHint: "このアドレスを削除し、別の {app} インスタンスに接続します。", session: "セッション", signOutHint: "このテレビから現在のプロフィールへのアクセスを削除します。", more: "その他", less: "閉じる",
   },
   hu: {
     devicePlayback: "Lejátszás", openDetailsFirst: "Részletek megnyitása lejátszás előtt", openDetailsFirstHint: "Erre a televízióra érvényes. Alapértelmezés szerint a videó kiválasztása azonnal elindítja a lejátszást.",
-    deviceSettingsTitle: "Beállítások", deviceSettingsDescription: "A televízió kapcsolati és munkamenet-beállításai.", connection: "Kapcsolat", currentInstance: "Jelenlegi példány", changeInstanceHint: "A cím törlése és a televízió csatlakoztatása egy másik YT Zero-példányhoz.", session: "Munkamenet", signOutHint: "A televízió hozzáférésének eltávolítása a jelenlegi profilhoz.", more: "Továbbiak", less: "Kevesebb",
+    deviceSettingsTitle: "Beállítások", deviceSettingsDescription: "A televízió kapcsolati és munkamenet-beállításai.", connection: "Kapcsolat", currentInstance: "Jelenlegi példány", changeInstanceHint: "A cím törlése és a televízió csatlakoztatása egy másik {app}-példányhoz.", session: "Munkamenet", signOutHint: "A televízió hozzáférésének eltávolítása a jelenlegi profilhoz.", more: "Továbbiak", less: "Kevesebb",
   },
 };
 
@@ -193,7 +194,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Preparing playback…",
     playbackErrorTitle: "Unable to play",
     playbackError: "Playback was interrupted. Check your connection and try again.",
-    playbackUnavailable: "No native stream is available for this video. Download it on your YT Zero instance and try again.",
+    playbackUnavailable: "No native stream is available for this video. Download it on your {app} instance and try again.",
     playbackRestricted: "Playback is restricted for this profile.",
     playbackSessionExpired: "Playback access has expired. Try again, or pair this television again in Settings.",
     playbackSaveError: "Your last playback position could not be saved.",
@@ -207,7 +208,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Przygotowywanie odtwarzania…",
     playbackErrorTitle: "Nie można odtworzyć filmu",
     playbackError: "Odtwarzanie zostało przerwane. Sprawdź połączenie i spróbuj ponownie.",
-    playbackUnavailable: "Ten film nie ma dostępnego strumienia do odtwarzania na TV. Pobierz go w swojej instancji YT Zero i spróbuj ponownie.",
+    playbackUnavailable: "Ten film nie ma dostępnego strumienia do odtwarzania na TV. Pobierz go w swojej instancji {app} i spróbuj ponownie.",
     playbackRestricted: "Odtwarzanie jest ograniczone dla tego profilu.",
     playbackSessionExpired: "Dostęp do odtwarzania wygasł. Spróbuj ponownie lub sparuj telewizor ponownie w Ustawieniach.",
     playbackSaveError: "Nie udało się zapisać ostatniej pozycji odtwarzania.",
@@ -221,7 +222,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Wiedergabe wird vorbereitet…",
     playbackErrorTitle: "Wiedergabe nicht möglich",
     playbackError: "Die Wiedergabe wurde unterbrochen. Prüfe deine Verbindung und versuche es erneut.",
-    playbackUnavailable: "Für dieses Video ist kein nativer Stream verfügbar. Lade es in deiner YT Zero-Instanz herunter und versuche es erneut.",
+    playbackUnavailable: "Für dieses Video ist kein nativer Stream verfügbar. Lade es in deiner {app}-Instanz herunter und versuche es erneut.",
     playbackRestricted: "Die Wiedergabe ist für dieses Profil eingeschränkt.",
     playbackSessionExpired: "Der Wiedergabezugriff ist abgelaufen. Versuche es erneut oder kopple den Fernseher in den Einstellungen erneut.",
     playbackSaveError: "Die letzte Wiedergabeposition konnte nicht gespeichert werden.",
@@ -235,7 +236,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Préparation de la lecture…",
     playbackErrorTitle: "Lecture impossible",
     playbackError: "La lecture a été interrompue. Vérifie ta connexion et réessaie.",
-    playbackUnavailable: "Aucun flux natif n’est disponible pour cette vidéo. Télécharge-la sur ton instance YT Zero et réessaie.",
+    playbackUnavailable: "Aucun flux natif n’est disponible pour cette vidéo. Télécharge-la sur ton instance {app} et réessaie.",
     playbackRestricted: "La lecture est restreinte pour ce profil.",
     playbackSessionExpired: "L’accès à la lecture a expiré. Réessaie ou associe à nouveau ce téléviseur dans les réglages.",
     playbackSaveError: "La dernière position de lecture n’a pas pu être enregistrée.",
@@ -249,7 +250,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Preparando la reproducción…",
     playbackErrorTitle: "No se puede reproducir",
     playbackError: "La reproducción se ha interrumpido. Comprueba la conexión y vuelve a intentarlo.",
-    playbackUnavailable: "No hay una transmisión nativa disponible para este vídeo. Descárgalo en tu instancia de YT Zero y vuelve a intentarlo.",
+    playbackUnavailable: "No hay una transmisión nativa disponible para este vídeo. Descárgalo en tu instancia de {app} y vuelve a intentarlo.",
     playbackRestricted: "La reproducción está restringida para este perfil.",
     playbackSessionExpired: "El acceso a la reproducción ha caducado. Vuelve a intentarlo o empareja el televisor de nuevo en Ajustes.",
     playbackSaveError: "No se ha podido guardar la última posición de reproducción.",
@@ -263,7 +264,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Preparando a reprodução…",
     playbackErrorTitle: "Não foi possível reproduzir",
     playbackError: "A reprodução foi interrompida. Verifique sua conexão e tente novamente.",
-    playbackUnavailable: "Nenhuma transmissão nativa está disponível para este vídeo. Baixe-o na sua instância do YT Zero e tente novamente.",
+    playbackUnavailable: "Nenhuma transmissão nativa está disponível para este vídeo. Baixe-o na sua instância do {app} e tente novamente.",
     playbackRestricted: "A reprodução está restrita para este perfil.",
     playbackSessionExpired: "O acesso à reprodução expirou. Tente novamente ou emparelhe esta televisão novamente nas Configurações.",
     playbackSaveError: "Não foi possível salvar a última posição de reprodução.",
@@ -277,7 +278,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Подготовка воспроизведения…",
     playbackErrorTitle: "Не удалось воспроизвести",
     playbackError: "Воспроизведение прервано. Проверьте подключение и повторите попытку.",
-    playbackUnavailable: "Для этого видео нет доступного нативного потока. Скачайте его в своей установке YT Zero и повторите попытку.",
+    playbackUnavailable: "Для этого видео нет доступного нативного потока. Скачайте его в своей установке {app} и повторите попытку.",
     playbackRestricted: "Воспроизведение ограничено для этого профиля.",
     playbackSessionExpired: "Срок доступа к воспроизведению истёк. Повторите попытку или заново подключите телевизор в настройках.",
     playbackSaveError: "Не удалось сохранить последнюю позицию воспроизведения.",
@@ -291,7 +292,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "再生を準備中…",
     playbackErrorTitle: "再生できません",
     playbackError: "再生が中断されました。接続を確認して、もう一度お試しください。",
-    playbackUnavailable: "この動画にはネイティブ再生用のストリームがありません。YT Zero インスタンスでダウンロードして、もう一度お試しください。",
+    playbackUnavailable: "この動画にはネイティブ再生用のストリームがありません。{app} インスタンスでダウンロードして、もう一度お試しください。",
     playbackRestricted: "このプロフィールでは再生が制限されています。",
     playbackSessionExpired: "再生アクセスの有効期限が切れました。再試行するか、設定でテレビを再度ペアリングしてください。",
     playbackSaveError: "最後の再生位置を保存できませんでした。",
@@ -305,7 +306,7 @@ const playbackMessages: Record<Language, PlaybackMessages> = {
     preparingPlayback: "Lejátszás előkészítése…",
     playbackErrorTitle: "Nem játszható le",
     playbackError: "A lejátszás megszakadt. Ellenőrizd a kapcsolatot, majd próbáld újra.",
-    playbackUnavailable: "Ehhez a videóhoz nem érhető el natív adatfolyam. Töltsd le a YT Zero-példányodon, majd próbáld újra.",
+    playbackUnavailable: "Ehhez a videóhoz nem érhető el natív adatfolyam. Töltsd le a(z) {app}-példányodon, majd próbáld újra.",
     playbackRestricted: "A lejátszás korlátozott ennél a profilnál.",
     playbackSessionExpired: "A lejátszási hozzáférés lejárt. Próbáld újra, vagy párosítsd újra a televíziót a Beállításokban.",
     playbackSaveError: "Az utolsó lejátszási pozíciót nem sikerült menteni.",
@@ -396,15 +397,15 @@ const en = {
   ...watchMessages.en,
     ...playbackMessages.en,
   ...videoActionMessages.en,
-  booting: "Starting YT Zero…",
-  instanceTitle: "Connect to YT Zero",
-  instanceDescription: "Enter the address of your YT Zero instance. This is saved only on this television.",
+  booting: "Starting {app}…",
+  instanceTitle: "Connect to {app}",
+  instanceDescription: "Enter the address of your {app} instance. This is saved only on this television.",
   addressLabel: "Instance address",
   addressHint: "For example: https://video.example.com or http://192.168.1.20:3001",
   connect: "Connect",
   connecting: "Connecting…",
   invalidAddress: "Enter a valid HTTP or HTTPS address without a path.",
-  cannotConnect: "YT Zero could not be reached at this address.",
+  cannotConnect: "{app} could not be reached at this address.",
   cleartextTitle: "Local connection",
   cleartextHint: "HTTP does not encrypt the connection. Use it only on a trusted home network; HTTPS is recommended.",
   pairTitle: "Pair this television",
@@ -462,15 +463,15 @@ const messages: Record<Language, Messages> = {
     ...watchMessages.pl,
     ...playbackMessages.pl,
     ...videoActionMessages.pl,
-    booting: "Uruchamianie YT Zero…",
-    instanceTitle: "Połącz z YT Zero",
-    instanceDescription: "Podaj adres swojej instancji YT Zero. Zostanie zapisany tylko na tym telewizorze.",
+    booting: "Uruchamianie {app}…",
+    instanceTitle: "Połącz z {app}",
+    instanceDescription: "Podaj adres swojej instancji {app}. Zostanie zapisany tylko na tym telewizorze.",
     addressLabel: "Adres instancji",
     addressHint: "Na przykład: https://video.example.com albo http://192.168.1.20:3001",
     connect: "Połącz",
     connecting: "Łączenie…",
     invalidAddress: "Podaj poprawny adres HTTP lub HTTPS bez dodatkowej ścieżki.",
-    cannotConnect: "Nie udało się połączyć z YT Zero pod tym adresem.",
+    cannotConnect: "Nie udało się połączyć z {app} pod tym adresem.",
     cleartextTitle: "Połączenie lokalne",
     cleartextHint: "HTTP nie szyfruje połączenia. Używaj go tylko w zaufanej sieci domowej; zalecany jest HTTPS.",
     pairTitle: "Połącz ten telewizor",
@@ -522,7 +523,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages.de,
     ...videoActionMessages.de,
     loadMore: "Mehr laden", refresh: "Aktualisieren",
-    booting: "YT Zero wird gestartet…", instanceTitle: "Mit YT Zero verbinden", instanceDescription: "Gib die Adresse deiner YT-Zero-Instanz ein. Sie wird nur auf diesem Fernseher gespeichert.", addressLabel: "Instanzadresse", addressHint: "Zum Beispiel: https://video.example.com oder http://192.168.1.20:3001", connect: "Verbinden", connecting: "Verbindung wird hergestellt…", invalidAddress: "Gib eine gültige HTTP- oder HTTPS-Adresse ohne Pfad ein.", cannotConnect: "YT Zero ist unter dieser Adresse nicht erreichbar.", cleartextTitle: "Lokale Verbindung", cleartextHint: "HTTP verschlüsselt die Verbindung nicht. Verwende es nur in einem vertrauenswürdigen Heimnetz; HTTPS wird empfohlen.", pairTitle: "Diesen Fernseher verbinden", pairDescription: "Scanne den QR-Code mit einem angemeldeten Gerät oder öffne die Adresse und gib den Code ein.", enterCode: "Diesen Code eingeben", waiting: "Warten auf Bestätigung…", pairExpired: "Der Verbindungscode ist abgelaufen.", retry: "Neuen Code erstellen", changeInstance: "Instanz wechseln", feedTitle: "Dein Feed", published: "Veröffentlicht", arrival: "Hinzugefügt", inboxOnly: "Ungesehen", allVideos: "Alle anzeigen", clearFilters: "Filter zurücksetzen", continueWatching: "Weiterschauen", watchedChannels: "Meistgesehene Kanäle", liveBadge: "LIVE", loadingFeed: "Feed wird geladen…", emptyFeed: "Nichts zu sehen", emptyFeedHint: "Du bist auf dem neuesten Stand oder die Filter blenden alle Videos aus.", loadError: "Der Feed konnte nicht geladen werden.", settings: "Gerät", signOut: "Abmelden", back: "Zurück", close: "Schließen", markWatched: "Als gesehen markieren", reject: "Ablehnen", actionFailed: "Die Aktion konnte nicht gespeichert werden.", feedPrototype: "Diese erste Version umfasst Kopplung und Feed-Verwaltung. Native Wiedergabe ist der nächste Meilenstein.", noDescription: "Keine Beschreibung.",
+    booting: "{app} wird gestartet…", instanceTitle: "Mit {app} verbinden", instanceDescription: "Gib die Adresse deiner {app}-Instanz ein. Sie wird nur auf diesem Fernseher gespeichert.", addressLabel: "Instanzadresse", addressHint: "Zum Beispiel: https://video.example.com oder http://192.168.1.20:3001", connect: "Verbinden", connecting: "Verbindung wird hergestellt…", invalidAddress: "Gib eine gültige HTTP- oder HTTPS-Adresse ohne Pfad ein.", cannotConnect: "{app} ist unter dieser Adresse nicht erreichbar.", cleartextTitle: "Lokale Verbindung", cleartextHint: "HTTP verschlüsselt die Verbindung nicht. Verwende es nur in einem vertrauenswürdigen Heimnetz; HTTPS wird empfohlen.", pairTitle: "Diesen Fernseher verbinden", pairDescription: "Scanne den QR-Code mit einem angemeldeten Gerät oder öffne die Adresse und gib den Code ein.", enterCode: "Diesen Code eingeben", waiting: "Warten auf Bestätigung…", pairExpired: "Der Verbindungscode ist abgelaufen.", retry: "Neuen Code erstellen", changeInstance: "Instanz wechseln", feedTitle: "Dein Feed", published: "Veröffentlicht", arrival: "Hinzugefügt", inboxOnly: "Ungesehen", allVideos: "Alle anzeigen", clearFilters: "Filter zurücksetzen", continueWatching: "Weiterschauen", watchedChannels: "Meistgesehene Kanäle", liveBadge: "LIVE", loadingFeed: "Feed wird geladen…", emptyFeed: "Nichts zu sehen", emptyFeedHint: "Du bist auf dem neuesten Stand oder die Filter blenden alle Videos aus.", loadError: "Der Feed konnte nicht geladen werden.", settings: "Gerät", signOut: "Abmelden", back: "Zurück", close: "Schließen", markWatched: "Als gesehen markieren", reject: "Ablehnen", actionFailed: "Die Aktion konnte nicht gespeichert werden.", feedPrototype: "Diese erste Version umfasst Kopplung und Feed-Verwaltung. Native Wiedergabe ist der nächste Meilenstein.", noDescription: "Keine Beschreibung.",
   },
   fr: {
     ...deviceSettingsMessages.fr,
@@ -542,7 +543,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages.fr,
     ...videoActionMessages.fr,
     loadMore: "Charger plus", refresh: "Actualiser",
-    booting: "Démarrage de YT Zero…", instanceTitle: "Se connecter à YT Zero", instanceDescription: "Saisissez l’adresse de votre instance YT Zero. Elle est enregistrée uniquement sur ce téléviseur.", addressLabel: "Adresse de l’instance", addressHint: "Par exemple : https://video.example.com ou http://192.168.1.20:3001", connect: "Se connecter", connecting: "Connexion…", invalidAddress: "Saisissez une adresse HTTP ou HTTPS valide sans chemin.", cannotConnect: "YT Zero est inaccessible à cette adresse.", cleartextTitle: "Connexion locale", cleartextHint: "HTTP ne chiffre pas la connexion. Utilisez-le uniquement sur un réseau domestique fiable ; HTTPS est recommandé.", pairTitle: "Associer ce téléviseur", pairDescription: "Scannez le code QR avec un appareil connecté, ou ouvrez l’adresse et saisissez le code.", enterCode: "Saisissez ce code", waiting: "En attente de l’autorisation…", pairExpired: "Le code d’association a expiré.", retry: "Créer un nouveau code", changeInstance: "Changer d’instance", feedTitle: "Votre fil", published: "Publication", arrival: "Ajout", inboxOnly: "Non regardées", allVideos: "Tout afficher", clearFilters: "Effacer les filtres", continueWatching: "Continuer à regarder", watchedChannels: "Chaînes les plus regardées", liveBadge: "EN DIRECT", loadingFeed: "Chargement du fil…", emptyFeed: "Rien à regarder", emptyFeedHint: "Vous êtes à jour ou les filtres masquent toutes les vidéos.", loadError: "Impossible de charger le fil.", settings: "Appareil", signOut: "Se déconnecter", back: "Retour", close: "Fermer", markWatched: "Marquer comme regardée", reject: "Rejeter", actionFailed: "Impossible d’enregistrer l’action.", feedPrototype: "Cette première version couvre l’association et la gestion du fil. La lecture native est la prochaine étape.", noDescription: "Aucune description.",
+    booting: "Démarrage de {app}…", instanceTitle: "Se connecter à {app}", instanceDescription: "Saisissez l’adresse de votre instance {app}. Elle est enregistrée uniquement sur ce téléviseur.", addressLabel: "Adresse de l’instance", addressHint: "Par exemple : https://video.example.com ou http://192.168.1.20:3001", connect: "Se connecter", connecting: "Connexion…", invalidAddress: "Saisissez une adresse HTTP ou HTTPS valide sans chemin.", cannotConnect: "{app} est inaccessible à cette adresse.", cleartextTitle: "Connexion locale", cleartextHint: "HTTP ne chiffre pas la connexion. Utilisez-le uniquement sur un réseau domestique fiable ; HTTPS est recommandé.", pairTitle: "Associer ce téléviseur", pairDescription: "Scannez le code QR avec un appareil connecté, ou ouvrez l’adresse et saisissez le code.", enterCode: "Saisissez ce code", waiting: "En attente de l’autorisation…", pairExpired: "Le code d’association a expiré.", retry: "Créer un nouveau code", changeInstance: "Changer d’instance", feedTitle: "Votre fil", published: "Publication", arrival: "Ajout", inboxOnly: "Non regardées", allVideos: "Tout afficher", clearFilters: "Effacer les filtres", continueWatching: "Continuer à regarder", watchedChannels: "Chaînes les plus regardées", liveBadge: "EN DIRECT", loadingFeed: "Chargement du fil…", emptyFeed: "Rien à regarder", emptyFeedHint: "Vous êtes à jour ou les filtres masquent toutes les vidéos.", loadError: "Impossible de charger le fil.", settings: "Appareil", signOut: "Se déconnecter", back: "Retour", close: "Fermer", markWatched: "Marquer comme regardée", reject: "Rejeter", actionFailed: "Impossible d’enregistrer l’action.", feedPrototype: "Cette première version couvre l’association et la gestion du fil. La lecture native est la prochaine étape.", noDescription: "Aucune description.",
   },
   es: {
     ...deviceSettingsMessages.es,
@@ -562,7 +563,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages.es,
     ...videoActionMessages.es,
     loadMore: "Cargar más", refresh: "Actualizar",
-    booting: "Iniciando YT Zero…", instanceTitle: "Conectar con YT Zero", instanceDescription: "Introduce la dirección de tu instancia de YT Zero. Solo se guardará en este televisor.", addressLabel: "Dirección de la instancia", addressHint: "Por ejemplo: https://video.example.com o http://192.168.1.20:3001", connect: "Conectar", connecting: "Conectando…", invalidAddress: "Introduce una dirección HTTP o HTTPS válida sin ruta.", cannotConnect: "No se ha podido acceder a YT Zero en esta dirección.", cleartextTitle: "Conexión local", cleartextHint: "HTTP no cifra la conexión. Úsalo solo en una red doméstica de confianza; se recomienda HTTPS.", pairTitle: "Vincular este televisor", pairDescription: "Escanea el código QR con un dispositivo que tenga la sesión iniciada, o abre la dirección e introduce el código.", enterCode: "Introduce este código", waiting: "Esperando autorización…", pairExpired: "El código de vinculación ha caducado.", retry: "Crear un código nuevo", changeInstance: "Cambiar instancia", feedTitle: "Tu feed", published: "Publicación", arrival: "Añadido", inboxOnly: "Sin ver", allVideos: "Mostrar todo", clearFilters: "Borrar filtros", continueWatching: "Seguir viendo", watchedChannels: "Canales más vistos", liveBadge: "EN DIRECTO", loadingFeed: "Cargando el feed…", emptyFeed: "Nada que ver", emptyFeedHint: "Estás al día o los filtros ocultan todos los vídeos.", loadError: "No se ha podido cargar el feed.", settings: "Dispositivo", signOut: "Cerrar sesión", back: "Volver", close: "Cerrar", markWatched: "Marcar como visto", reject: "Rechazar", actionFailed: "No se ha podido guardar la acción.", feedPrototype: "Esta primera versión incluye la vinculación y la gestión del feed. La reproducción nativa es el siguiente objetivo.", noDescription: "Sin descripción.",
+    booting: "Iniciando {app}…", instanceTitle: "Conectar con {app}", instanceDescription: "Introduce la dirección de tu instancia de {app}. Solo se guardará en este televisor.", addressLabel: "Dirección de la instancia", addressHint: "Por ejemplo: https://video.example.com o http://192.168.1.20:3001", connect: "Conectar", connecting: "Conectando…", invalidAddress: "Introduce una dirección HTTP o HTTPS válida sin ruta.", cannotConnect: "No se ha podido acceder a {app} en esta dirección.", cleartextTitle: "Conexión local", cleartextHint: "HTTP no cifra la conexión. Úsalo solo en una red doméstica de confianza; se recomienda HTTPS.", pairTitle: "Vincular este televisor", pairDescription: "Escanea el código QR con un dispositivo que tenga la sesión iniciada, o abre la dirección e introduce el código.", enterCode: "Introduce este código", waiting: "Esperando autorización…", pairExpired: "El código de vinculación ha caducado.", retry: "Crear un código nuevo", changeInstance: "Cambiar instancia", feedTitle: "Tu feed", published: "Publicación", arrival: "Añadido", inboxOnly: "Sin ver", allVideos: "Mostrar todo", clearFilters: "Borrar filtros", continueWatching: "Seguir viendo", watchedChannels: "Canales más vistos", liveBadge: "EN DIRECTO", loadingFeed: "Cargando el feed…", emptyFeed: "Nada que ver", emptyFeedHint: "Estás al día o los filtros ocultan todos los vídeos.", loadError: "No se ha podido cargar el feed.", settings: "Dispositivo", signOut: "Cerrar sesión", back: "Volver", close: "Cerrar", markWatched: "Marcar como visto", reject: "Rechazar", actionFailed: "No se ha podido guardar la acción.", feedPrototype: "Esta primera versión incluye la vinculación y la gestión del feed. La reproducción nativa es el siguiente objetivo.", noDescription: "Sin descripción.",
   },
   "pt-BR": {
     ...deviceSettingsMessages["pt-BR"],
@@ -582,7 +583,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages["pt-BR"],
     ...videoActionMessages["pt-BR"],
     loadMore: "Carregar mais", refresh: "Atualizar",
-    booting: "Iniciando o YT Zero…", instanceTitle: "Conectar ao YT Zero", instanceDescription: "Digite o endereço da sua instância do YT Zero. Ele será salvo apenas nesta televisão.", addressLabel: "Endereço da instância", addressHint: "Por exemplo: https://video.example.com ou http://192.168.1.20:3001", connect: "Conectar", connecting: "Conectando…", invalidAddress: "Digite um endereço HTTP ou HTTPS válido, sem caminho.", cannotConnect: "Não foi possível acessar o YT Zero neste endereço.", cleartextTitle: "Conexão local", cleartextHint: "HTTP não criptografa a conexão. Use apenas em uma rede doméstica confiável; HTTPS é recomendado.", pairTitle: "Conectar esta TV", pairDescription: "Escaneie o código QR com um dispositivo conectado ou abra o endereço e digite o código.", enterCode: "Digite este código", waiting: "Aguardando autorização…", pairExpired: "O código de conexão expirou.", retry: "Criar novo código", changeInstance: "Alterar instância", feedTitle: "Seu feed", published: "Publicado", arrival: "Adicionado", inboxOnly: "Não assistidos", allVideos: "Mostrar todos", clearFilters: "Limpar filtros", continueWatching: "Continuar assistindo", watchedChannels: "Canais mais assistidos", liveBadge: "AO VIVO", loadingFeed: "Carregando o feed…", emptyFeed: "Nada para assistir", emptyFeedHint: "Você está em dia ou os filtros ocultam todos os vídeos.", loadError: "Não foi possível carregar o feed.", settings: "Dispositivo", signOut: "Sair", back: "Voltar", close: "Fechar", markWatched: "Marcar como assistido", reject: "Rejeitar", actionFailed: "Não foi possível salvar a ação.", feedPrototype: "Esta primeira versão inclui conexão e gerenciamento do feed. A reprodução nativa é o próximo marco.", noDescription: "Sem descrição.",
+    booting: "Iniciando o {app}…", instanceTitle: "Conectar ao {app}", instanceDescription: "Digite o endereço da sua instância do {app}. Ele será salvo apenas nesta televisão.", addressLabel: "Endereço da instância", addressHint: "Por exemplo: https://video.example.com ou http://192.168.1.20:3001", connect: "Conectar", connecting: "Conectando…", invalidAddress: "Digite um endereço HTTP ou HTTPS válido, sem caminho.", cannotConnect: "Não foi possível acessar o {app} neste endereço.", cleartextTitle: "Conexão local", cleartextHint: "HTTP não criptografa a conexão. Use apenas em uma rede doméstica confiável; HTTPS é recomendado.", pairTitle: "Conectar esta TV", pairDescription: "Escaneie o código QR com um dispositivo conectado ou abra o endereço e digite o código.", enterCode: "Digite este código", waiting: "Aguardando autorização…", pairExpired: "O código de conexão expirou.", retry: "Criar novo código", changeInstance: "Alterar instância", feedTitle: "Seu feed", published: "Publicado", arrival: "Adicionado", inboxOnly: "Não assistidos", allVideos: "Mostrar todos", clearFilters: "Limpar filtros", continueWatching: "Continuar assistindo", watchedChannels: "Canais mais assistidos", liveBadge: "AO VIVO", loadingFeed: "Carregando o feed…", emptyFeed: "Nada para assistir", emptyFeedHint: "Você está em dia ou os filtros ocultam todos os vídeos.", loadError: "Não foi possível carregar o feed.", settings: "Dispositivo", signOut: "Sair", back: "Voltar", close: "Fechar", markWatched: "Marcar como assistido", reject: "Rejeitar", actionFailed: "Não foi possível salvar a ação.", feedPrototype: "Esta primeira versão inclui conexão e gerenciamento do feed. A reprodução nativa é o próximo marco.", noDescription: "Sem descrição.",
   },
   ru: {
     ...deviceSettingsMessages.ru,
@@ -602,7 +603,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages.ru,
     ...videoActionMessages.ru,
     loadMore: "Загрузить ещё", refresh: "Обновить",
-    booting: "Запуск YT Zero…", instanceTitle: "Подключение к YT Zero", instanceDescription: "Введите адрес вашей установки YT Zero. Он будет сохранён только на этом телевизоре.", addressLabel: "Адрес установки", addressHint: "Например: https://video.example.com или http://192.168.1.20:3001", connect: "Подключиться", connecting: "Подключение…", invalidAddress: "Введите корректный адрес HTTP или HTTPS без пути.", cannotConnect: "Не удалось открыть YT Zero по этому адресу.", cleartextTitle: "Локальное подключение", cleartextHint: "HTTP не шифрует соединение. Используйте его только в доверенной домашней сети; рекомендуется HTTPS.", pairTitle: "Подключить телевизор", pairDescription: "Отсканируйте QR-код на устройстве с активным сеансом или откройте адрес и введите код.", enterCode: "Введите этот код", waiting: "Ожидание подтверждения…", pairExpired: "Срок действия кода истёк.", retry: "Создать новый код", changeInstance: "Сменить установку", feedTitle: "Ваша лента", published: "Опубликовано", arrival: "Добавлено", inboxOnly: "Непросмотренные", allVideos: "Показать все", clearFilters: "Сбросить фильтры", continueWatching: "Продолжить просмотр", watchedChannels: "Часто просматриваемые каналы", liveBadge: "В ЭФИРЕ", loadingFeed: "Загрузка ленты…", emptyFeed: "Смотреть нечего", emptyFeedHint: "Вы всё посмотрели или фильтры скрывают все видео.", loadError: "Не удалось загрузить ленту.", settings: "Устройство", signOut: "Выйти", back: "Назад", close: "Закрыть", markWatched: "Отметить просмотренным", reject: "Отклонить", actionFailed: "Не удалось сохранить действие.", feedPrototype: "Первая версия поддерживает подключение и управление лентой. Нативный проигрыватель — следующий этап.", noDescription: "Нет описания.",
+    booting: "Запуск {app}…", instanceTitle: "Подключение к {app}", instanceDescription: "Введите адрес вашей установки {app}. Он будет сохранён только на этом телевизоре.", addressLabel: "Адрес установки", addressHint: "Например: https://video.example.com или http://192.168.1.20:3001", connect: "Подключиться", connecting: "Подключение…", invalidAddress: "Введите корректный адрес HTTP или HTTPS без пути.", cannotConnect: "Не удалось открыть {app} по этому адресу.", cleartextTitle: "Локальное подключение", cleartextHint: "HTTP не шифрует соединение. Используйте его только в доверенной домашней сети; рекомендуется HTTPS.", pairTitle: "Подключить телевизор", pairDescription: "Отсканируйте QR-код на устройстве с активным сеансом или откройте адрес и введите код.", enterCode: "Введите этот код", waiting: "Ожидание подтверждения…", pairExpired: "Срок действия кода истёк.", retry: "Создать новый код", changeInstance: "Сменить установку", feedTitle: "Ваша лента", published: "Опубликовано", arrival: "Добавлено", inboxOnly: "Непросмотренные", allVideos: "Показать все", clearFilters: "Сбросить фильтры", continueWatching: "Продолжить просмотр", watchedChannels: "Часто просматриваемые каналы", liveBadge: "В ЭФИРЕ", loadingFeed: "Загрузка ленты…", emptyFeed: "Смотреть нечего", emptyFeedHint: "Вы всё посмотрели или фильтры скрывают все видео.", loadError: "Не удалось загрузить ленту.", settings: "Устройство", signOut: "Выйти", back: "Назад", close: "Закрыть", markWatched: "Отметить просмотренным", reject: "Отклонить", actionFailed: "Не удалось сохранить действие.", feedPrototype: "Первая версия поддерживает подключение и управление лентой. Нативный проигрыватель — следующий этап.", noDescription: "Нет описания.",
   },
   ja: {
     ...deviceSettingsMessages.ja,
@@ -622,7 +623,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages.ja,
     ...videoActionMessages.ja,
     loadMore: "さらに読み込む", refresh: "更新",
-    booting: "YT Zero を起動中…", instanceTitle: "YT Zero に接続", instanceDescription: "YT Zero インスタンスのアドレスを入力します。このテレビにのみ保存されます。", addressLabel: "インスタンスのアドレス", addressHint: "例: https://video.example.com または http://192.168.1.20:3001", connect: "接続", connecting: "接続中…", invalidAddress: "パスを含まない有効な HTTP または HTTPS アドレスを入力してください。", cannotConnect: "このアドレスの YT Zero に接続できませんでした。", cleartextTitle: "ローカル接続", cleartextHint: "HTTP 接続は暗号化されません。信頼できるホームネットワークでのみ使用し、通常は HTTPS を推奨します。", pairTitle: "このテレビを接続", pairDescription: "ログイン済みの端末で QR コードを読み取るか、アドレスを開いてコードを入力します。", enterCode: "このコードを入力", waiting: "許可を待っています…", pairExpired: "接続コードの期限が切れました。", retry: "新しいコードを作成", changeInstance: "インスタンスを変更", feedTitle: "フィード", published: "公開日", arrival: "追加日", inboxOnly: "未視聴", allVideos: "すべて表示", clearFilters: "フィルターをクリア", continueWatching: "続きを見る", watchedChannels: "よく見るチャンネル", liveBadge: "ライブ", loadingFeed: "フィードを読み込み中…", emptyFeed: "視聴する動画はありません", emptyFeedHint: "すべて視聴済みか、フィルターですべての動画が非表示です。", loadError: "フィードを読み込めませんでした。", settings: "デバイス", signOut: "ログアウト", back: "戻る", close: "閉じる", markWatched: "視聴済みにする", reject: "除外", actionFailed: "操作を保存できませんでした。", feedPrototype: "最初のバージョンは接続とフィード管理に対応しています。ネイティブ再生は次のマイルストーンです。", noDescription: "説明はありません。",
+    booting: "{app} を起動中…", instanceTitle: "{app} に接続", instanceDescription: "{app} インスタンスのアドレスを入力します。このテレビにのみ保存されます。", addressLabel: "インスタンスのアドレス", addressHint: "例: https://video.example.com または http://192.168.1.20:3001", connect: "接続", connecting: "接続中…", invalidAddress: "パスを含まない有効な HTTP または HTTPS アドレスを入力してください。", cannotConnect: "このアドレスの {app} に接続できませんでした。", cleartextTitle: "ローカル接続", cleartextHint: "HTTP 接続は暗号化されません。信頼できるホームネットワークでのみ使用し、通常は HTTPS を推奨します。", pairTitle: "このテレビを接続", pairDescription: "ログイン済みの端末で QR コードを読み取るか、アドレスを開いてコードを入力します。", enterCode: "このコードを入力", waiting: "許可を待っています…", pairExpired: "接続コードの期限が切れました。", retry: "新しいコードを作成", changeInstance: "インスタンスを変更", feedTitle: "フィード", published: "公開日", arrival: "追加日", inboxOnly: "未視聴", allVideos: "すべて表示", clearFilters: "フィルターをクリア", continueWatching: "続きを見る", watchedChannels: "よく見るチャンネル", liveBadge: "ライブ", loadingFeed: "フィードを読み込み中…", emptyFeed: "視聴する動画はありません", emptyFeedHint: "すべて視聴済みか、フィルターですべての動画が非表示です。", loadError: "フィードを読み込めませんでした。", settings: "デバイス", signOut: "ログアウト", back: "戻る", close: "閉じる", markWatched: "視聴済みにする", reject: "除外", actionFailed: "操作を保存できませんでした。", feedPrototype: "最初のバージョンは接続とフィード管理に対応しています。ネイティブ再生は次のマイルストーンです。", noDescription: "説明はありません。",
   },
   hu: {
     ...deviceSettingsMessages.hu,
@@ -642,7 +643,7 @@ const messages: Record<Language, Messages> = {
     ...playbackMessages.hu,
     ...videoActionMessages.hu,
     loadMore: "Továbbiak betöltése", refresh: "Frissítés",
-    booting: "A YT Zero indítása…", instanceTitle: "Csatlakozás a YT Zerohoz", instanceDescription: "Add meg a YT Zero-példány címét. A cím csak ezen a televízión lesz tárolva.", addressLabel: "Példány címe", addressHint: "Például: https://video.example.com vagy http://192.168.1.20:3001", connect: "Csatlakozás", connecting: "Csatlakozás…", invalidAddress: "Adj meg egy érvényes HTTP- vagy HTTPS-címet elérési út nélkül.", cannotConnect: "A YT Zero nem érhető el ezen a címen.", cleartextTitle: "Helyi kapcsolat", cleartextHint: "A HTTP nem titkosítja a kapcsolatot. Csak megbízható otthoni hálózaton használd; a HTTPS ajánlott.", pairTitle: "Televízió párosítása", pairDescription: "Olvasd be a QR-kódot egy bejelentkezett eszközzel, vagy nyisd meg a címet, és írd be a kódot.", enterCode: "Írd be ezt a kódot", waiting: "Várakozás az engedélyezésre…", pairExpired: "A párosítási kód lejárt.", retry: "Új kód létrehozása", changeInstance: "Példány váltása", feedTitle: "Saját hírfolyam", published: "Közzétéve", arrival: "Hozzáadva", inboxOnly: "Nem látott", allVideos: "Összes megjelenítése", clearFilters: "Szűrők törlése", continueWatching: "Folytatás", watchedChannels: "Leggyakrabban nézett csatornák", liveBadge: "ÉLŐ", loadingFeed: "Hírfolyam betöltése…", emptyFeed: "Nincs mit megnézni", emptyFeedHint: "Mindent megnéztél, vagy a szűrők elrejtik az összes videót.", loadError: "A hírfolyam nem tölthető be.", settings: "Eszköz", signOut: "Kijelentkezés", back: "Vissza", close: "Bezárás", markWatched: "Megnézettnek jelölés", reject: "Elutasítás", actionFailed: "A művelet nem menthető.", feedPrototype: "Az első verzió a párosítást és a hírfolyam kezelését tartalmazza. A natív lejátszás a következő mérföldkő.", noDescription: "Nincs leírás.",
+    booting: "{app} indítása…", instanceTitle: "Csatlakozás ehhez: {app}", instanceDescription: "Add meg a(z) {app}-példány címét. A cím csak ezen a televízión lesz tárolva.", addressLabel: "Példány címe", addressHint: "Például: https://video.example.com vagy http://192.168.1.20:3001", connect: "Csatlakozás", connecting: "Csatlakozás…", invalidAddress: "Adj meg egy érvényes HTTP- vagy HTTPS-címet elérési út nélkül.", cannotConnect: "A(z) {app} nem érhető el ezen a címen.", cleartextTitle: "Helyi kapcsolat", cleartextHint: "A HTTP nem titkosítja a kapcsolatot. Csak megbízható otthoni hálózaton használd; a HTTPS ajánlott.", pairTitle: "Televízió párosítása", pairDescription: "Olvasd be a QR-kódot egy bejelentkezett eszközzel, vagy nyisd meg a címet, és írd be a kódot.", enterCode: "Írd be ezt a kódot", waiting: "Várakozás az engedélyezésre…", pairExpired: "A párosítási kód lejárt.", retry: "Új kód létrehozása", changeInstance: "Példány váltása", feedTitle: "Saját hírfolyam", published: "Közzétéve", arrival: "Hozzáadva", inboxOnly: "Nem látott", allVideos: "Összes megjelenítése", clearFilters: "Szűrők törlése", continueWatching: "Folytatás", watchedChannels: "Leggyakrabban nézett csatornák", liveBadge: "ÉLŐ", loadingFeed: "Hírfolyam betöltése…", emptyFeed: "Nincs mit megnézni", emptyFeedHint: "Mindent megnéztél, vagy a szűrők elrejtik az összes videót.", loadError: "A hírfolyam nem tölthető be.", settings: "Eszköz", signOut: "Kijelentkezés", back: "Vissza", close: "Bezárás", markWatched: "Megnézettnek jelölés", reject: "Elutasítás", actionFailed: "A művelet nem menthető.", feedPrototype: "Az első verzió a párosítást és a hírfolyam kezelését tartalmazza. A natív lejátszás a következő mérföldkő.", noDescription: "Nincs leírás.",
   },
 };
 
@@ -660,7 +661,7 @@ export function normalizeLanguage(value: unknown): Language {
 }
 
 export function translator(language: Language): Translate {
-  return (key: keyof Messages): string => messages[language][key];
+  return (key: keyof Messages): string => withAppName(messages[language][key]);
 }
 
 export const localeTags: Record<Language, string> = {

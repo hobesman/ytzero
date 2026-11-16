@@ -1,3 +1,4 @@
+import { buildBranding } from "./branding";
 import type { AuthStatus, BookmarkVideo, Bucket, Channel, ChannelAbout, PairingAuthorization, Profile, Tag, TvProfileSettings, UserPlaylist, Video, VideoComment } from "./types";
 import type { ChannelSyncJob, ChannelSyncSnapshot, FollowedPlaylist } from "./types";
 import type { PlaylistSort } from "./playlist";
@@ -101,7 +102,7 @@ export class YtZeroApi {
   async beginPairing(): Promise<PairingAuthorization> {
     const result = await this.timedRequest<any>("/auth/device/code", {
       method: "POST",
-      body: JSON.stringify({ device_name: "YT Zero TV" }),
+      body: JSON.stringify({ device_name: `${buildBranding.name} TV` }),
     });
     return {
       deviceCode: result.device_code,

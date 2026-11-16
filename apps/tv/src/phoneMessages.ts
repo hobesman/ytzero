@@ -42,7 +42,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Close player",
     miniPlayerPlay: "Play",
     miniPlayerPause: "Pause",
-    pairPhoneDescription: "Open the sign-in page, approve this device in YT Zero, then come back to this app.",
+    pairPhoneDescription: "Open the sign-in page, approve this device in {app}, then come back to this app.",
   },
   pl: {
     openSignInPage: "Otwórz stronę logowania",
@@ -76,7 +76,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Zamknij odtwarzacz",
     miniPlayerPlay: "Odtwórz",
     miniPlayerPause: "Wstrzymaj",
-    pairPhoneDescription: "Otwórz stronę logowania, zatwierdź to urządzenie w YT Zero i wróć do tej aplikacji.",
+    pairPhoneDescription: "Otwórz stronę logowania, zatwierdź to urządzenie w {app} i wróć do tej aplikacji.",
   },
   de: {
     openSignInPage: "Anmeldeseite öffnen",
@@ -110,7 +110,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Player schließen",
     miniPlayerPlay: "Abspielen",
     miniPlayerPause: "Pausieren",
-    pairPhoneDescription: "Öffne die Anmeldeseite, bestätige dieses Gerät in YT Zero und kehre dann zu dieser App zurück.",
+    pairPhoneDescription: "Öffne die Anmeldeseite, bestätige dieses Gerät in {app} und kehre dann zu dieser App zurück.",
   },
   fr: {
     openSignInPage: "Ouvrir la page de connexion",
@@ -144,7 +144,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Fermer le lecteur",
     miniPlayerPlay: "Lire",
     miniPlayerPause: "Pause",
-    pairPhoneDescription: "Ouvrez la page de connexion, approuvez cet appareil dans YT Zero, puis revenez dans cette application.",
+    pairPhoneDescription: "Ouvrez la page de connexion, approuvez cet appareil dans {app}, puis revenez dans cette application.",
   },
   es: {
     openSignInPage: "Abrir la página de inicio de sesión",
@@ -178,7 +178,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Cerrar reproductor",
     miniPlayerPlay: "Reproducir",
     miniPlayerPause: "Pausar",
-    pairPhoneDescription: "Abre la página de inicio de sesión, aprueba este dispositivo en YT Zero y vuelve a esta aplicación.",
+    pairPhoneDescription: "Abre la página de inicio de sesión, aprueba este dispositivo en {app} y vuelve a esta aplicación.",
   },
   "pt-BR": {
     openSignInPage: "Abrir página de login",
@@ -212,7 +212,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Fechar player",
     miniPlayerPlay: "Reproduzir",
     miniPlayerPause: "Pausar",
-    pairPhoneDescription: "Abra a página de login, aprove este dispositivo no YT Zero e depois volte para este app.",
+    pairPhoneDescription: "Abra a página de login, aprove este dispositivo no {app} e depois volte para este app.",
   },
   ru: {
     openSignInPage: "Открыть страницу входа",
@@ -246,7 +246,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "Закрыть плеер",
     miniPlayerPlay: "Воспроизвести",
     miniPlayerPause: "Пауза",
-    pairPhoneDescription: "Откройте страницу входа, подтвердите это устройство в YT Zero и вернитесь в это приложение.",
+    pairPhoneDescription: "Откройте страницу входа, подтвердите это устройство в {app} и вернитесь в это приложение.",
   },
   ja: {
     openSignInPage: "サインインページを開く",
@@ -280,7 +280,7 @@ export const phoneMessages: Record<Language, Messages> = {
     miniPlayerClose: "プレーヤーを閉じる",
     miniPlayerPlay: "再生",
     miniPlayerPause: "一時停止",
-    pairPhoneDescription: "サインインページを開き、YT Zero でこのデバイスを承認してから、このアプリに戻ってください。",
+    pairPhoneDescription: "サインインページを開き、{app} でこのデバイスを承認してから、このアプリに戻ってください。",
   },
   hu: {
     openSignInPage: "Bejelentkezési oldal megnyitása",
