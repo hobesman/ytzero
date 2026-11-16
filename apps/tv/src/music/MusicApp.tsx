@@ -7,6 +7,7 @@ import { SidebarIcon } from "../components/SidebarIcon";
 import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import { PhoneAccountSheet, PhoneProfileAvatar, type PhoneProfiles } from "../phone/PhoneAccountSheet";
+import { PhoneSettingsScreen, type PhoneSettings } from "../phone/PhoneSettingsScreen";
 import { phoneColors, phoneMetrics, phoneType } from "../phone/phoneTheme";
 import type { Language } from "../types";
 import type { MusicApi, MusicTrack } from "./musicApi";
@@ -26,6 +27,8 @@ const tabKeys: Tab[] = ["home", "search", "library"];
 
 type Props = {
   api: YtZeroApi; musicApi: MusicApi; session: MusicSession; t: Translate; language: Language; profiles: PhoneProfiles;
+  /** The device's settings, the same screen as video mode's. */
+  settings: PhoneSettings;
   onSwitchToVideo: () => void;
 };
 
@@ -33,7 +36,7 @@ type Props = {
  * Music mode: its own tabs, player and account menu. It talks to the server
  * only through `/music/*`, so nothing here reaches video history or feeds.
  */
-export function MusicApp({ api, musicApi, session, t, language, profiles, onSwitchToVideo }: Props) {
+export function MusicApp({ api, musicApi, session, t, language, profiles, settings, onSwitchToVideo }: Props) {
   const state = useMusicSession(session);
   // Landscape: tabs down the side and the player always beside the browse list, never over it.
   const landscape = useLandscapeLayout();
@@ -42,6 +45,8 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
   const [visited, setVisited] = useState<Set<Tab>>(() => new Set(["home"]));
   const [playerOpen, setPlayerOpen] = useState(false);
   const [account, setAccount] = useState(false);
+  // Settings, opened from the avatar menu, covers the tabs and pages until Back.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Album and artist pages opened from the tabs; Back closes the top one.
   const [pages, setPages] = useState<MusicAppPage[]>([]);
   const [adding, setAdding] = useState<MusicTrack | null>(null);
@@ -70,14 +75,16 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
       if (adding) { setAdding(null); return true; }
       if (account) { setAccount(false); return true; }
       if (playerOpen && !landscape) { setPlayerOpen(false); return true; }
+      if (settingsOpen) { setSettingsOpen(false); return true; }
       if (pages.length) { closePage(); return true; }
       if (tab !== "home") { setTab("home"); return true; }
       return false;
     });
     return () => subscription.remove();
-  }, [account, adding, closePage, landscape, pages.length, playerOpen, tab]);
+  }, [account, adding, closePage, landscape, pages.length, playerOpen, settingsOpen, tab]);
 
   const selectTab = (next: Tab) => {
+    setSettingsOpen(false);
     setTab(next);
     setPages([]);
     setVisited((visitedTabs) => visitedTabs.has(next) ? visitedTabs : new Set([...visitedTabs, next]));
@@ -96,7 +103,10 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
     if (page.kind === "genre") return <MusicGenreScreen {...props} title={page.title} />;
     return <MusicPlaylistScreen {...props} />;
   };
-  const title = tab === "search" ? t("musicSearch") : tab === "library" ? t("musicLibrary") : t("musicTitle");
+  const title = settingsOpen ? t("navSettings") : tab === "search" ? t("musicSearch") : tab === "library" ? t("musicLibrary") : t("musicTitle");
+  const backButton = settingsOpen ? <Pressable hitSlop={10} accessibilityRole="button" accessibilityLabel={t("back")} onPress={() => setSettingsOpen(false)} style={styles.back}>
+    <Text style={styles.backGlyph}>‹</Text>
+  </Pressable> : null;
   const tabs: { key: Tab; icon: "home" | "search" | "playlists"; label: string }[] = [
     { key: "home", icon: "home", label: t("musicHome") },
     { key: "search", icon: "search", label: t("musicSearch") },
@@ -112,10 +122,12 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
     {topPage ? <View key={`${pages.length}:${topPage.kind}:${topPage.id}`} style={styles.layer}>
       {pageScreen(topPage)}
     </View> : null}
+    {settingsOpen ? <View style={[styles.layer, styles.settings]}><PhoneSettingsScreen api={api} settings={settings} t={t} /></View> : null}
   </View>;
   const noticeBar = notice ? <Text accessibilityLiveRegion="polite" style={styles.notice}>{notice}</Text> : null;
   const accountSheet = account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
-    modeSwitch={{ music: true, onPress: onSwitchToVideo }} /> : null;
+    modeSwitch={{ music: true, onPress: onSwitchToVideo }}
+    onSettings={() => { setAccount(false); setSettingsOpen(true); }} /> : null;
   const addSheet = adding ? <MusicAddToPlaylistSheet api={musicApi} t={t} track={adding} onNotice={setNotice} onClose={() => setAdding(null)} /> : null;
 
   if (landscape) {
@@ -123,7 +135,7 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
     return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={[styles.screen, styles.row]}>
       <PhoneSideRail items={tabs} selected={tab} onSelect={selectTab} top={<MusicIcon name="note" color={phoneColors.accent} size={28} />} bottom={avatar} />
       <View style={styles.main}>
-        <View style={styles.topBar}><Text numberOfLines={1} style={styles.title}>{title}</Text></View>
+        <View style={styles.topBar}>{backButton}<Text numberOfLines={1} style={styles.title}>{title}</Text></View>
         <MusicOfflineNotice t={t} />
         {body}
         {noticeBar}
@@ -140,7 +152,7 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, onSwit
 
   return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={styles.screen}>
     <View style={styles.topBar}>
-      <MusicIcon name="note" color={phoneColors.accent} size={26} />
+      {backButton ?? <MusicIcon name="note" color={phoneColors.accent} size={26} />}
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
       {avatar}
     </View>
@@ -171,6 +183,9 @@ const styles = StyleSheet.create({
   screen: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: phoneColors.background },
   topBar: { height: phoneMetrics.topBar, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: phoneMetrics.gutter },
   title: { flex: 1, ...phoneType.heading, color: phoneColors.text },
+  back: { width: 28, alignItems: "flex-start" },
+  backGlyph: { color: phoneColors.text, fontSize: 34, lineHeight: 36, marginTop: -4 },
+  settings: { backgroundColor: phoneColors.background },
   avatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "transparent" },
   // Incognito is shown as a dashed ring around the avatar, as in video mode.
   incognitoRing: { borderColor: phoneColors.textMuted, borderStyle: "dashed" },

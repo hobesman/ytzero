@@ -13,6 +13,7 @@ import { bufferMessages } from "./bufferMessages";
 import { sleepTimerMessages } from "./sleepTimerMessages";
 import { musicMessages } from "./music/musicMessages";
 import { musicDownloadMessages } from "./music/musicDownloadMessages";
+import { settingsGroupMessages } from "./settingsGroupMessages";
 
 type DeviceSettingsMessages = {
   devicePlayback: string;
@@ -379,6 +380,7 @@ const videoActionMessages: Record<Language, VideoActionMessages> = {
 const en = {
   ...discoveryMessages.en,
   ...phoneMessages.en, ...phoneDownloadMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en, ...sleepTimerMessages.en, ...musicMessages.en, ...musicDownloadMessages.en,
+  ...settingsGroupMessages.en,
     ...libraryMessages.en,
     ...emptyMessages.en,
     ...searchMessages.en,
@@ -446,6 +448,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.pl,
     ...discoveryMessages.pl,
     ...phoneMessages.pl, ...phoneDownloadMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl, ...sleepTimerMessages.pl, ...musicMessages.pl, ...musicDownloadMessages.pl,
+    ...settingsGroupMessages.pl,
     ...libraryMessages.pl,
     ...emptyMessages.pl,
     ...searchMessages.pl,
@@ -504,6 +507,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.de,
     ...discoveryMessages.de,
     ...phoneMessages.de, ...phoneDownloadMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de, ...sleepTimerMessages.de, ...musicMessages.de, ...musicDownloadMessages.de,
+    ...settingsGroupMessages.de,
     ...libraryMessages.de,
     ...emptyMessages.de,
     ...searchMessages.de,
@@ -523,6 +527,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.fr,
     ...discoveryMessages.fr,
     ...phoneMessages.fr, ...phoneDownloadMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr, ...sleepTimerMessages.fr, ...musicMessages.fr, ...musicDownloadMessages.fr,
+    ...settingsGroupMessages.fr,
     ...libraryMessages.fr,
     ...emptyMessages.fr,
     ...searchMessages.fr,
@@ -542,6 +547,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.es,
     ...discoveryMessages.es,
     ...phoneMessages.es, ...phoneDownloadMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es, ...sleepTimerMessages.es, ...musicMessages.es, ...musicDownloadMessages.es,
+    ...settingsGroupMessages.es,
     ...libraryMessages.es,
     ...emptyMessages.es,
     ...searchMessages.es,
@@ -561,6 +567,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages["pt-BR"],
     ...discoveryMessages["pt-BR"],
     ...phoneMessages["pt-BR"], ...phoneDownloadMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"], ...sleepTimerMessages["pt-BR"], ...musicMessages["pt-BR"], ...musicDownloadMessages["pt-BR"],
+    ...settingsGroupMessages["pt-BR"],
     ...libraryMessages["pt-BR"],
     ...emptyMessages["pt-BR"],
     ...searchMessages["pt-BR"],
@@ -580,6 +587,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.ru,
     ...discoveryMessages.ru,
     ...phoneMessages.ru, ...phoneDownloadMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru, ...sleepTimerMessages.ru, ...musicMessages.ru, ...musicDownloadMessages.ru,
+    ...settingsGroupMessages.ru,
     ...libraryMessages.ru,
     ...emptyMessages.ru,
     ...searchMessages.ru,
@@ -599,6 +607,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.ja,
     ...discoveryMessages.ja,
     ...phoneMessages.ja, ...phoneDownloadMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja, ...sleepTimerMessages.ja, ...musicMessages.ja, ...musicDownloadMessages.ja,
+    ...settingsGroupMessages.ja,
     ...libraryMessages.ja,
     ...emptyMessages.ja,
     ...searchMessages.ja,
@@ -618,6 +627,7 @@ const messages: Record<Language, Messages> = {
     ...systemProfileMessages.hu,
     ...discoveryMessages.hu,
     ...phoneMessages.hu, ...phoneDownloadMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu, ...sleepTimerMessages.hu, ...musicMessages.hu, ...musicDownloadMessages.hu,
+    ...settingsGroupMessages.hu,
     ...libraryMessages.hu,
     ...emptyMessages.hu,
     ...searchMessages.hu,
