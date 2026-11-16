@@ -36,6 +36,8 @@ declare class YtZeroMusicPlayerModule extends NativeModule<Events> {
   setIncognito(value: boolean): Promise<void>;
   /** Parts of a song to jump over, as [start, end] seconds; an empty list clears them. */
   setSkips(videoId: string, segments: [number, number][]): Promise<void>;
+  setLoudness(videoId: string, loudnessDb: number): Promise<void>;
+  setLevelling(enabled: boolean): Promise<void>;
 }
 
 const native = requireOptionalNativeModule<YtZeroMusicPlayerModule>("YtZeroMusicPlayer");
@@ -50,7 +52,7 @@ function subscribe<K extends keyof Events>(name: K, listener: Events[K]) {
 
 function clean(tracks: MusicPlayerTrack[]): MusicPlayerTrack[] {
   // Records reject undefined; send null for the optional fields.
-  return tracks.map((track) => ({ ...track, album: track.album ?? null, artwork: track.artwork ?? null }));
+  return tracks.map((track) => ({ ...track, album: track.album ?? null, artwork: track.artwork ?? null, loudnessDb: track.loudnessDb ?? null }));
 }
 
 export const musicPlayer: MusicPlayer = {
@@ -72,6 +74,8 @@ export const musicPlayer: MusicPlayer = {
   setSleepTimer: (deadline, endOfSong) => native?.setSleepTimer(deadline, endOfSong) ?? noop(),
   setIncognito: (value) => native?.setIncognito(value) ?? noop(),
   setSkips: (videoId, segments) => native?.setSkips(videoId, segments) ?? noop(),
+  setLoudness: (videoId, loudnessDb) => native?.setLoudness(videoId, loudnessDb) ?? noop(),
+  setLevelling: (enabled) => native?.setLevelling(enabled) ?? noop(),
   onTrackChange: (listener) => subscribe("onTrackChange", listener),
   onStateChange: (listener) => subscribe("onStateChange", listener),
   onError: (listener) => subscribe("onError", listener),

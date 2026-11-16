@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from "react";
+import { api } from "../api";
 import { img } from "../img";
 import { isIncognitoMode } from "../incognitoMode";
 import { musicApi, type MusicSeed, type MusicTrack } from "./musicApi";
+import { levelledVolume } from "./musicLevelling";
 import {
   appendTracks, createQueue, current, endReason, moveTo, moveUpcoming, needsMore, playRecord, queueTrack, rateTrack, removeUpcoming, served,
   shuffleTracks,
@@ -19,18 +21,34 @@ export type MusicPlayerState = {
 };
 
 const MAX_FAILURES = 3;
+/** Seconds into a song before the next one starts loading, so the two don't compete for the first seconds. */
+const PRELOAD_AFTER = 5;
+const LOUDNESS_REMEMBERED = 500;
 
 const IDLE: MusicPlayerState = { queue: null, playing: false, loading: false, position: 0, duration: 0, error: false };
 
 /**
- * The web player's music mode: one audio element for the whole page, so a
- * station keeps playing while the listener browses elsewhere in YT Zero. It
- * records listens and skips the way the phone does, so stations learn from both.
+ * The web player's music mode, kept for the whole page, so a station keeps
+ * playing while the listener browses elsewhere in YT Zero. It records listens
+ * and skips the way the phone does, so stations learn from both.
+ *
+ * Two audio elements take turns: while one plays, the other loads the next
+ * song, which starts the moment the first ends. Each song plays levelled
+ * through its element's volume rather than Web Audio, which goes silent when
+ * a phone browser locks its screen.
  */
 class WebMusicPlayer {
   private state: MusicPlayerState = IDLE;
   private readonly listeners = new Set<() => void>();
+  /** The element playing the current song. */
   private audio: HTMLAudioElement | null = null;
+  /** The other element, and the song it has loading ahead. */
+  private spare: HTMLAudioElement | null = null;
+  private spareId: string | null = null;
+  /** dB above YouTube's target, by video id; asked of the server once each. */
+  private readonly loudness = new Map<string, number | null>();
+  private levelling = true;
+  private levellingRead = false;
   private listen: { videoId: string; startedAt: Date; listened: number; last: number | null } | null = null;
   private refilling = false;
   private generation = 0;
@@ -51,17 +69,34 @@ class WebMusicPlayer {
 
   private element(): HTMLAudioElement {
     if (this.audio) return this.audio;
+    this.audio = this.createElement();
+    this.bindMediaSession();
+    return this.audio;
+  }
+
+  private spareElement(): HTMLAudioElement {
+    this.spare ??= this.createElement();
+    return this.spare;
+  }
+
+  /** An audio element whose events count only while it is the one playing. */
+  private createElement(): HTMLAudioElement {
     const audio = new Audio();
     audio.preload = "auto";
+    const playing = () => audio === this.audio;
     audio.addEventListener("timeupdate", () => {
+      if (!playing()) return;
       this.countListening(audio.currentTime);
       this.set({ position: audio.currentTime, duration: Number.isFinite(audio.duration) ? audio.duration : this.state.duration });
+      if (audio.currentTime >= PRELOAD_AFTER) this.preloadNext();
     });
-    audio.addEventListener("playing", () => { this.failures = 0; this.set({ playing: true, loading: false, error: false }); });
-    audio.addEventListener("pause", () => { this.listenPaused(); this.set({ playing: false }); });
-    audio.addEventListener("waiting", () => this.set({ loading: true }));
-    audio.addEventListener("ended", () => void this.advance(false));
+    audio.addEventListener("playing", () => { if (playing()) { this.failures = 0; this.set({ playing: true, loading: false, error: false }); } });
+    audio.addEventListener("pause", () => { if (playing()) { this.listenPaused(); this.set({ playing: false }); } });
+    audio.addEventListener("waiting", () => { if (playing()) this.set({ loading: true }); });
+    audio.addEventListener("ended", () => { if (playing()) void this.advance(false); });
     audio.addEventListener("error", () => {
+      // A song that fails while loading ahead loads again, the usual way, when its turn comes.
+      if (!playing()) { if (audio === this.spare) this.spareId = null; return; }
       if (!audio.src) return;
       this.set({ error: true, loading: false });
       this.failures += 1;
@@ -69,9 +104,55 @@ class WebMusicPlayer {
       // A song YouTube won't serve shouldn't end the station.
       void this.advance(false, true);
     });
-    this.audio = audio;
-    this.bindMediaSession();
     return audio;
+  }
+
+  /** Has the spare element load the song after this one, so it starts without a gap. */
+  private preloadNext() {
+    const queue = this.state.queue;
+    const next = queue?.tracks[queue.index + 1];
+    if (!next || this.spareId === next.videoId) return;
+    const spare = this.spareElement();
+    this.spareId = next.videoId;
+    this.learnLoudness(next);
+    spare.src = musicApi.audioUrl(next.videoId);
+    spare.volume = this.volumeFor(next.videoId);
+  }
+
+  private volumeFor(videoId: string): number {
+    return levelledVolume(this.loudness.get(videoId), this.levelling);
+  }
+
+  /** Volume levelling on or off: the profile's setting, read when music first plays. */
+  setLevelling(enabled: boolean) {
+    this.levellingRead = true;
+    this.levelling = enabled;
+    this.applyVolume();
+  }
+
+  private applyVolume() {
+    const track = current(this.state.queue);
+    if (this.audio && track) this.audio.volume = this.volumeFor(track.videoId);
+    if (this.spare && this.spareId) this.spare.volume = this.volumeFor(this.spareId);
+  }
+
+  /** Remembers the song's loudness, asking the server when the song came without it. */
+  private learnLoudness(track: MusicTrack) {
+    if (this.loudness.has(track.videoId)) return;
+    if (this.loudness.size >= LOUDNESS_REMEMBERED) this.loudness.delete(this.loudness.keys().next().value!);
+    if (typeof track.loudnessDb === "number") { this.loudness.set(track.videoId, track.loudnessDb); return; }
+    this.loudness.set(track.videoId, null);
+    void musicApi.prepare(track.videoId).then(({ loudnessDb }) => {
+      if (typeof loudnessDb !== "number") return;
+      this.loudness.set(track.videoId, loudnessDb);
+      this.applyVolume();
+    }).catch(() => this.loudness.delete(track.videoId));
+  }
+
+  private readLevelling() {
+    if (this.levellingRead) return;
+    this.levellingRead = true;
+    void api.settings().then(({ settings }) => this.setLevelling(settings.music_volume_leveling !== "0")).catch(() => {});
   }
 
   private countListening(time: number) {
@@ -98,12 +179,44 @@ class WebMusicPlayer {
   }
 
   private load(track: MusicTrack, autoplay = true) {
-    const audio = this.element();
+    this.readLevelling();
+    this.learnLoudness(track);
+    const previous = this.audio;
+    const ready = previous && this.spare && this.spareId === track.videoId ? this.spare : null;
+    this.spareId = null;
+    let audio: HTMLAudioElement;
+    if (ready && previous) {
+      // The song is loaded already: the elements swap, and the old one is free to load the next song.
+      this.audio = ready;
+      this.spare = previous;
+      audio = ready;
+      previous.pause();
+      previous.removeAttribute("src");
+      previous.load();
+    } else {
+      audio = this.element();
+      if (this.spare?.src) { this.spare.removeAttribute("src"); this.spare.load(); }
+      audio.src = musicApi.audioUrl(track.videoId);
+    }
+    audio.volume = this.volumeFor(track.videoId);
     this.listen = { videoId: track.videoId, startedAt: new Date(), listened: 0, last: null };
-    audio.src = musicApi.audioUrl(track.videoId);
-    this.set({ position: 0, duration: track.duration ?? 0, loading: true, error: false });
+    this.set({ position: 0, duration: track.duration ?? 0, loading: !ready || audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA, error: false });
     this.updateMediaSession(track);
-    if (autoplay) void audio.play().catch(() => this.set({ playing: false, loading: false }));
+    if (autoplay) {
+      void audio.play().catch((error: unknown) => {
+        // Some browsers let only an element the listener started play on its own: use that one instead.
+        if (ready && previous && audio === this.audio && error instanceof DOMException && error.name === "NotAllowedError") {
+          this.audio = previous;
+          this.spare = ready;
+          ready.pause();
+          previous.src = musicApi.audioUrl(track.videoId);
+          previous.volume = this.volumeFor(track.videoId);
+          void previous.play().catch(() => this.set({ playing: false, loading: false }));
+          return;
+        }
+        if (audio === this.audio) this.set({ playing: false, loading: false });
+      });
+    }
     void this.refill();
   }
 
@@ -230,7 +343,10 @@ class WebMusicPlayer {
   stop() {
     this.generation++;
     this.finishListen(false, false);
-    if (this.audio) { this.audio.pause(); this.audio.removeAttribute("src"); this.audio.load(); }
+    for (const audio of [this.audio, this.spare]) {
+      if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); }
+    }
+    this.spareId = null;
     this.set(IDLE);
     if ("mediaSession" in navigator) navigator.mediaSession.metadata = null;
   }

@@ -42,6 +42,14 @@ describe("music mode", () => {
     expect(new Set(result.served).size).toBe(5);
   });
 
+  test("passes each song's loudness, learning the station's first song before answering", () => {
+    expect(result.stationLoudness[0]).toBe(3.5);
+    expect(result.stationLoudness.slice(1)).toEqual([null, null, null, null]);
+    expect(result.preparedLoudness).toBe(3.5);
+    for (const url of result.loudnessRequests) expect(url).toStartWith("https://www.youtube.com/youtubei/v1/player");
+    expect(result.loudnessRequests.length).toBeGreaterThan(0);
+  });
+
   test("serves a prepared song's first bytes without asking the audio host again", () => {
     expect(result.prepared).toBe(true);
     expect(result.stationPreparedFirst).toBe(true);

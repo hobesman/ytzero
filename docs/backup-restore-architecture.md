@@ -322,6 +322,14 @@ archive with no such capability restores with public sharing denied.
   remain readable: merge retains the target value when the key is absent,
   while replace uses the disabled default. Restore normalizes anything but `1`
   to `0`.
+  `music_volume_leveling` is portable per-profile music playback
+  configuration (`0` or `1`, default `1`): whether music players turn each
+  song down to YouTube's loudness target. It is recorded by
+  `profile.settings` schema v14; schemas 1–13 remain readable: merge retains
+  the target value when the key is absent, while replace uses the enabled
+  default. Restore normalizes anything but `0` to `1`. The songs' loudness
+  values are a rebuildable in-memory server cache (asked of YouTube again
+  after a restart) and are never stored or exported.
   Feed-builder configuration is portable personal configuration in the separate versioned `profile.feed-builder` section. It references portable tag and personal-playlist UUIDs plus channel and followed-playlist IDs, so that section depends on the corresponding organization sections. Its revision is preserved for optimistic concurrency; expired composed-feed session snapshots are rebuildable cache and are never exported.
   The visibility of the child-watching shortcut is also a portable per-profile
   presentation preference. It defaults to visible; live child activity remains

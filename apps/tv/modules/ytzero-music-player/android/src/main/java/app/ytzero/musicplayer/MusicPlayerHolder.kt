@@ -10,6 +10,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.RenderersFactory
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 
 /**
@@ -88,17 +89,8 @@ object MusicPlayerHolder {
   fun player(context: Context): ExoPlayer {
     player?.let { return it }
     credentials(context)
-    val attributes = AudioAttributes.Builder()
-      .setUsage(C.USAGE_MEDIA)
-      .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
-      .build()
-    val created = ExoPlayer.Builder(context.applicationContext)
-      // http(s) songs load with the sign-in header; downloaded songs play from file:// addresses.
-      .setMediaSourceFactory(DefaultMediaSourceFactory(context.applicationContext).setDataSourceFactory(DefaultDataSource.Factory(context.applicationContext, http)))
-      .setAudioAttributes(attributes, true)
-      .setHandleAudioBecomingNoisy(true)
-      .setWakeMode(C.WAKE_MODE_NETWORK)
-      .build()
+    val created = buildPlayer(context)
+    created.addListener(MusicLevelling.listener)
     created.addListener(object : Player.Listener {
       // The phone's songs name their server; the car browses that one.
       override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -108,6 +100,24 @@ object MusicPlayerHolder {
     })
     player = created
     return created
+  }
+
+  /** A player set up the way music plays. Tests pass their own renderers to hear what it outputs. */
+  internal fun buildPlayer(context: Context, renderers: RenderersFactory? = null): ExoPlayer {
+    val attributes = AudioAttributes.Builder()
+      .setUsage(C.USAGE_MEDIA)
+      .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+      .build()
+    val app = context.applicationContext
+    val builder = if (renderers == null) ExoPlayer.Builder(app) else ExoPlayer.Builder(app, renderers)
+    // http(s) songs load with the sign-in header and downloaded songs from file:// addresses;
+    // fragmented MP4 is read gaplessly.
+    return builder
+      .setMediaSourceFactory(DefaultMediaSourceFactory(DefaultDataSource.Factory(app, http), GaplessFragmentedMp4Extractor.FACTORY))
+      .setAudioAttributes(attributes, true)
+      .setHandleAudioBecomingNoisy(true)
+      .setWakeMode(C.WAKE_MODE_NETWORK)
+      .build()
   }
 
   fun release() {

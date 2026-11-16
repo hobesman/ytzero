@@ -25,6 +25,8 @@ export const musicPlayer: MusicPlayer = {
   setSleepTimer: noop,
   setIncognito: noop,
   setSkips: noop,
+  setLoudness: noop,
+  setLevelling: noop,
   onTrackChange: none,
   onStateChange: none,
   onError: none,

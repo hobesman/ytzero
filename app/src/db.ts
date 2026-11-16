@@ -296,7 +296,7 @@ export const SETTING_DEFAULTS: Record<string, string> = {
   hide_members_only_on_channel: "0",
   watched_style: "dimmed",
   sidebar_nav: "",
-  sponsorblock_enabled: "0",
+  sponsorblock_enabled: "0", music_volume_leveling: "1",
   sponsorblock_categories: '["sponsor"]',
   // Optional DeArrow presentation layers. Original library metadata is retained.
   dearrow_titles_enabled: "0",

@@ -189,6 +189,8 @@ export type TvProfileSettings = {
   /** JSON array of SponsorBlock category ids. */
   sponsorblock_categories?: string;
   video_card_action_buttons?: string;
+  /** "0" turns off music volume levelling; on otherwise. */
+  music_volume_leveling?: string;
 };
 
 export type BookmarkVideo = Video & {

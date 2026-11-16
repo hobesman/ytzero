@@ -11,6 +11,8 @@ export type MusicTrack = {
   thumbnail: string | null;
   isTopic: boolean;
   rating: 1 | -1 | null;
+  /** dB above YouTube's loudness target; absent until the server has asked YouTube. */
+  loudnessDb?: number;
 };
 
 /** An album or single, as search, artist pages and the library list it. */
@@ -80,11 +82,11 @@ export class MusicApi {
 
   constructor(readonly instanceUrl: string, readonly accessToken?: string) {}
 
-  private async request<T>(path: string, init: RequestInit = {}, timeout = 20000): Promise<T> {
+  private async request<T>(path: string, init: RequestInit = {}, timeout = 20000, root = "/api/music"): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeout);
     try {
-      const response = await fetch(`${this.instanceUrl}/api/music${path}`, {
+      const response = await fetch(`${this.instanceUrl}${root}${path}`, {
         ...init,
         signal: controller.signal,
         headers: {
@@ -133,10 +135,16 @@ export class MusicApi {
     return this.request("/station", { method: "POST", body: JSON.stringify({ seed, served, skipped, count }) }, 30000);
   }
 
-  /** Asks the server to fetch the start of a song so it begins without a wait. */
-  async prepare(videoId: string): Promise<boolean> {
-    const result = await this.request<{ ready?: boolean }>(`/tracks/${encodeURIComponent(videoId)}/prepare`, { method: "POST", body: "{}" }, 30000);
-    return result.ready === true;
+  /** Asks the server to fetch the start of a song so it begins without a wait; it answers with the song's loudness too. */
+  async prepare(videoId: string): Promise<{ ready: boolean; loudnessDb: number | null }> {
+    const result = await this.request<{ ready?: boolean; loudnessDb?: number | null }>(`/tracks/${encodeURIComponent(videoId)}/prepare`, { method: "POST", body: "{}" }, 30000);
+    return { ready: result.ready === true, loudnessDb: typeof result.loudnessDb === "number" ? result.loudnessDb : null };
+  }
+
+  /** Whether the profile levels song volume: on unless turned off in its playback settings. */
+  async levelling(): Promise<boolean> {
+    const result = await this.request<{ settings?: { music_volume_leveling?: string } }>("/settings", {}, 15000, "/api");
+    return result.settings?.music_volume_leveling !== "0";
   }
 
   recordPlay(play: MusicPlay): Promise<{ ok: true }> {
@@ -218,6 +226,6 @@ export class MusicApi {
 
   playerTrack(track: MusicTrack): MusicPlayerTrack {
     // The notification loads artwork itself, without the app's sign-in, so it gets YouTube's address.
-    return { videoId: track.videoId, url: this.audioUrl(track.videoId), title: track.title, artist: track.artist, album: track.album, artwork: track.thumbnail };
+    return { videoId: track.videoId, url: this.audioUrl(track.videoId), title: track.title, artist: track.artist, album: track.album, artwork: track.thumbnail, loudnessDb: track.loudnessDb ?? null };
   }
 }

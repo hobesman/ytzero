@@ -4,6 +4,7 @@ import { Hono } from "hono";
 
 const { db } = await import("../src/db");
 const { registerMusicRoutes } = await import("../src/routes/musicRoutes");
+const { createMusicLoudness } = await import("../src/music/musicLoudness");
 const { createYouTubeMusicClient } = await import("../src/music/youtubeMusicClient");
 const { createMusicAudio } = await import("../src/music/musicAudio");
 const { exportMusicBackup, restoreMusicBackup } = await import("../src/music/musicBackup");
@@ -39,6 +40,7 @@ const panel = (videoId: string, name: string) => ({ playlistPanelVideoRenderer: 
 } });
 const radioIds = ["seedSong001", ...Array.from({ length: 12 }, (_, index) => `radioSong${String(index + 1).padStart(2, "0")}`)];
 const youtubeRequests: string[] = [];
+const loudnessRequests: string[] = [];
 // Album, artist and mixed-search answers are real (trimmed) YouTube Music responses.
 const fixture = async (name: string) => JSON.parse(await Bun.file(new URL(`../src/music/fixtures/ytm-${name}.json`, import.meta.url)).text());
 const [albumFixture, artistFixture, searchFixture, moodsFixture, decadesFixture, playlistFixture] = await Promise.all(
@@ -94,6 +96,8 @@ registerMusicRoutes(api, {
   client,
   lyrics: createMusicLyrics({ client, lrclib }),
   audio: createMusicAudio({ getAudioResponse, getAudioHeadResponse }),
+  // Loudness comes from YouTube's player, not YouTube Music: every song here is 3.5 dB too loud.
+  loudness: createMusicLoudness({ fetch: async (url) => { loudnessRequests.push(url); return Response.json({ playerConfig: { audioConfig: { loudnessDb: 3.5 } } }); } }),
 });
 
 const call = (path: string, method = "GET", body?: unknown, profile = 1, headers: Record<string, string> = {}) => api.request(`http://localhost${path}`, {
@@ -223,6 +227,9 @@ console.log("RESULT " + JSON.stringify({
   startStatus: startResponse.status,
   served,
   prepared: prepared.ready,
+  preparedLoudness: prepared.loudnessDb,
+  stationLoudness: start.tracks.map((track: any) => track.loudnessDb ?? null),
+  loudnessRequests,
   stationPreparedFirst,
   preparedStatus: preparedAudio.status,
   preparedRange: preparedAudio.headers.get("content-range"),

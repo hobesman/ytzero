@@ -49,6 +49,8 @@ export class MusicSession {
       onSleepTimerChange(() => this.syncSleepTimer()),
     );
     this.syncSleepTimer();
+    // Levelling stays on (the player's default) when the setting can't be read.
+    api.levelling().then((enabled) => musicPlayer.setLevelling(enabled)).catch(() => {});
     // Music left playing from before the app's screens were rebuilt.
     void musicPlayer.getState().then((player) => { if (player) this.update({ player }); });
   }
@@ -110,6 +112,7 @@ export class MusicSession {
       const queue = createQueue(seed, station.seed, tracks, new Date(), seed.kind === "album" || seed.kind === "playlist" ? options.from ?? null : null);
       this.update({ queue, starting: false });
       await musicPlayer.setQueue(queue.tracks.map((track) => this.api.playerTrack(track)), 0, true);
+      this.prepareFirst(queue.tracks[0]);
       this.prepare(queue.tracks[1]?.videoId ?? null);
       this.loadSkips(queue.tracks);
     } catch (error) {
@@ -133,6 +136,7 @@ export class MusicSession {
       const queue = createQueue({ kind: "track", videoId: list[0]!.videoId }, null, list, new Date(), options.from);
       this.update({ queue, starting: false, error: null });
       await musicPlayer.setQueue(queue.tracks.map((track) => this.api.playerTrack(track)), 0, true);
+      this.prepareFirst(queue.tracks[0]);
       this.prepare(queue.tracks[1]?.videoId ?? null);
       this.loadSkips(queue.tracks);
     } catch (error) {
@@ -166,8 +170,17 @@ export class MusicSession {
     }
   }
 
+  /** Has the server ready the next song, and levels it with the loudness the server answers with. */
   private prepare(videoId: string | null) {
-    if (videoId) this.api.prepare(videoId).catch(() => {});
+    if (!videoId) return;
+    this.api.prepare(videoId)
+      .then(({ loudnessDb }) => { if (loudnessDb !== null) return musicPlayer.setLoudness(videoId, loudnessDb); })
+      .catch(() => {});
+  }
+
+  /** The first song starts at once; when its loudness wasn't known yet, the player levels it as soon as it is. */
+  private prepareFirst(track: MusicTrack | undefined) {
+    if (track && track.loudnessDb === undefined) this.prepare(track.videoId);
   }
 
   private async refill() {

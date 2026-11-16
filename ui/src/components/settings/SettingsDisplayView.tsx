@@ -15,6 +15,7 @@ import { SidebarNavEditor, VideoCardActionEditor } from "./SettingsEditors"; imp
 import PlaybackSpeedOptionsSetting from "./PlaybackSpeedOptionsSetting"; import { DefaultPlaybackSpeedSetting } from "./DefaultPlaybackSpeedSetting";
 import { serializeCustomPlaybackSpeeds } from "../../../../shared/playbackSpeeds";
 const VideoCardSwipeSetting = lazy(() => import("./VideoCardSwipeSetting").then((module) => ({ default: module.VideoCardSwipeSetting })));
+const MusicLevellingSetting = lazy(() => import("./MusicLevellingSetting").then((module) => ({ default: module.MusicLevellingSetting })));
 const FeedBuilderSettings = (import.meta as ImportMeta & { env: { DEV: boolean } }).env.DEV
   ? lazy(() => import("./FeedBuilderSettings").then((module) => ({ default: module.FeedBuilderSettings })))
   : null;
@@ -430,6 +431,7 @@ export function SettingsDisplayView({ controller, showToast }: { controller: Set
               }}
             />
           </SettingRow>
+          <Suspense fallback={<SettingRow label={t("musicLevelling")}><span /></SettingRow>}><MusicLevellingSetting showToast={showToast} /></Suspense>
           <KeyboardShortcutSettings showToast={showToast} /></SettingsSection>
           }
 
