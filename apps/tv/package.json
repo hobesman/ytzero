@@ -37,6 +37,13 @@
     "babel-plugin-react-compiler": "^1.0.0",
     "typescript": "~6.0.3"
   },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-video"]
+      }
+    }
+  },
   "patchedDependencies": {
     "expo-secure-store@57.0.3": "patches/expo-secure-store@57.0.3.patch",
     "expo-video@57.0.3": "patches/expo-video@57.0.3.patch"
