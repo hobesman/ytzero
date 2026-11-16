@@ -42,6 +42,7 @@ import { MusicApi } from "./src/music/musicApi";
 import { MusicOfflineApp, MusicOfflineButton } from "./src/music/MusicOfflineApp";
 import { musicDownloads } from "./src/music/useMusicDownloads";
 import { musicPlayer } from "./src/musicPlayer";
+import { useAppUpdatesInBackground } from "./src/useAppUpdate";
 import { PhoneVideoActionSheet } from "./src/phone/PhoneVideoActionSheet";
 import { PhoneShortsContext } from "./src/phone/PhoneShorts";
 import { PhoneShortsPlayer } from "./src/phone/PhoneShortsPlayer";
@@ -250,6 +251,8 @@ function TvApp() {
   // Phones: Shorts play in their own vertical player, which closes any regular video and the mini player.
   const [shorts, setShorts] = useState<ShortsSession | null>(null);
 
+  // Phones: new builds are checked for, and downloaded on Wi-Fi, in music and video mode alike.
+  useAppUpdatesInBackground();
   // Phones: music mode replaces the video screens; entering it closes any video. The music station carries on in video mode.
   const musicMode = useMusicMode({ available: phoneMode, instanceUrl, accessToken, profileId: profileState?.active.id, isChild: Boolean(profileState?.active.is_child), incognito });
   useEffect(() => {

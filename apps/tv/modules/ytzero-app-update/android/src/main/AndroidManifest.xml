@@ -1,0 +1,16 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- The phone app installs its own updates from GitHub releases; Android asks the user once to allow it. -->
+  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+  <!-- "Updated to build N", shown after an update, since Android doesn't reopen an app it has just updated. -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <application>
+    <!-- The installer's answer to a commit: a confirmation to show, or how it ended. -->
+    <receiver android:name="app.ytzero.appupdate.InstallResultReceiver" android:exported="false" />
+    <!-- The new version's first moment: delete the installer file and say the update is done. -->
+    <receiver android:name="app.ytzero.appupdate.UpdatedReceiver" android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+      </intent-filter>
+    </receiver>
+  </application>
+</manifest>
