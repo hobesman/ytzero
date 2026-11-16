@@ -23,8 +23,10 @@ type Options = {
 
 /**
  * Which mode the phone app shows, and the music station for the signed-in
- * profile. Leaving music mode, switching profile or signing out ends the
- * station, so music never carries over into video or another profile.
+ * profile. The station outlives switches between music and video mode, so
+ * the queue is still there on the way back; starting a video pauses it.
+ * Switching profile or signing out ends it, so music never carries over
+ * into another profile.
  */
 export function useMusicMode({ available, instanceUrl, accessToken, profileId, isChild, incognito }: Options) {
   const [chosen, setChosen] = useState(false);
@@ -44,11 +46,11 @@ export function useMusicMode({ available, instanceUrl, accessToken, profileId, i
   const musicApi = useMemo(() => allowed ? new MusicApi(instanceUrl, accessToken) : null, [accessToken, allowed, instanceUrl]);
   const [session, setSession] = useState<MusicSession | null>(null);
   useEffect(() => {
-    if (!musicApi || !music) { setSession(null); return; }
+    if (!musicApi) { setSession(null); return; }
     const created = new MusicSession(musicApi);
     setSession(created);
     return () => { void created.stop().finally(() => created.dispose()); };
-  }, [music, musicApi, profileId]);
+  }, [musicApi, profileId]);
   useEffect(() => { session?.setIncognito(incognito); }, [incognito, session]);
 
   const setMusic = useCallback((value: boolean) => {
