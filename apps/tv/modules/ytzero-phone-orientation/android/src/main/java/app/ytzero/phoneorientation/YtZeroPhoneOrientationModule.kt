@@ -28,16 +28,22 @@ class YtZeroPhoneOrientationModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("YtZeroPhoneOrientation")
-    OnCreate { apply() }
-    OnActivityEntersForeground { apply() }
+    // OnCreate runs on the JavaScript thread. Android 10 and older hide the system bars by setting
+    // the window's view flags, which throws off the UI thread and crashed the app at launch.
+    OnCreate { applyOnUiThread() }
+    OnActivityEntersForeground { applyOnUiThread() }
     AsyncFunction("setMode") { value: String ->
       mode = value
-      appContext.currentActivity?.runOnUiThread { apply() }
+      applyOnUiThread()
     }
     AsyncFunction("setImmersive") { value: Boolean ->
       immersive = value
       appContext.currentActivity?.runOnUiThread { applyImmersive() }
     }
+  }
+
+  private fun applyOnUiThread() {
+    appContext.currentActivity?.runOnUiThread { apply() }
   }
 
   private fun apply() {
