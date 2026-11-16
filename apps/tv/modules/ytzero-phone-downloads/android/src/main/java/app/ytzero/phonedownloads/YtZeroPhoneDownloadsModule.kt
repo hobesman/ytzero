@@ -2,12 +2,15 @@ package app.ytzero.phonedownloads
 
 import android.app.DownloadManager
 import android.content.Context
+import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.StatFs
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import java.io.File
+import java.io.FileOutputStream
+import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -106,6 +109,57 @@ class YtZeroPhoneDownloadsModule : Module() {
       } finally {
         connection.disconnect()
       }
+    }
+
+    /**
+     * One piece of a file a server sends in ranges, such as a song's audio:
+     * bytes [start, end] are appended to "<name>.part", which must already
+     * hold exactly `start` bytes (0 starts it afresh). Returns the HTTP status
+     * (-1 when the network failed), the bytes now in the part file, and the
+     * whole file's size from Content-Range (-1 when unknown).
+     */
+    AsyncFunction("fetchRange") { url: String, headers: Map<String, String>, name: String, start: Long, end: Long ->
+      val part = file("$name.part")
+      if (start == 0L) part.delete()
+      val have = if (part.exists()) part.length() else 0L
+      if (have != start) return@AsyncFunction mapOf("status" to 416, "size" to have, "total" to -1L)
+      var connection: HttpURLConnection? = null
+      try {
+        val opened = URL(url).openConnection() as HttpURLConnection
+        connection = opened
+        opened.connectTimeout = 15_000
+        opened.readTimeout = 30_000
+        headers.forEach { (key, value) -> opened.setRequestProperty(key, value) }
+        opened.setRequestProperty("Range", "bytes=$start-$end")
+        val code = opened.responseCode
+        if (code != 206 && !(code == 200 && start == 0L)) return@AsyncFunction mapOf("status" to code, "size" to start, "total" to -1L)
+        val total = if (code == 200) opened.contentLengthLong
+          else opened.getHeaderField("Content-Range")?.substringAfterLast('/')?.toLongOrNull() ?: -1L
+        FileOutputStream(part, true).use { output -> opened.inputStream.use { input -> input.copyTo(output) } }
+        mapOf("status" to code, "size" to part.length(), "total" to total)
+      } catch (_: Exception) {
+        // Keep only whole pieces, so the next attempt resumes from a known point.
+        if (part.exists()) RandomAccessFile(part, "rw").use { it.setLength(start) }
+        mapOf("status" to -1, "size" to start, "total" to -1L)
+      } finally {
+        connection?.disconnect()
+      }
+    }
+
+    /** Gives a completed "<name>.part" its final name. Returns the size, or -1. */
+    AsyncFunction("completePart") { name: String ->
+      val part = file("$name.part")
+      val target = file(name)
+      if (!part.exists()) return@AsyncFunction -1L
+      if (target.exists()) target.delete()
+      if (!part.renameTo(target)) return@AsyncFunction -1L
+      target.length()
+    }
+
+    /** Whether the network in use is metered, such as mobile data; true when there is none. */
+    Function("isMetered") {
+      val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+      connectivity.activeNetwork == null || connectivity.isActiveNetworkMetered
     }
 
     AsyncFunction("readText") { name: String ->

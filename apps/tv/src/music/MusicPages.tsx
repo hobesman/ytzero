@@ -6,6 +6,8 @@ import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import { albumDetail, MusicAlbumCard, MusicShelf } from "./MusicAlbumCard";
 import type { MusicAlbum, MusicAlbumPage, MusicApi, MusicArtistPage, MusicTrack } from "./musicApi";
+import { MusicTrackDownloadMark } from "./MusicDownloadMark";
+import { MusicCollectionDownloadButton } from "./MusicDownloadViews";
 import { MusicIcon } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { durationLabel, MusicArtwork, MusicTrackMenuButton, MusicTrackRow } from "./MusicTrackRow";
@@ -62,6 +64,7 @@ function AlbumTrack({ track, number, albumArtist, active, onPress }: {
       <Text numberOfLines={1} style={[styles.trackTitle, active && styles.active]}>{track.title}</Text>
       {track.artist && track.artist !== albumArtist ? <Text numberOfLines={1} style={styles.caption}>{track.artist}</Text> : null}
     </View>
+    <MusicTrackDownloadMark videoId={track.videoId} />
     {track.rating === 1 ? <MusicIcon name="liked" color={phoneColors.textMuted} size={16} /> : null}
     <Text style={styles.caption}>{durationLabel(track.duration)}</Text>
     <MusicTrackMenuButton track={track} />
@@ -103,6 +106,7 @@ export function MusicAlbumScreen({ api, session, t, playingId, id, onOpen, onBac
       <PhoneChip label={t("musicShuffle")} disabled={album.tracks.length < 2} onPress={() => play({ shuffle: true })} />
       <PhoneChip label={album.saved ? t("musicSaved") : t("musicSave")} disabled={saving} onPress={() => void toggleSaved()} />
     </View>
+    <MusicCollectionDownloadButton kind="album" page={album} t={t} />
   </View> : null;
   return <PageFrame t={t} onBack={onBack} failed={failed} failedText={t("musicAlbumFailed")} loading={!album} onRetry={retry}>
     {album ? <FlatList data={album.tracks} keyExtractor={(track) => track.videoId} ListHeaderComponent={header}

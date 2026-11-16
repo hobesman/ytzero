@@ -10,6 +10,7 @@ import type { Language } from "../types";
 import type { MusicAlbum, MusicApi, MusicArtist, MusicLibrary, MusicPlaylist, MusicSearchResults, MusicTrack, MusicUserPlaylist } from "./musicApi";
 import { MusicGenreShelves, MusicPlaylistCard } from "./MusicGenreScreens";
 import { MusicNewPlaylistCard, MusicNewPlaylistSheet, MusicUserPlaylistCard, type MusicAppPage } from "./MusicPlaylistScreens";
+import { MusicDownloadsSection } from "./MusicDownloadViews";
 import { MusicIcon, type MusicIconName } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { MusicTrackRow } from "./MusicTrackRow";
@@ -92,6 +93,7 @@ export function MusicLibraryScreen({ api, session, t, language, visible, playing
     <MusicShelf title={t("musicSavedAlbums")} count={library?.albums.length ?? 0}>
       {library?.albums.map((album) => <MusicAlbumCard key={album.browseId} api={api} album={album} detail={albumDetail(album, t, true)} onPress={openAlbum} />)}
     </MusicShelf>
+    <MusicDownloadsSection api={api} session={session} t={t} language={language} playingId={playingId} onOpen={onOpen} />
     {library?.liked.length ? <View style={styles.cards}>
       <StationCard icon="liked" title={t("musicLikedSongs")} hint={t("musicLikedSongsHint")} onPress={() => void session.start({ kind: "liked" })} />
     </View> : null}

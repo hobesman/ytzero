@@ -758,6 +758,22 @@ archive with no such capability restores with public sharing denied.
   Uninstalling the app deletes it. Pending positions are sent to the profile's
   instance the next time it is reached, then removed from the index.
 
+- Music downloaded to an Android phone for offline listening is **machine-bound
+  device data** in the same folder: each song's audio (`m<owner hash>-<id>.audio`),
+  its artwork, and `music-index.json`, a versioned record (`version: 1`) of each
+  song's profile (`<instance origin>#<profile id>`), track details, file name
+  and state, the albums and playlists saved with their track lists, the
+  Wi-Fi-only choice, the last profile signed in there (cleared on sign-out)
+  and listens played offline that the server has not been told about yet.
+  Files are named per profile and every screen reads only the signed-in
+  profile's entries. The audio and artwork are rebuildable from the server, a
+  saved album or playlist is brought up to date the next time the server is
+  reached, and the index holds no credential. The server never stores or
+  exports any of it: excluded from portable and exact server backups and from
+  Android Auto Backup, with no backup adapter or archive change. Pending
+  listens are posted to `/music/plays` once the instance is reached, then
+  removed; listens played in Incognito mode are never added.
+
 - The last active profile id stored in browser `localStorage` is a
   machine-bound presentation convenience. It is scoped to that browser and
   origin, is validated against the current profile list before use, and is

@@ -12,6 +12,7 @@ import { profilePlaybackMessages } from "./profilePlaybackMessages";
 import { bufferMessages } from "./bufferMessages";
 import { sleepTimerMessages } from "./sleepTimerMessages";
 import { musicMessages } from "./music/musicMessages";
+import { musicDownloadMessages } from "./music/musicDownloadMessages";
 
 type DeviceSettingsMessages = {
   devicePlayback: string;
@@ -377,7 +378,7 @@ const videoActionMessages: Record<Language, VideoActionMessages> = {
 
 const en = {
   ...discoveryMessages.en,
-  ...phoneMessages.en, ...phoneDownloadMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en, ...sleepTimerMessages.en, ...musicMessages.en,
+  ...phoneMessages.en, ...phoneDownloadMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en, ...sleepTimerMessages.en, ...musicMessages.en, ...musicDownloadMessages.en,
     ...libraryMessages.en,
     ...emptyMessages.en,
     ...searchMessages.en,
@@ -444,7 +445,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.pl,
     ...systemProfileMessages.pl,
     ...discoveryMessages.pl,
-    ...phoneMessages.pl, ...phoneDownloadMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl, ...sleepTimerMessages.pl, ...musicMessages.pl,
+    ...phoneMessages.pl, ...phoneDownloadMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl, ...sleepTimerMessages.pl, ...musicMessages.pl, ...musicDownloadMessages.pl,
     ...libraryMessages.pl,
     ...emptyMessages.pl,
     ...searchMessages.pl,
@@ -502,7 +503,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.de,
     ...systemProfileMessages.de,
     ...discoveryMessages.de,
-    ...phoneMessages.de, ...phoneDownloadMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de, ...sleepTimerMessages.de, ...musicMessages.de,
+    ...phoneMessages.de, ...phoneDownloadMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de, ...sleepTimerMessages.de, ...musicMessages.de, ...musicDownloadMessages.de,
     ...libraryMessages.de,
     ...emptyMessages.de,
     ...searchMessages.de,
@@ -521,7 +522,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.fr,
     ...systemProfileMessages.fr,
     ...discoveryMessages.fr,
-    ...phoneMessages.fr, ...phoneDownloadMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr, ...sleepTimerMessages.fr, ...musicMessages.fr,
+    ...phoneMessages.fr, ...phoneDownloadMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr, ...sleepTimerMessages.fr, ...musicMessages.fr, ...musicDownloadMessages.fr,
     ...libraryMessages.fr,
     ...emptyMessages.fr,
     ...searchMessages.fr,
@@ -540,7 +541,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.es,
     ...systemProfileMessages.es,
     ...discoveryMessages.es,
-    ...phoneMessages.es, ...phoneDownloadMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es, ...sleepTimerMessages.es, ...musicMessages.es,
+    ...phoneMessages.es, ...phoneDownloadMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es, ...sleepTimerMessages.es, ...musicMessages.es, ...musicDownloadMessages.es,
     ...libraryMessages.es,
     ...emptyMessages.es,
     ...searchMessages.es,
@@ -559,7 +560,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages["pt-BR"],
     ...systemProfileMessages["pt-BR"],
     ...discoveryMessages["pt-BR"],
-    ...phoneMessages["pt-BR"], ...phoneDownloadMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"], ...sleepTimerMessages["pt-BR"], ...musicMessages["pt-BR"],
+    ...phoneMessages["pt-BR"], ...phoneDownloadMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"], ...sleepTimerMessages["pt-BR"], ...musicMessages["pt-BR"], ...musicDownloadMessages["pt-BR"],
     ...libraryMessages["pt-BR"],
     ...emptyMessages["pt-BR"],
     ...searchMessages["pt-BR"],
@@ -578,7 +579,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ru,
     ...systemProfileMessages.ru,
     ...discoveryMessages.ru,
-    ...phoneMessages.ru, ...phoneDownloadMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru, ...sleepTimerMessages.ru, ...musicMessages.ru,
+    ...phoneMessages.ru, ...phoneDownloadMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru, ...sleepTimerMessages.ru, ...musicMessages.ru, ...musicDownloadMessages.ru,
     ...libraryMessages.ru,
     ...emptyMessages.ru,
     ...searchMessages.ru,
@@ -597,7 +598,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ja,
     ...systemProfileMessages.ja,
     ...discoveryMessages.ja,
-    ...phoneMessages.ja, ...phoneDownloadMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja, ...sleepTimerMessages.ja, ...musicMessages.ja,
+    ...phoneMessages.ja, ...phoneDownloadMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja, ...sleepTimerMessages.ja, ...musicMessages.ja, ...musicDownloadMessages.ja,
     ...libraryMessages.ja,
     ...emptyMessages.ja,
     ...searchMessages.ja,
@@ -616,7 +617,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.hu,
     ...systemProfileMessages.hu,
     ...discoveryMessages.hu,
-    ...phoneMessages.hu, ...phoneDownloadMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu, ...sleepTimerMessages.hu, ...musicMessages.hu,
+    ...phoneMessages.hu, ...phoneDownloadMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu, ...sleepTimerMessages.hu, ...musicMessages.hu, ...musicDownloadMessages.hu,
     ...libraryMessages.hu,
     ...emptyMessages.hu,
     ...searchMessages.hu,
