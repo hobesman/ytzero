@@ -67,6 +67,7 @@ const en = {
   musicAddToPlaylist: "Add to playlist",
   musicAddedToPlaylist: "Added to {name}",
   musicAlreadyInPlaylist: "Already in {name}",
+  musicLevelling: "Even out song volume", musicLevellingHint: "Turns loud songs down to match quieter ones, as YouTube does.",
 };
 
 type MusicMessages = typeof en;
@@ -90,6 +91,7 @@ const pl: MusicMessages = {
   musicPlayNext: "Odtwórz jako następny", musicAddToQueue: "Dodaj do kolejki", musicQueuedNext: "Zagra jako następny", musicQueuedLast: "Dodano do kolejki", musicRemoveFromQueue: "Usuń z kolejki", musicMoveUp: "Przesuń w górę", musicMoveDown: "Przesuń w dół", musicEditQueue: "Edytuj", musicDoneEditing: "Gotowe", musicMoreOptions: "Więcej opcji",
   musicUpNextEmpty: "Kolejka jest pusta.",
   musicYourPlaylists: "Twoje playlisty", musicSavedPlaylists: "Zapisane playlisty", musicRenamePlaylist: "Zmień nazwę", musicDeletePlaylistConfirm: "Usunąć „{name}”? Utwory zostaną tam, gdzie są poza nią.", musicPlaylistEmpty: "Brak utworów. Dodaj je opcją Dodaj do playlisty w menu dowolnego utworu.", musicRemoveFromPlaylist: "Usuń z playlisty", musicActionFailed: "Coś poszło nie tak. Spróbuj ponownie.", musicAddToPlaylist: "Dodaj do playlisty", musicAddedToPlaylist: "Dodano do: {name}", musicAlreadyInPlaylist: "Już jest w: {name}",
+  musicLevelling: "Wyrównuj głośność utworów", musicLevellingHint: "Ścisza głośne utwory do poziomu cichszych, tak jak YouTube.",
 };
 
 const de: MusicMessages = {
@@ -111,6 +113,7 @@ const de: MusicMessages = {
   musicPlayNext: "Als Nächstes spielen", musicAddToQueue: "Zur Warteschlange hinzufügen", musicQueuedNext: "Wird als Nächstes gespielt", musicQueuedLast: "Zur Warteschlange hinzugefügt", musicRemoveFromQueue: "Aus der Warteschlange entfernen", musicMoveUp: "Nach oben", musicMoveDown: "Nach unten", musicEditQueue: "Bearbeiten", musicDoneEditing: "Fertig", musicMoreOptions: "Weitere Optionen",
   musicUpNextEmpty: "Noch nichts in der Warteschlange.",
   musicYourPlaylists: "Deine Playlists", musicSavedPlaylists: "Gespeicherte Playlists", musicRenamePlaylist: "Umbenennen", musicDeletePlaylistConfirm: "„{name}“ löschen? Die Songs bleiben überall sonst erhalten.", musicPlaylistEmpty: "Noch keine Songs. Füge sie im Menü eines Songs mit „Zur Playlist hinzufügen“ hinzu.", musicRemoveFromPlaylist: "Aus Playlist entfernen", musicActionFailed: "Etwas ist schiefgelaufen. Versuche es erneut.", musicAddToPlaylist: "Zur Playlist hinzufügen", musicAddedToPlaylist: "Zu {name} hinzugefügt", musicAlreadyInPlaylist: "Bereits in {name}",
+  musicLevelling: "Lautstärke der Songs angleichen", musicLevellingHint: "Macht laute Songs leiser, damit sie zu leiseren passen – wie bei YouTube.",
 };
 
 const fr: MusicMessages = {
@@ -132,6 +135,7 @@ const fr: MusicMessages = {
   musicPlayNext: "Lire ensuite", musicAddToQueue: "Ajouter à la file d'attente", musicQueuedNext: "Sera lu ensuite", musicQueuedLast: "Ajouté à la file d'attente", musicRemoveFromQueue: "Retirer de la file d'attente", musicMoveUp: "Monter", musicMoveDown: "Descendre", musicEditQueue: "Modifier", musicDoneEditing: "Terminé", musicMoreOptions: "Plus d'options",
   musicUpNextEmpty: "La file d’attente est vide.",
   musicYourPlaylists: "Vos playlists", musicSavedPlaylists: "Playlists enregistrées", musicRenamePlaylist: "Renommer", musicDeletePlaylistConfirm: "Supprimer « {name} » ? Les titres restent ailleurs là où ils sont.", musicPlaylistEmpty: "Aucun titre pour l’instant. Ajoutez-en avec Ajouter à une playlist dans le menu d’un titre.", musicRemoveFromPlaylist: "Retirer de la playlist", musicActionFailed: "Un problème est survenu. Réessayez.", musicAddToPlaylist: "Ajouter à une playlist", musicAddedToPlaylist: "Ajouté à {name}", musicAlreadyInPlaylist: "Déjà dans {name}",
+  musicLevelling: "Égaliser le volume des titres", musicLevellingHint: "Baisse les titres forts au niveau des plus doux, comme le fait YouTube.",
 };
 
 const es: MusicMessages = {
@@ -153,6 +157,7 @@ const es: MusicMessages = {
   musicPlayNext: "Reproducir a continuación", musicAddToQueue: "Añadir a la cola", musicQueuedNext: "Sonará a continuación", musicQueuedLast: "Añadida a la cola", musicRemoveFromQueue: "Quitar de la cola", musicMoveUp: "Subir", musicMoveDown: "Bajar", musicEditQueue: "Editar", musicDoneEditing: "Listo", musicMoreOptions: "Más opciones",
   musicUpNextEmpty: "Aún no hay nada en la cola.",
   musicYourPlaylists: "Tus listas", musicSavedPlaylists: "Listas guardadas", musicRenamePlaylist: "Cambiar nombre", musicDeletePlaylistConfirm: "¿Eliminar «{name}»? Las canciones siguen donde estén fuera de ella.", musicPlaylistEmpty: "Aún no hay canciones. Añádelas con Añadir a una lista en el menú de cualquier canción.", musicRemoveFromPlaylist: "Quitar de la lista", musicActionFailed: "Algo salió mal. Inténtalo de nuevo.", musicAddToPlaylist: "Añadir a una lista", musicAddedToPlaylist: "Añadida a {name}", musicAlreadyInPlaylist: "Ya está en {name}",
+  musicLevelling: "Igualar el volumen de las canciones", musicLevellingHint: "Baja las canciones fuertes al nivel de las más suaves, como hace YouTube.",
 };
 
 const ptBR: MusicMessages = {
@@ -174,6 +179,7 @@ const ptBR: MusicMessages = {
   musicPlayNext: "Tocar a seguir", musicAddToQueue: "Adicionar à fila", musicQueuedNext: "Vai tocar a seguir", musicQueuedLast: "Adicionada à fila", musicRemoveFromQueue: "Remover da fila", musicMoveUp: "Mover para cima", musicMoveDown: "Mover para baixo", musicEditQueue: "Editar", musicDoneEditing: "Concluído", musicMoreOptions: "Mais opções",
   musicUpNextEmpty: "Nada na fila ainda.",
   musicYourPlaylists: "Suas playlists", musicSavedPlaylists: "Playlists salvas", musicRenamePlaylist: "Renomear", musicDeletePlaylistConfirm: "Excluir “{name}”? As músicas continuam onde mais estiverem.", musicPlaylistEmpty: "Nenhuma música ainda. Adicione com Adicionar à playlist no menu de qualquer música.", musicRemoveFromPlaylist: "Remover da playlist", musicActionFailed: "Algo deu errado. Tente de novo.", musicAddToPlaylist: "Adicionar à playlist", musicAddedToPlaylist: "Adicionada a {name}", musicAlreadyInPlaylist: "Já está em {name}",
+  musicLevelling: "Equalizar o volume das músicas", musicLevellingHint: "Abaixa as músicas mais altas para combinar com as mais baixas, como o YouTube faz.",
 };
 
 const ru: MusicMessages = {
@@ -195,6 +201,7 @@ const ru: MusicMessages = {
   musicPlayNext: "Воспроизвести следующим", musicAddToQueue: "Добавить в очередь", musicQueuedNext: "Прозвучит следующим", musicQueuedLast: "Добавлено в очередь", musicRemoveFromQueue: "Убрать из очереди", musicMoveUp: "Переместить вверх", musicMoveDown: "Переместить вниз", musicEditQueue: "Изменить", musicDoneEditing: "Готово", musicMoreOptions: "Другие действия",
   musicUpNextEmpty: "В очереди пока пусто.",
   musicYourPlaylists: "Ваши плейлисты", musicSavedPlaylists: "Сохранённые плейлисты", musicRenamePlaylist: "Переименовать", musicDeletePlaylistConfirm: "Удалить «{name}»? Треки останутся там, где они есть ещё.", musicPlaylistEmpty: "Пока пусто. Добавляйте треки через «Добавить в плейлист» в меню любого трека.", musicRemoveFromPlaylist: "Убрать из плейлиста", musicActionFailed: "Что-то пошло не так. Попробуйте ещё раз.", musicAddToPlaylist: "Добавить в плейлист", musicAddedToPlaylist: "Добавлено в «{name}»", musicAlreadyInPlaylist: "Уже есть в «{name}»",
+  musicLevelling: "Выравнивать громкость песен", musicLevellingHint: "Делает громкие песни тише, чтобы они звучали наравне с тихими, как на YouTube.",
 };
 
 const ja: MusicMessages = {
@@ -216,6 +223,7 @@ const ja: MusicMessages = {
   musicPlayNext: "次に再生", musicAddToQueue: "キューに追加", musicQueuedNext: "次に再生します", musicQueuedLast: "キューに追加しました", musicRemoveFromQueue: "キューから削除", musicMoveUp: "上へ移動", musicMoveDown: "下へ移動", musicEditQueue: "編集", musicDoneEditing: "完了", musicMoreOptions: "その他のオプション",
   musicUpNextEmpty: "キューはまだ空です。",
   musicYourPlaylists: "あなたのプレイリスト", musicSavedPlaylists: "保存したプレイリスト", musicRenamePlaylist: "名前を変更", musicDeletePlaylistConfirm: "「{name}」を削除しますか？曲はほかの場所に残ります。", musicPlaylistEmpty: "まだ曲がありません。曲のメニューの「プレイリストに追加」から追加できます。", musicRemoveFromPlaylist: "プレイリストから削除", musicActionFailed: "問題が発生しました。もう一度お試しください。", musicAddToPlaylist: "プレイリストに追加", musicAddedToPlaylist: "{name} に追加しました", musicAlreadyInPlaylist: "すでに {name} にあります",
+  musicLevelling: "曲の音量をそろえる", musicLevellingHint: "YouTube と同じように、音の大きい曲を静かな曲に合わせて下げます。",
 };
 
 const hu: MusicMessages = {
@@ -237,6 +245,7 @@ const hu: MusicMessages = {
   musicPlayNext: "Lejátszás következőként", musicAddToQueue: "Hozzáadás a lejátszási sorhoz", musicQueuedNext: "Következőként szól", musicQueuedLast: "Hozzáadva a lejátszási sorhoz", musicRemoveFromQueue: "Eltávolítás a lejátszási sorból", musicMoveUp: "Mozgatás felfelé", musicMoveDown: "Mozgatás lefelé", musicEditQueue: "Szerkesztés", musicDoneEditing: "Kész", musicMoreOptions: "További lehetőségek",
   musicUpNextEmpty: "A lejátszási sor még üres.",
   musicYourPlaylists: "Saját lejátszási listák", musicSavedPlaylists: "Mentett lejátszási listák", musicRenamePlaylist: "Átnevezés", musicDeletePlaylistConfirm: "Törlöd: „{name}”? A dalok máshol megmaradnak.", musicPlaylistEmpty: "Még nincs dal. Bármelyik dal menüjében a Hozzáadás lejátszási listához paranccsal adhatsz hozzá.", musicRemoveFromPlaylist: "Eltávolítás a listából", musicActionFailed: "Hiba történt. Próbáld újra.", musicAddToPlaylist: "Hozzáadás lejátszási listához", musicAddedToPlaylist: "Hozzáadva: {name}", musicAlreadyInPlaylist: "Már benne van: {name}",
+  musicLevelling: "Dalok hangerejének kiegyenlítése", musicLevellingHint: "A hangos dalokat a halkabbakhoz igazítja, ahogy a YouTube is.",
 };
 
 export const musicMessages = { en, pl, de, fr, es, "pt-BR": ptBR, ru, ja, hu };

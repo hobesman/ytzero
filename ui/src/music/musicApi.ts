@@ -11,6 +11,8 @@ export type MusicTrack = {
   thumbnail: string | null;
   isTopic: boolean;
   rating: 1 | -1 | null;
+  /** dB above YouTube's loudness target; absent until the server has asked YouTube. */
+  loudnessDb?: number;
 };
 
 export type MusicAlbum = {
@@ -80,5 +82,7 @@ export const musicApi = {
     http<{ seed: string; tracks: MusicTrack[] }>("/music/station", json({ seed, served, skipped, count })),
   recordPlay: (play: MusicPlay) => http<{ ok: true }>("/music/plays", json(play)),
   rate: (videoId: string, rating: 1 | 0 | -1) => http<{ ok: true }>(`/music/tracks/${id(videoId)}/rating`, { method: "PUT", body: JSON.stringify({ rating }) }),
+  /** Has the server fetch the start of a song ahead of playing it; answers with the song's loudness. */
+  prepare: (videoId: string) => http<{ ready: boolean; loudnessDb: number | null }>(`/music/tracks/${id(videoId)}/prepare`, json({})),
   audioUrl: (videoId: string) => `/api/music/tracks/${id(videoId)}/audio`,
 };
