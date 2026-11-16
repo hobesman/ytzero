@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="ytzero_music_car_for_you">Для вас</string>
+  <string name="ytzero_music_car_recent">Недавно прослушанные</string>
+  <string name="ytzero_music_car_albums_saved">Сохранённые альбомы</string>
+  <string name="ytzero_music_car_genres">Настроения и жанры</string>
+  <string name="ytzero_music_car_mix">Ваш микс</string>
+  <string name="ytzero_music_car_mix_hint">Треки по вашим прослушиваниям</string>
+  <string name="ytzero_music_car_liked">Понравившиеся треки</string>
+  <string name="ytzero_music_car_liked_hint">Станция из треков, которые вам нравятся</string>
+  <string name="ytzero_music_car_moods">Настроения и моменты</string>
+  <string name="ytzero_music_car_genre_group">Жанры</string>
+  <string name="ytzero_music_car_songs">Треки</string>
+  <string name="ytzero_music_car_albums">Альбомы</string>
+  <string name="ytzero_music_car_artists">Исполнители</string>
+  <string name="ytzero_music_car_setup">Откройте YT Zero на телефоне и включите музыку, чтобы подключить его</string>
+  <string name="ytzero_music_car_not_allowed">Музыка недоступна для этого профиля</string>
+  <string name="ytzero_music_car_unreachable">Не удаётся подключиться к серверу YT Zero</string>
+</resources>

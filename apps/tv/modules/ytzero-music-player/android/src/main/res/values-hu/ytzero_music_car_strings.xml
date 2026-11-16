@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="ytzero_music_car_for_you">Neked</string>
+  <string name="ytzero_music_car_recent">Nemrég játszott</string>
+  <string name="ytzero_music_car_albums_saved">Mentett albumok</string>
+  <string name="ytzero_music_car_genres">Hangulatok és műfajok</string>
+  <string name="ytzero_music_car_mix">Saját mix</string>
+  <string name="ytzero_music_car_mix_hint">Dalok aszerint, amit hallgatsz</string>
+  <string name="ytzero_music_car_liked">Kedvelt dalok</string>
+  <string name="ytzero_music_car_liked_hint">Állomás a kedvelt dalaidból</string>
+  <string name="ytzero_music_car_moods">Hangulatok és pillanatok</string>
+  <string name="ytzero_music_car_genre_group">Műfajok</string>
+  <string name="ytzero_music_car_songs">Dalok</string>
+  <string name="ytzero_music_car_albums">Albumok</string>
+  <string name="ytzero_music_car_artists">Előadók</string>
+  <string name="ytzero_music_car_setup">Nyisd meg a YT Zerót a telefonodon, és indíts el egy dalt a csatlakoztatáshoz</string>
+  <string name="ytzero_music_car_not_allowed">Ehhez a profilhoz nem érhető el a zene</string>
+  <string name="ytzero_music_car_unreachable">Nem érhető el a YT Zero-szervered</string>
+</resources>

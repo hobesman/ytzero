@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="ytzero_music_car_for_you">おすすめ</string>
+  <string name="ytzero_music_car_recent">最近再生した曲</string>
+  <string name="ytzero_music_car_albums_saved">保存したアルバム</string>
+  <string name="ytzero_music_car_genres">ムードとジャンル</string>
+  <string name="ytzero_music_car_mix">あなたのミックス</string>
+  <string name="ytzero_music_car_mix_hint">再生した曲に合わせて選曲</string>
+  <string name="ytzero_music_car_liked">高評価した曲</string>
+  <string name="ytzero_music_car_liked_hint">高評価した曲からのステーション</string>
+  <string name="ytzero_music_car_moods">ムードとシーン</string>
+  <string name="ytzero_music_car_genre_group">ジャンル</string>
+  <string name="ytzero_music_car_songs">曲</string>
+  <string name="ytzero_music_car_albums">アルバム</string>
+  <string name="ytzero_music_car_artists">アーティスト</string>
+  <string name="ytzero_music_car_setup">スマートフォンで YT Zero を開いて音楽を再生すると接続されます</string>
+  <string name="ytzero_music_car_not_allowed">このプロフィールでは音楽を利用できません</string>
+  <string name="ytzero_music_car_unreachable">YT Zero サーバーに接続できません</string>
+</resources>
