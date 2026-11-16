@@ -41,7 +41,7 @@ export function PhoneVideoActionSheet({ api, actionConfig, video, t, language, o
             trailing={busy === item ? <ActivityIndicator color={phoneColors.textMuted} /> : item === "schedule" || item === "playlist" ? chevron : undefined}
             onPress={item === "sessionQueue" && actions.queueFull ? undefined : () => actions.selectAction(item)} />)}
       <PhoneDownloadSheetRow video={currentVideo} t={t} language={language} canStart={canDownloadToPhone(currentVideo)} />
-      <PhoneVideoShareRows api={api} video={currentVideo} t={t} onShared={actions.close} />
+      <PhoneVideoShareRows api={api} video={currentVideo} t={t} language={language} onShared={actions.close} />
     </>;
   } else if (view === "schedule") {
     body = scheduleBuckets.map(({ bucket, label }) => {
