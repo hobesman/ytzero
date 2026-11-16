@@ -47,7 +47,7 @@ const VideoArtwork = memo(function VideoArtwork({
     {source.uri ? (
       <Image source={source} style={styles.image} resizeMode="cover" />
     ) : (
-      <View style={[styles.image, styles.placeholder]}><Text style={styles.placeholderText}>YT Zero</Text></View>
+      <View style={[styles.image, styles.placeholder]}><Text style={styles.placeholderText}>{buildBranding.name}</Text></View>
     )}
     {liveStatus === "live" ? <TvLiveBadge language={language} /> : null}
     {liveStatus !== "live" && duration ? <View style={styles.duration}><Text style={styles.durationText}>{duration}</Text></View> : null}

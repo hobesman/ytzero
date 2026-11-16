@@ -69,7 +69,7 @@ const ShortArtwork = memo(function ShortArtwork({
         onError={!portraitFailed ? () => setPortraitFailed(true) : undefined}
       />
     ) : (
-      <View style={[styles.image, styles.placeholder]}><Text style={styles.placeholderText}>YT Zero</Text></View>
+      <View style={[styles.image, styles.placeholder]}><Text style={styles.placeholderText}>{buildBranding.name}</Text></View>
     )}
     <ShortShade contrast={contrast} />
   </>;
