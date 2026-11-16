@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { fetchLatestAndroidRelease, installedBuild, isUpdate, latestAndroidRelease, releaseRepository } from "./appUpdate";
+import {
+  assetSha256, downloadFraction, fetchLatestAndroidRelease, installedBuild, isUpdate, latestAndroidRelease, releaseRepository, shouldDownloadInBackground,
+} from "./appUpdate";
+
+const hex = "6babff756a0ee7612bf85b2e666878b27ddf1dc6985834a197e143826b3f6913";
 
 const release = (tag: string, extra: Record<string, unknown> = {}) => ({
   tag_name: tag, draft: false, prerelease: false, html_url: `https://github.com/o/r/releases/tag/${tag}`,
@@ -44,6 +48,34 @@ describe("latestAndroidRelease", () => {
   test("handles an unexpected response", () => {
     expect(latestAndroidRelease({ message: "rate limited" })).toBeNull();
     expect(latestAndroidRelease([null, 4])).toBeNull();
+  });
+});
+
+describe("release checksums", () => {
+  test("reads the APK's SHA-256 from GitHub's digest", () => {
+    const latest = latestAndroidRelease([release("android-110", { assets: [{ name: "ytzero-android-110.apk",
+      browser_download_url: "https://github.com/o/r/releases/download/android-110/ytzero-android-110.apk", digest: `sha256:${hex.toUpperCase()}` }] })]);
+    expect(latest?.sha256).toBe(hex);
+  });
+  test("has none when GitHub lists none or another kind", () => {
+    expect(latestAndroidRelease([release("android-110")])?.sha256).toBeNull();
+    expect(assetSha256(`sha1:${hex.slice(0, 40)}`)).toBeNull();
+    expect(assetSha256(`sha256:${hex.slice(1)}`)).toBeNull();
+    expect(assetSha256(42)).toBeNull();
+  });
+});
+
+describe("background download", () => {
+  test("waits for Wi-Fi, the setting and an idle updater", () => {
+    expect(shouldDownloadInBackground({ auto: true, metered: false, idle: true })).toBe(true);
+    expect(shouldDownloadInBackground({ auto: true, metered: true, idle: true })).toBe(false);
+    expect(shouldDownloadInBackground({ auto: false, metered: false, idle: true })).toBe(false);
+    expect(shouldDownloadInBackground({ auto: true, metered: false, idle: false })).toBe(false);
+  });
+  test("reports progress once the size is known", () => {
+    expect(downloadFraction({ downloaded: 25, total: 100 })).toBe(0.25);
+    expect(downloadFraction({ downloaded: 5, total: -1 })).toBeNull();
+    expect(downloadFraction({ downloaded: 120, total: 100 })).toBe(1);
   });
 });
 
