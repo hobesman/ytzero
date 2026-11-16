@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { StyleSheet, Switch, Text } from "react-native";
 import type { YtZeroApi } from "../api";
+import { musicPlayer } from "../musicPlayer";
 import type { Translate } from "../i18n";
 import { playableSpeed, speedLabel, speedOptions } from "../playbackSpeeds";
 import type { TvProfileSettings } from "../types";
@@ -8,7 +9,7 @@ import { TvChoiceSheet } from "../components/TvChoiceSheet";
 import { PhoneListRow } from "./PhoneList";
 import { phoneColors, phoneType } from "./phoneTheme";
 
-type Values = Pick<TvProfileSettings, "player_speed" | "player_speed_remember" | "sponsorblock_enabled">;
+type Values = Pick<TvProfileSettings, "player_speed" | "player_speed_remember" | "sponsorblock_enabled" | "music_volume_leveling">;
 
 /**
  * Playback settings that live in the profile on the server, the same ones as
@@ -29,16 +30,24 @@ export function PhoneProfilePlaybackSettings({ api, t }: { api: YtZeroApi; t: Tr
     const previous = values;
     setValues({ ...values, ...patch });
     setFailed(false);
-    try { await api.updateSettings(patch); } catch { setValues(previous); setFailed(true); }
+    // The music player follows at once, not only when music mode next starts.
+    if (patch.music_volume_leveling) void musicPlayer.setLevelling(patch.music_volume_leveling !== "0");
+    try { await api.updateSettings(patch); } catch {
+      setValues(previous);
+      setFailed(true);
+      if (patch.music_volume_leveling) void musicPlayer.setLevelling(previous.music_volume_leveling !== "0");
+    }
   };
   const speed = playableSpeed(values.player_speed) ?? 1;
-  const toggle = (value: boolean, key: "player_speed_remember" | "sponsorblock_enabled") => <Switch value={value}
+  const toggle = (value: boolean, key: "player_speed_remember" | "sponsorblock_enabled" | "music_volume_leveling") => <Switch value={value}
     onValueChange={(next) => void save({ [key]: next ? "1" : "0" })} trackColor={{ true: phoneColors.accent, false: phoneColors.surfaceRaised }} thumbColor={phoneColors.text} />;
   return <>
     <PhoneListRow title={t("defaultSpeed")} detail={t("defaultSpeedHint")} onPress={() => setSpeedSheet(true)}
       trailing={<Text style={styles.value}>{speedLabel(speed)}</Text>} />
     <PhoneListRow title={t("rememberSpeed")} detail={t("rememberSpeedHint")} trailing={toggle(values.player_speed_remember === "1", "player_speed_remember")} />
     <PhoneListRow title={t("sponsorSkip")} detail={t("sponsorSkipHint")} trailing={toggle(values.sponsorblock_enabled === "1", "sponsorblock_enabled")} />
+    {musicPlayer.available ? <PhoneListRow title={t("musicLevelling")} detail={t("musicLevellingHint")}
+      trailing={toggle(values.music_volume_leveling !== "0", "music_volume_leveling")} /> : null}
     {failed ? <Text style={styles.error}>{t("cannotConnect")}</Text> : null}
     {speedSheet ? <TvChoiceSheet title={t("defaultSpeed")} t={t} value={String(speed)}
       options={speedOptions(speed).map((value) => ({ value, label: speedLabel(value) }))}

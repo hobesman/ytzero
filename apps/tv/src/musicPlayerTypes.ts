@@ -6,6 +6,8 @@ export type MusicPlayerTrack = {
   artist: string;
   album?: string | null;
   artwork?: string | null;
+  /** dB above YouTube's loudness target, when the server knows it; levelling turns the song down by that. */
+  loudnessDb?: number | null;
 };
 
 /** How far a song got when the player moved off it. */
@@ -57,6 +59,10 @@ export type MusicPlayer = {
   setSleepTimer(deadline: number, endOfSong: boolean): Promise<void>;
   /** Parts of a song to jump over, as [start, end] seconds; an empty list clears them. */
   setSkips(videoId: string, segments: [number, number][]): Promise<void>;
+  /** A song's loudness learned after it was queued. */
+  setLoudness(videoId: string, loudnessDb: number): Promise<void>;
+  /** Volume levelling on or off (the profile's setting). */
+  setLevelling(enabled: boolean): Promise<void>;
   onTrackChange(listener: (event: MusicTrackChange) => void): Unsubscribe;
   onStateChange(listener: (event: MusicPlayerState) => void): Unsubscribe;
   onError(listener: (event: MusicPlayerError) => void): Unsubscribe;

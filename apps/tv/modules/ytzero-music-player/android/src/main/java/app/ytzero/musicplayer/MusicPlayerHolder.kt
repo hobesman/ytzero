@@ -35,6 +35,7 @@ object MusicPlayerHolder {
   fun player(context: Context): ExoPlayer {
     player?.let { return it }
     val created = buildPlayer(context)
+    created.addListener(MusicLevelling.listener)
     player = created
     return created
   }

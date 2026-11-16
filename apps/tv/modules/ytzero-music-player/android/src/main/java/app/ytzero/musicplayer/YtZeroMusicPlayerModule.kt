@@ -25,6 +25,8 @@ class MusicTrackRecord : Record {
   @Field var artist: String = ""
   @Field var album: String? = null
   @Field var artwork: String? = null
+  /** dB above YouTube's loudness target, when the server knows it. */
+  @Field var loudnessDb: Double? = null
 }
 
 /**
@@ -138,6 +140,11 @@ class YtZeroMusicPlayerModule : Module() {
       while (skips.size > 300) skips.remove(skips.keys.first())
     }.runOnQueue(Queues.MAIN)
 
+    // A song's loudness, learned after it was queued; the player levels it when it plays.
+    AsyncFunction("setLoudness") { videoId: String, db: Double -> MusicLevelling.setLoudness(videoId, db) }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("setLevelling") { enabled: Boolean -> MusicLevelling.enabled = enabled }.runOnQueue(Queues.MAIN)
+
     AsyncFunction("setQueue") { tracks: List<MusicTrackRecord>, startIndex: Int, play: Boolean ->
       val player = attach()
       currentId = null
@@ -220,6 +227,7 @@ class YtZeroMusicPlayerModule : Module() {
   }
 
   private fun mediaItem(track: MusicTrackRecord): MediaItem {
+    MusicLevelling.setLoudness(track.videoId, track.loudnessDb)
     val metadata = MediaMetadata.Builder()
       .setTitle(track.title)
       .setArtist(track.artist)

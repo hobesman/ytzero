@@ -24,6 +24,8 @@ export const musicPlayer: MusicPlayer = {
   stop: async () => null,
   setSleepTimer: noop,
   setSkips: noop,
+  setLoudness: noop,
+  setLevelling: noop,
   onTrackChange: none,
   onStateChange: none,
   onError: none,
