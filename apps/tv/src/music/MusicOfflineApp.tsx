@@ -4,6 +4,7 @@ import { TvButton } from "../components/TvButton";
 import type { Translate } from "../i18n";
 import { musicPlayer } from "../musicPlayer";
 import type { PhoneProfiles } from "../phone/PhoneAccountSheet";
+import type { PhoneSettings } from "../phone/PhoneSettingsScreen";
 import { savedProfileStore } from "../storage";
 import type { Language, Profile } from "../types";
 import { MusicApp } from "./MusicApp";
@@ -38,14 +39,17 @@ export function MusicOfflineButton({ instanceUrl, t, onPress }: { instanceUrl: s
  * played from the phone. Listens wait on the phone (never in Incognito mode).
  * Signing out forgets that profile here, so its music doesn't show afterwards.
  */
-export function MusicOfflineApp({ api, instanceUrl, t, language, incognito, onIncognitoChange, onExit }: {
+export function MusicOfflineApp({ api, instanceUrl, t, language, incognito, onIncognitoChange, settings, onExit }: {
   api: YtZeroApi; instanceUrl: string; t: Translate; language: Language; incognito: boolean; onIncognitoChange: (value: boolean) => void; onExit: () => void;
+  /** The device settings; music mode is the one in use here, so its group always shows. */
+  settings: PhoneSettings;
 }) {
   const view = useMusicDownloads();
   const profileId = offlineProfileId(view, instanceUrl);
   const musicApi = useMemo(() => new OfflineMusicApi(instanceUrl.replace(/\/+$/, ""), undefined, musicDownloads), [instanceUrl]);
   const [session, setSession] = useState<MusicSession | null>(null);
   const [saved, setSaved] = useState<{ name: string; avatar: string; avatarColor: string } | null>(null);
+  const musicSettings = useMemo(() => ({ ...settings, music: true }), [settings]);
   useEffect(() => {
     const created = new MusicSession(musicApi);
     setSession(created);
@@ -69,5 +73,5 @@ export function MusicOfflineApp({ api, instanceUrl, t, language, incognito, onIn
     active: profile, profiles: [profile], canSwitch: false, childLockEnabled: false, incognito, onIncognitoChange,
     onSwitch: async () => { throw new Error("offline"); },
   };
-  return <MusicApp api={api} musicApi={musicApi} session={session} t={t} language={language} profiles={profiles} onSwitchToVideo={onExit} />;
+  return <MusicApp api={api} musicApi={musicApi} session={session} t={t} language={language} profiles={profiles} settings={musicSettings} onSwitchToVideo={onExit} />;
 }

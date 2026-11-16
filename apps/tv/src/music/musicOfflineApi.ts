@@ -195,9 +195,19 @@ export class OfflineMusicApi extends MusicApi {
     });
   }
 
-  /** A downloaded song needs no preparing. */
-  override async prepare(videoId: string): Promise<boolean> {
-    return this.downloads.localAudio(videoId) ? true : super.prepare(videoId);
+  /**
+   * A downloaded song needs no preparing, only its loudness. Downloads keep the loudness the server
+   * listed with the song; one saved before it was known asks the server once, while it's reachable,
+   * and keeps the answer.
+   */
+  override async prepare(videoId: string): Promise<{ ready: boolean; loudnessDb: number | null }> {
+    if (!this.downloads.localAudio(videoId)) return super.prepare(videoId);
+    const saved = this.downloads.find(videoId)?.track.loudnessDb;
+    if (typeof saved === "number") return { ready: true, loudnessDb: saved };
+    const unknown = { ready: true, loudnessDb: null };
+    const { loudnessDb } = await this.reach(() => super.prepare(videoId), () => unknown).catch(() => unknown);
+    if (loudnessDb !== null) this.downloads.recordLoudness(videoId, loudnessDb);
+    return { ready: true, loudnessDb };
   }
 
   /** A listen the server can't be told about now is sent later. Incognito listens never get here. */
@@ -221,6 +231,7 @@ export class OfflineMusicApi extends MusicApi {
     const base = super.playerTrack(track);
     const audio = this.downloads.localAudio(track.videoId);
     if (!audio) return base;
-    return { ...base, url: audio, artwork: this.downloads.localArtwork(track.thumbnail) ?? base.artwork };
+    return { ...base, url: audio, artwork: this.downloads.localArtwork(track.thumbnail) ?? base.artwork,
+      loudnessDb: base.loudnessDb ?? this.downloads.find(track.videoId)?.track.loudnessDb ?? null };
   }
 }

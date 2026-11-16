@@ -290,6 +290,14 @@ export class MusicDownloadStore {
     return item?.state === "done" && this.native ? this.fileUri(item.file) : null;
   }
 
+  /** The loudness the server measured for a downloaded song, kept so the song is levelled offline too. */
+  recordLoudness(videoId: string, loudnessDb: number) {
+    const item = this.find(videoId);
+    if (!item || item.track.loudnessDb === loudnessDb) return;
+    this.index.tracks = this.index.tracks.map((entry) => entry === item ? { ...entry, track: { ...entry.track, loudnessDb } } : entry);
+    this.changed();
+  }
+
   /** The saved artwork for an image address, so downloaded music keeps its pictures offline. */
   localArtwork(url: string | null | undefined): string | null {
     if (!url || !this.native || !this.owner) return null;

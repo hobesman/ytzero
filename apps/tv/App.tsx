@@ -964,7 +964,7 @@ function TvApp() {
     <View style={styles.root}>
     {launchRevealing ? <TvFocusScope style={styles.root}>
       {phoneMode && api && instanceUrl && screen === "offline-music"
-        ? <MusicOfflineApp api={api} instanceUrl={instanceUrl} t={t} language={language} incognito={incognito} onIncognitoChange={setIncognito}
+        ? <MusicOfflineApp api={api} instanceUrl={instanceUrl} t={t} language={language} incognito={incognito} onIncognitoChange={setIncognito} settings={phoneSettings}
           onExit={() => { setSelected(null); setBootAttempt((value) => value + 1); }} />
       : phoneMode && hasShell && api && profileState && musicMode.music && musicMode.session && musicMode.musicApi
         ? <MusicApp key={profileState.active.id} api={api} musicApi={musicMode.musicApi} session={musicMode.session} t={t} language={language} profiles={phoneProfiles(profileState)}

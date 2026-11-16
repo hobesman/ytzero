@@ -328,6 +328,25 @@ describe("offline music API", () => {
     } finally { restore(); }
   });
 
+  test("a downloaded song is ready at once and levelled with its saved loudness", async () => {
+    const { api, store, restore } = await offline();
+    try {
+      // Unknown and the server unreachable: still ready, just not levelled.
+      expect(await api.prepare("a")).toEqual({ ready: true, loudnessDb: null });
+      expect(api.playerTrack(track("a")).loudnessDb).toBeNull();
+      // Back online, the server's answer is kept with the download.
+      globalThis.fetch = (async () => new Response(JSON.stringify({ ready: true, loudnessDb: 3.5 }), { status: 200 })) as unknown as typeof fetch;
+      expect(await api.prepare("a")).toEqual({ ready: true, loudnessDb: 3.5 });
+      expect(store.find("a")?.track.loudnessDb).toBe(3.5);
+      // Offline again, the saved loudness levels it without asking.
+      globalThis.fetch = (async () => { throw new TypeError("Network request failed"); }) as unknown as typeof fetch;
+      expect(await api.prepare("a")).toEqual({ ready: true, loudnessDb: 3.5 });
+      expect(api.playerTrack(track("a")).loudnessDb).toBe(3.5);
+      // A song that isn't downloaded still needs the server.
+      await expect(api.prepare("zzz")).rejects.toThrow("Network request failed");
+    } finally { restore(); }
+  });
+
   test("an offline song station plays that song first, then the other downloads", async () => {
     const { store } = await offline();
     const station = offlineStation(store, { kind: "track", videoId: "c" }, [], [], 10, () => 0);
