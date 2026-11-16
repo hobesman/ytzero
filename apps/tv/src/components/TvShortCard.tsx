@@ -1,3 +1,4 @@
+import { buildBranding } from "../branding";
 import { translator } from "../i18n";
 import { TvLiveBadge } from "./TvLiveBadge";
 import { useVideoPress } from "../useVideoPress";

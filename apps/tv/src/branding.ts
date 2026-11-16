@@ -17,6 +17,11 @@ export function normalizeBranding(value: unknown): { name: string; color: string
 
 export const buildBranding = normalizeBranding(built);
 
+/** Fills the {app} placeholder the message catalogs use for the app's name. */
+export function withAppName(text: string, name = buildBranding.name): string {
+  return text.replaceAll("{app}", name);
+}
+
 // Reads the branding a server publishes without signing in: the name from
 // /manifest.webmanifest and the color of the tile in /favicon.svg (see
 // app/src/app-icon.ts). Returns null when either is missing.

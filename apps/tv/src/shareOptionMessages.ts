@@ -1,12 +1,12 @@
 import type { Language } from "./types";
 
 /**
- * The phone app's YT Zero link settings: streaming through the server and the
+ * The phone app's {app} link settings: streaming through the server and the
  * link's play and time limits. Wording follows the web app's share editor
  * (ui/src/i18n/locales/publicShareLimits.ts).
  */
 const en = {
-  shareLinkSettings: "YT Zero link",
+  shareLinkSettings: "{app} link",
   shareSendLink: "Share link",
   shareUpdateFailed: "Couldn't change the link. Try again.",
   shareLinkInactive: "This link can't be watched right now. Choose a new expiry or play limit to share it again.",
@@ -38,7 +38,7 @@ type Messages = Record<keyof typeof en, string>;
 export const shareOptionMessages: Record<Language, Messages> = {
   en,
   pl: {
-    shareLinkSettings: "Link do YT Zero",
+    shareLinkSettings: "Link do {app}",
     shareSendLink: "Udostępnij link",
     shareUpdateFailed: "Nie udało się zmienić linku. Spróbuj ponownie.",
     shareLinkInactive: "Tego linku nie można teraz obejrzeć. Wybierz nowy termin wygaśnięcia lub limit odtworzeń, aby udostępnić go ponownie.",
@@ -65,7 +65,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "Osiągnięto limit odtworzeń",
   },
   de: {
-    shareLinkSettings: "YT-Zero-Link",
+    shareLinkSettings: "{app}-Link",
     shareSendLink: "Link teilen",
     shareUpdateFailed: "Der Link konnte nicht geändert werden. Versuche es erneut.",
     shareLinkInactive: "Dieser Link kann gerade nicht angesehen werden. Wähle einen neuen Ablauf oder ein neues Wiedergabelimit, um ihn wieder zu teilen.",
@@ -92,7 +92,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "Wiedergabelimit erreicht",
   },
   fr: {
-    shareLinkSettings: "Lien YT Zero",
+    shareLinkSettings: "Lien {app}",
     shareSendLink: "Partager le lien",
     shareUpdateFailed: "Impossible de modifier le lien. Réessayez.",
     shareLinkInactive: "Ce lien ne peut pas être regardé pour l’instant. Choisissez une nouvelle expiration ou limite de lectures pour le partager à nouveau.",
@@ -119,7 +119,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "Limite de lectures atteinte",
   },
   es: {
-    shareLinkSettings: "Enlace de YT Zero",
+    shareLinkSettings: "Enlace de {app}",
     shareSendLink: "Compartir enlace",
     shareUpdateFailed: "No se pudo cambiar el enlace. Inténtalo de nuevo.",
     shareLinkInactive: "Este enlace no se puede ver ahora. Elige una nueva caducidad o un límite de reproducciones para volver a compartirlo.",
@@ -146,7 +146,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "Límite de reproducciones alcanzado",
   },
   "pt-BR": {
-    shareLinkSettings: "Link do YT Zero",
+    shareLinkSettings: "Link do {app}",
     shareSendLink: "Compartilhar link",
     shareUpdateFailed: "Não foi possível alterar o link. Tente de novo.",
     shareLinkInactive: "Este link não pode ser assistido agora. Escolha uma nova expiração ou limite de reproduções para compartilhá-lo de novo.",
@@ -173,7 +173,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "Limite de reproduções atingido",
   },
   ru: {
-    shareLinkSettings: "Ссылка YT Zero",
+    shareLinkSettings: "Ссылка {app}",
     shareSendLink: "Поделиться ссылкой",
     shareUpdateFailed: "Не удалось изменить ссылку. Повторите попытку.",
     shareLinkInactive: "Эту ссылку сейчас нельзя посмотреть. Выберите новый срок или лимит просмотров, чтобы снова поделиться ею.",
@@ -200,7 +200,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "Лимит просмотров исчерпан",
   },
   ja: {
-    shareLinkSettings: "YT Zero のリンク",
+    shareLinkSettings: "{app} のリンク",
     shareSendLink: "リンクを共有",
     shareUpdateFailed: "リンクを変更できませんでした。もう一度お試しください。",
     shareLinkInactive: "このリンクは現在視聴できません。新しい有効期限か再生回数の上限を選ぶと、再び共有できます。",
@@ -227,7 +227,7 @@ export const shareOptionMessages: Record<Language, Messages> = {
     shareStatusPlaysExhausted: "再生回数の上限に到達",
   },
   hu: {
-    shareLinkSettings: "YT Zero-link",
+    shareLinkSettings: "{app}-link",
     shareSendLink: "Link megosztása",
     shareUpdateFailed: "Nem sikerült módosítani a linket. Próbáld újra.",
     shareLinkInactive: "Ez a link most nem nézhető meg. Válassz új lejáratot vagy lejátszási korlátot, hogy újra megoszthasd.",

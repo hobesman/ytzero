@@ -1,3 +1,4 @@
+import { buildBranding } from "../branding";
 import { useVideoPress } from "../useVideoPress";
 import { useVideoFocusMemory } from "../focus";
 import { forwardRef, useState } from "react";

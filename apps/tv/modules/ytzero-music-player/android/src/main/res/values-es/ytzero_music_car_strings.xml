@@ -14,7 +14,7 @@
   <string name="ytzero_music_car_albums">Álbumes</string>
   <string name="ytzero_music_car_artists">Artistas</string>
   <string name="ytzero_music_car_artist_radio">Radio de %1$s</string>
-  <string name="ytzero_music_car_setup">Abre YT Zero en tu teléfono y pon música para conectarlo</string>
+  <string name="ytzero_music_car_setup">Abre %1$s en tu teléfono y pon música para conectarlo</string>
   <string name="ytzero_music_car_not_allowed">La música no está disponible para este perfil</string>
-  <string name="ytzero_music_car_unreachable">No se puede conectar con tu servidor de YT Zero</string>
+  <string name="ytzero_music_car_unreachable">No se puede conectar con tu servidor de %1$s</string>
 </resources>

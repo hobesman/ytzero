@@ -1,3 +1,4 @@
+import { buildBranding } from "../branding";
 import { TvControlSurface } from "../components/TvSurface";
 import { TvPageBackButton } from "../components/TvPageBackButton";
 import { formatVideoDuration } from "../duration";
