@@ -4,7 +4,8 @@ import { Heart, Music, Play, Radio, Search, Shuffle, Sparkles } from "lucide-rea
 import { ApiError } from "../apiHttp";
 import { useI18n } from "../i18n";
 import { useDocumentTitle } from "../useDocumentTitle";
-import { Button, Input, InputGroup, PageHeader, SectionHeader, Tabs } from "../components/ui";
+import { Button, EmptyState, PageHeader, SectionHeader, Tabs } from "../components/ui";
+import SearchResultsHeading from "../components/SearchResultsHeading";
 import {
   musicApi, type MusicAlbum, type MusicArtist, type MusicGenre, type MusicPlaylist, type MusicSeed, type MusicTrack, type MusicUserPlaylist,
 } from "../music/musicApi";
@@ -80,25 +81,21 @@ function SearchView() {
   const actions = useMusicActions();
   const { t } = actions;
   const location = useLocation();
-  const navigate = useNavigate();
-  const asked = new URLSearchParams(location.search).get("q") ?? "";
-  const [text, setText] = useState(asked);
+  const asked = new URLSearchParams(location.search).get("q")?.trim() ?? "";
   const [results, setResults] = useState<Awaited<ReturnType<typeof musicApi.search>> | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
   useEffect(() => {
-    if (!asked.trim()) { setResults(null); return; }
+    if (!asked) { setResults(null); return; }
     let live = true;
     setState("loading");
     musicApi.search(asked).then((found) => { if (live) { setResults(found); setState("idle"); } }, () => { if (live) setState("failed"); });
     return () => { live = false; };
   }, [asked]);
   const empty = results && !results.tracks.length && !results.albums.length && !results.artists.length;
+  // The top-bar search, set to music on these pages, is the one place to type a search.
+  if (!asked) return <EmptyState icon={<Search />} title={t("musicSearchPlaceholder")} />;
   return <>
-    <form className="music-search" role="search" onSubmit={(event) => { event.preventDefault(); navigate(`/music/search?q=${encodeURIComponent(text.trim())}`, { replace: true }); }}>
-      <InputGroup prefix={<Search aria-hidden="true" />}>
-        <Input type="search" autoFocus value={text} onChange={(event) => setText(event.target.value)} placeholder={t("musicSearchPlaceholder")} aria-label={t("musicSearch")} />
-      </InputGroup>
-    </form>
+    <SearchResultsHeading query={asked} mode="music" />
     {state === "failed" ? <MusicNote text={t("musicSearchFailed")} /> : null}
     {empty ? <MusicNote text={t("musicNoResults")} /> : null}
     {results && state !== "failed" ? <>
@@ -263,7 +260,8 @@ export default function MusicPage() {
   const available = useMusicAvailable();
   const section = location.pathname.split("/")[2] ?? "";
   const tab: Tab = section === "search" ? "search" : section === "library" || section === "mine" ? "library" : "home";
-  const tabs = [{ value: "home" as const, label: t("musicHome") }, { value: "search" as const, label: t("musicSearch") }, { value: "library" as const, label: t("musicLibrary") }];
+  // Search has no tab: the top-bar search runs it, and on search results neither tab is selected.
+  const tabs = [{ value: "home" as const, label: t("musicHome") }, { value: "library" as const, label: t("musicLibrary") }];
   return <div className="music-page">
     <PageHeader title={t("navMusic")} icon={<Music />}
       actions={<Tabs label={t("navMusic")} value={tab} options={tabs} onChange={(next) => navigate(next === "home" ? "/music" : `/music/${next}`)} />} />

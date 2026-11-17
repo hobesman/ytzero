@@ -63,7 +63,7 @@ export default function AppRoutes({
     <Suspense fallback={<DelayedPageSkeleton delay={200} />}>
       <Routes>
         <Route path="/" element={<FeedPage onPlay={onPlay} showToast={showToast} feedSort={feedSort} keepWatchedInFeed={keepWatchedInFeed} showTopChannels={showTopChannels} />} />
-        <Route path="/search" element={<SearchPage onPlay={onPlay} hideExternalSearch={childStatus?.local_only ?? false} />} />
+        <Route path="/search" element={<SearchPage onPlay={onPlay} hideExternalSearch={childStatus?.local_only ?? false} musicAvailable={childStatus?.is_child !== true} />} />
         <Route path="/recommendations" element={enabledPluginRoutes?.has("/recommendations")
           ? <RecommendationsPage onPlay={onPlay} loadRecommendations={api.recommendations} />
           : <Navigate to="/" replace />} />

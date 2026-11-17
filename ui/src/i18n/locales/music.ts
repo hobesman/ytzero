@@ -69,6 +69,12 @@ const en = {
   musicAddedToPlaylist: "Added to {name}",
   musicAlreadyInPlaylist: "Already in {name}",
   musicLevelling: "Even out song volume", musicLevellingHint: "Turns loud songs down to match quieter ones, as YouTube does.",
+  // The top-bar search's video/music switch and the results-page link to the other mode.
+  searchModeVideosPlaceholder: "Search videos and channels",
+  searchModeSwitchToMusic: "Search music instead",
+  searchModeSwitchToVideos: "Search videos instead",
+  searchModeTryMusic: "Search music for “{query}”",
+  searchModeTryVideos: "Search videos for “{query}”",
 };
 
 type MusicMessages = typeof en;
@@ -94,6 +100,7 @@ const pl: MusicMessages = {
   musicUpNextEmpty: "Kolejka jest pusta.",
   musicYourPlaylists: "Twoje playlisty", musicSavedPlaylists: "Zapisane playlisty", musicRenamePlaylist: "Zmień nazwę", musicDeletePlaylistConfirm: "Usunąć „{name}”? Utwory zostaną tam, gdzie są poza nią.", musicPlaylistEmpty: "Brak utworów. Dodaj je opcją Dodaj do playlisty w menu dowolnego utworu.", musicRemoveFromPlaylist: "Usuń z playlisty", musicActionFailed: "Coś poszło nie tak. Spróbuj ponownie.", musicAddToPlaylist: "Dodaj do playlisty", musicAddedToPlaylist: "Dodano do: {name}", musicAlreadyInPlaylist: "Już jest w: {name}",
   musicLevelling: "Wyrównuj głośność utworów", musicLevellingHint: "Ścisza głośne utwory do poziomu cichszych, tak jak YouTube.",
+  searchModeVideosPlaceholder: "Szukaj filmów i kanałów", searchModeSwitchToMusic: "Szukaj w muzyce", searchModeSwitchToVideos: "Szukaj w filmach", searchModeTryMusic: "Szukaj „{query}” w muzyce", searchModeTryVideos: "Szukaj „{query}” w filmach",
 };
 
 const de: MusicMessages = {
@@ -117,6 +124,7 @@ const de: MusicMessages = {
   musicUpNextEmpty: "Noch nichts in der Warteschlange.",
   musicYourPlaylists: "Deine Playlists", musicSavedPlaylists: "Gespeicherte Playlists", musicRenamePlaylist: "Umbenennen", musicDeletePlaylistConfirm: "„{name}“ löschen? Die Songs bleiben überall sonst erhalten.", musicPlaylistEmpty: "Noch keine Songs. Füge sie im Menü eines Songs mit „Zur Playlist hinzufügen“ hinzu.", musicRemoveFromPlaylist: "Aus Playlist entfernen", musicActionFailed: "Etwas ist schiefgelaufen. Versuche es erneut.", musicAddToPlaylist: "Zur Playlist hinzufügen", musicAddedToPlaylist: "Zu {name} hinzugefügt", musicAlreadyInPlaylist: "Bereits in {name}",
   musicLevelling: "Lautstärke der Songs angleichen", musicLevellingHint: "Macht laute Songs leiser, damit sie zu leiseren passen – wie bei YouTube.",
+  searchModeVideosPlaceholder: "Videos und Kanäle suchen", searchModeSwitchToMusic: "Stattdessen Musik suchen", searchModeSwitchToVideos: "Stattdessen Videos suchen", searchModeTryMusic: "„{query}“ in Musik suchen", searchModeTryVideos: "„{query}“ in Videos suchen",
 };
 
 const fr: MusicMessages = {
@@ -140,6 +148,7 @@ const fr: MusicMessages = {
   musicUpNextEmpty: "La file d’attente est vide.",
   musicYourPlaylists: "Vos playlists", musicSavedPlaylists: "Playlists enregistrées", musicRenamePlaylist: "Renommer", musicDeletePlaylistConfirm: "Supprimer « {name} » ? Les titres restent ailleurs là où ils sont.", musicPlaylistEmpty: "Aucun titre pour l’instant. Ajoutez-en avec Ajouter à une playlist dans le menu d’un titre.", musicRemoveFromPlaylist: "Retirer de la playlist", musicActionFailed: "Un problème est survenu. Réessayez.", musicAddToPlaylist: "Ajouter à une playlist", musicAddedToPlaylist: "Ajouté à {name}", musicAlreadyInPlaylist: "Déjà dans {name}",
   musicLevelling: "Égaliser le volume des titres", musicLevellingHint: "Baisse les titres forts au niveau des plus doux, comme le fait YouTube.",
+  searchModeVideosPlaceholder: "Rechercher des vidéos et des chaînes", searchModeSwitchToMusic: "Rechercher plutôt de la musique", searchModeSwitchToVideos: "Rechercher plutôt des vidéos", searchModeTryMusic: "Rechercher « {query} » dans la musique", searchModeTryVideos: "Rechercher « {query} » dans les vidéos",
 };
 
 const es: MusicMessages = {
@@ -163,6 +172,7 @@ const es: MusicMessages = {
   musicUpNextEmpty: "Aún no hay nada en la cola.",
   musicYourPlaylists: "Tus listas", musicSavedPlaylists: "Listas guardadas", musicRenamePlaylist: "Cambiar nombre", musicDeletePlaylistConfirm: "¿Eliminar «{name}»? Las canciones siguen donde estén fuera de ella.", musicPlaylistEmpty: "Aún no hay canciones. Añádelas con Añadir a una lista en el menú de cualquier canción.", musicRemoveFromPlaylist: "Quitar de la lista", musicActionFailed: "Algo salió mal. Inténtalo de nuevo.", musicAddToPlaylist: "Añadir a una lista", musicAddedToPlaylist: "Añadida a {name}", musicAlreadyInPlaylist: "Ya está en {name}",
   musicLevelling: "Igualar el volumen de las canciones", musicLevellingHint: "Baja las canciones fuertes al nivel de las más suaves, como hace YouTube.",
+  searchModeVideosPlaceholder: "Buscar vídeos y canales", searchModeSwitchToMusic: "Buscar música en su lugar", searchModeSwitchToVideos: "Buscar vídeos en su lugar", searchModeTryMusic: "Buscar «{query}» en música", searchModeTryVideos: "Buscar «{query}» en vídeos",
 };
 
 const ptBR: MusicMessages = {
@@ -186,6 +196,7 @@ const ptBR: MusicMessages = {
   musicUpNextEmpty: "Nada na fila ainda.",
   musicYourPlaylists: "Suas playlists", musicSavedPlaylists: "Playlists salvas", musicRenamePlaylist: "Renomear", musicDeletePlaylistConfirm: "Excluir “{name}”? As músicas continuam onde mais estiverem.", musicPlaylistEmpty: "Nenhuma música ainda. Adicione com Adicionar à playlist no menu de qualquer música.", musicRemoveFromPlaylist: "Remover da playlist", musicActionFailed: "Algo deu errado. Tente de novo.", musicAddToPlaylist: "Adicionar à playlist", musicAddedToPlaylist: "Adicionada a {name}", musicAlreadyInPlaylist: "Já está em {name}",
   musicLevelling: "Equalizar o volume das músicas", musicLevellingHint: "Abaixa as músicas mais altas para combinar com as mais baixas, como o YouTube faz.",
+  searchModeVideosPlaceholder: "Buscar vídeos e canais", searchModeSwitchToMusic: "Buscar músicas em vez disso", searchModeSwitchToVideos: "Buscar vídeos em vez disso", searchModeTryMusic: "Buscar “{query}” em músicas", searchModeTryVideos: "Buscar “{query}” em vídeos",
 };
 
 const ru: MusicMessages = {
@@ -209,6 +220,7 @@ const ru: MusicMessages = {
   musicUpNextEmpty: "В очереди пока пусто.",
   musicYourPlaylists: "Ваши плейлисты", musicSavedPlaylists: "Сохранённые плейлисты", musicRenamePlaylist: "Переименовать", musicDeletePlaylistConfirm: "Удалить «{name}»? Треки останутся там, где они есть ещё.", musicPlaylistEmpty: "Пока пусто. Добавляйте треки через «Добавить в плейлист» в меню любого трека.", musicRemoveFromPlaylist: "Убрать из плейлиста", musicActionFailed: "Что-то пошло не так. Попробуйте ещё раз.", musicAddToPlaylist: "Добавить в плейлист", musicAddedToPlaylist: "Добавлено в «{name}»", musicAlreadyInPlaylist: "Уже есть в «{name}»",
   musicLevelling: "Выравнивать громкость песен", musicLevellingHint: "Делает громкие песни тише, чтобы они звучали наравне с тихими, как на YouTube.",
+  searchModeVideosPlaceholder: "Поиск видео и каналов", searchModeSwitchToMusic: "Искать музыку", searchModeSwitchToVideos: "Искать видео", searchModeTryMusic: "Искать «{query}» в музыке", searchModeTryVideos: "Искать «{query}» в видео",
 };
 
 const ja: MusicMessages = {
@@ -232,6 +244,7 @@ const ja: MusicMessages = {
   musicUpNextEmpty: "キューはまだ空です。",
   musicYourPlaylists: "あなたのプレイリスト", musicSavedPlaylists: "保存したプレイリスト", musicRenamePlaylist: "名前を変更", musicDeletePlaylistConfirm: "「{name}」を削除しますか？曲はほかの場所に残ります。", musicPlaylistEmpty: "まだ曲がありません。曲のメニューの「プレイリストに追加」から追加できます。", musicRemoveFromPlaylist: "プレイリストから削除", musicActionFailed: "問題が発生しました。もう一度お試しください。", musicAddToPlaylist: "プレイリストに追加", musicAddedToPlaylist: "{name} に追加しました", musicAlreadyInPlaylist: "すでに {name} にあります",
   musicLevelling: "曲の音量をそろえる", musicLevellingHint: "YouTube と同じように、音の大きい曲を静かな曲に合わせて下げます。",
+  searchModeVideosPlaceholder: "動画とチャンネルを検索", searchModeSwitchToMusic: "音楽の検索に切り替え", searchModeSwitchToVideos: "動画の検索に切り替え", searchModeTryMusic: "「{query}」を音楽で検索", searchModeTryVideos: "「{query}」を動画で検索",
 };
 
 const hu: MusicMessages = {
@@ -255,6 +268,7 @@ const hu: MusicMessages = {
   musicUpNextEmpty: "A lejátszási sor még üres.",
   musicYourPlaylists: "Saját lejátszási listák", musicSavedPlaylists: "Mentett lejátszási listák", musicRenamePlaylist: "Átnevezés", musicDeletePlaylistConfirm: "Törlöd: „{name}”? A dalok máshol megmaradnak.", musicPlaylistEmpty: "Még nincs dal. Bármelyik dal menüjében a Hozzáadás lejátszási listához paranccsal adhatsz hozzá.", musicRemoveFromPlaylist: "Eltávolítás a listából", musicActionFailed: "Hiba történt. Próbáld újra.", musicAddToPlaylist: "Hozzáadás lejátszási listához", musicAddedToPlaylist: "Hozzáadva: {name}", musicAlreadyInPlaylist: "Már benne van: {name}",
   musicLevelling: "Dalok hangerejének kiegyenlítése", musicLevellingHint: "A hangos dalokat a halkabbakhoz igazítja, ahogy a YouTube is.",
+  searchModeVideosPlaceholder: "Videók és csatornák keresése", searchModeSwitchToMusic: "Inkább zene keresése", searchModeSwitchToVideos: "Inkább videók keresése", searchModeTryMusic: "„{query}” keresése a zenék között", searchModeTryVideos: "„{query}” keresése a videók között",
 };
 
 export const musicMessages = { en, pl, de, fr, es, "pt-BR": ptBR, ru, ja, hu };

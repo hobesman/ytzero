@@ -41,7 +41,6 @@
 .music-track__liked { width: 16px; height: 16px; color: var(--accent); fill: currentColor; flex: none; }
 .music-track__time { color: var(--text-3); font-size: 0.8125rem; font-variant-numeric: tabular-nums; flex: none; }
 
-.music-search { max-width: 640px; }
 
 .music-detail { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; position: relative; }
 .music-detail__back { align-self: flex-start; }
