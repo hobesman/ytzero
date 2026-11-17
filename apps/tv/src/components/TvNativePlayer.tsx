@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createVideoPlayer, VideoView, type VideoPlayer } from "expo-video";
-import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Text, View, type ViewProps } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
@@ -18,6 +18,7 @@ import { useMiniPlayerSlot, usePlayerWindowSlot } from "./MiniPlayerHost";
 import { setPhoneImmersive } from "../phoneOrientation";
 import { leavesIntoPictureInPicture, onPictureInPictureDismiss } from "../pictureInPicture";
 import { TvMiniPlayer } from "./TvMiniPlayer";
+import { useFullscreenGestures } from "../phone/useFullscreenGestures";
 import { PlaybackWaitOverlay } from "./PlaybackWaitOverlay";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
@@ -610,6 +611,9 @@ export function TvNativePlayer(props: Props) {
 
   const currentVideo = active?.video ?? video;
   const inline = presentation === "inline";
+  // The phone's fullscreen player adds swipes for brightness and volume, and taps that jump.
+  const gesturesOn = Platform.OS === "android" && inline && !!props.fullscreenActive;
+  const gestures = useFullscreenGestures({ enabled: gesturesOn, player: active?.player ?? null, t, onTap: toggleSpeedButton });
   const showButtons = presented && !dismissing && speedButton;
   const qualityLabels = { auto: t("qualityAuto"), fast: t("qualityFast") };
   const qualityLabel = qualityButtonLabel(quality, trackHeight, qualityLabels);
@@ -617,12 +621,14 @@ export function TvNativePlayer(props: Props) {
     <View style={styles.video}>
     {/* A tap shows or hides ExoPlayer's controls; the app's buttons follow it. The
         buttons sit outside this view, so pressing them doesn't count as a tap. */}
-    <View style={styles.video} onTouchStart={({ nativeEvent }) => { touchStart.current = { x: nativeEvent.pageX, y: nativeEvent.pageY, time: Date.now() }; }}
-      onTouchEnd={({ nativeEvent }) => {
+    <View style={styles.video} {...(gesturesOn ? gestures.handlers : {
+      onTouchStart: ({ nativeEvent }) => { touchStart.current = { x: nativeEvent.pageX, y: nativeEvent.pageY, time: Date.now() }; },
+      onTouchEnd: ({ nativeEvent }) => {
         const start = touchStart.current;
         touchStart.current = null;
         if (start && Date.now() - start.time < tapDuration && Math.hypot(nativeEvent.pageX - start.x, nativeEvent.pageY - start.y) < tapSlop) toggleSpeedButton();
-      }}>
+      },
+    } satisfies ViewProps)}>
     <VideoView ref={view} player={active?.player ?? null} style={styles.video} nativeControls contentFit="contain"
       fullscreenOptions={{ enable: presentsNativeFullscreen }} allowsPictureInPicture={false}
       // Leaving the app while a video plays floats it over other apps; a paused one stays behind.
@@ -635,6 +641,7 @@ export function TvNativePlayer(props: Props) {
         setPresented(false);
         if (!failure.current) void close();
       }} />
+    {gestures.overlay}
     </View>
     {ownsSpeedControl && presented && !error && !dismissing ? <PlaybackWaitOverlay entry={active} t={t} /> : null}
     {skippedNotice && presented ? <View pointerEvents="none" style={[styles.skippedNotice, inline && !props.fullscreenActive && styles.inlineSkippedNotice]}>

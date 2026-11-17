@@ -5,6 +5,8 @@ type Messages = {
   miniPlayerExpand: string; miniPlayerClose: string; miniPlayerPlay: string; miniPlayerPause: string;
   navLibrary: string; phoneLayout: string; phoneLayoutHint: string; landscapeLayout: string; landscapeLayoutHint: string; lowResource: string; lowResourceHint: string; account: string;
   enterFullscreen: string; exitFullscreen: string;
+  /** The fullscreen player's swipe and tap overlay. `{seconds}` stays. */
+  playerBrightness: string; playerVolume: string; seekBackSeconds: string; seekForwardSeconds: string;
   addProfile: string; savedProfileExpired: string;
   passwordSignIn: string; username: string; password: string; signIn: string; invalidCredentials: string; tooManyAttempts: string; passwordSignInUnavailable: string;
 };
@@ -28,6 +30,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "This profile's sign-in has expired. Add it again to use it here.",
     enterFullscreen: "Full screen",
     exitFullscreen: "Exit full screen",
+    playerBrightness: "Brightness", playerVolume: "Volume", seekBackSeconds: "−{seconds} s", seekForwardSeconds: "+{seconds} s",
     navLibrary: "Library",
     phoneLayout: "Phone layout",
     phoneLayoutHint: "Use the layout designed for phones. Turn off for the TV layout.",
@@ -62,6 +65,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "Logowanie tego profilu wygasło. Dodaj go ponownie, aby z niego korzystać.",
     enterFullscreen: "Pełny ekran",
     exitFullscreen: "Zamknij pełny ekran",
+    playerBrightness: "Jasność", playerVolume: "Głośność", seekBackSeconds: "−{seconds} s", seekForwardSeconds: "+{seconds} s",
     navLibrary: "Biblioteka",
     phoneLayout: "Układ na telefon",
     phoneLayoutHint: "Używaj układu zaprojektowanego dla telefonów. Wyłącz, aby używać układu TV.",
@@ -96,6 +100,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "Die Anmeldung dieses Profils ist abgelaufen. Füge es erneut hinzu, um es hier zu verwenden.",
     enterFullscreen: "Vollbild",
     exitFullscreen: "Vollbild beenden",
+    playerBrightness: "Helligkeit", playerVolume: "Lautstärke", seekBackSeconds: "−{seconds} s", seekForwardSeconds: "+{seconds} s",
     navLibrary: "Mediathek",
     phoneLayout: "Smartphone-Layout",
     phoneLayoutHint: "Das für Smartphones gestaltete Layout verwenden. Ausschalten für das TV-Layout.",
@@ -130,6 +135,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "La connexion de ce profil a expiré. Ajoutez-le à nouveau pour l’utiliser ici.",
     enterFullscreen: "Plein écran",
     exitFullscreen: "Quitter le plein écran",
+    playerBrightness: "Luminosité", playerVolume: "Volume", seekBackSeconds: "−{seconds} s", seekForwardSeconds: "+{seconds} s",
     navLibrary: "Bibliothèque",
     phoneLayout: "Disposition téléphone",
     phoneLayoutHint: "Utiliser la disposition conçue pour les téléphones. Désactivez-la pour la disposition TV.",
@@ -164,6 +170,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "El inicio de sesión de este perfil ha caducado. Vuelve a añadirlo para usarlo aquí.",
     enterFullscreen: "Pantalla completa",
     exitFullscreen: "Salir de pantalla completa",
+    playerBrightness: "Brillo", playerVolume: "Volumen", seekBackSeconds: "−{seconds} s", seekForwardSeconds: "+{seconds} s",
     navLibrary: "Biblioteca",
     phoneLayout: "Diseño para teléfono",
     phoneLayoutHint: "Usa el diseño pensado para teléfonos. Desactívalo para usar el diseño de TV.",
@@ -198,6 +205,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "O login deste perfil expirou. Adicione-o novamente para usá-lo aqui.",
     enterFullscreen: "Tela cheia",
     exitFullscreen: "Sair da tela cheia",
+    playerBrightness: "Brilho", playerVolume: "Volume", seekBackSeconds: "−{seconds} s", seekForwardSeconds: "+{seconds} s",
     navLibrary: "Biblioteca",
     phoneLayout: "Layout para celular",
     phoneLayoutHint: "Use o layout feito para celulares. Desative para usar o layout de TV.",
@@ -232,6 +240,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "Срок входа в этот профиль истёк. Добавьте его снова, чтобы пользоваться им здесь.",
     enterFullscreen: "Во весь экран",
     exitFullscreen: "Выйти из полноэкранного режима",
+    playerBrightness: "Яркость", playerVolume: "Громкость", seekBackSeconds: "−{seconds} с", seekForwardSeconds: "+{seconds} с",
     navLibrary: "Библиотека",
     phoneLayout: "Макет для телефона",
     phoneLayoutHint: "Использовать макет для телефонов. Отключите, чтобы использовать макет для ТВ.",
@@ -266,6 +275,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "このプロフィールのサインインの有効期限が切れました。ここで使うにはもう一度追加してください。",
     enterFullscreen: "全画面表示",
     exitFullscreen: "全画面表示を終了",
+    playerBrightness: "明るさ", playerVolume: "音量", seekBackSeconds: "−{seconds}秒", seekForwardSeconds: "+{seconds}秒",
     navLibrary: "ライブラリ",
     phoneLayout: "スマートフォン用レイアウト",
     phoneLayoutHint: "スマートフォン向けのレイアウトを使います。オフにするとテレビ用レイアウトになります。",
@@ -300,6 +310,7 @@ export const phoneMessages: Record<Language, Messages> = {
     savedProfileExpired: "A profil bejelentkezése lejárt. Add hozzá újra, hogy itt használhasd.",
     enterFullscreen: "Teljes képernyő",
     exitFullscreen: "Kilépés a teljes képernyőből",
+    playerBrightness: "Fényerő", playerVolume: "Hangerő", seekBackSeconds: "−{seconds} mp", seekForwardSeconds: "+{seconds} mp",
     navLibrary: "Könyvtár",
     phoneLayout: "Telefonos elrendezés",
     phoneLayoutHint: "A telefonokra tervezett elrendezés használata. Kapcsold ki a TV-elrendezéshez.",
