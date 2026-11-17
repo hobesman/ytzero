@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View, type ImageSourcePropType } from "react-native";
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ImageSourcePropType } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import type { YtZeroApi } from "../api";
 import { formatVideoDuration } from "../duration";
@@ -47,8 +47,11 @@ export function PhoneWatchBody(props: Props) {
     return cached;
   }, [api]);
   const channelAvatar = source(video.channel_thumbnail);
+  // A sideways phone that isn't fullscreen yet (paused, still loading, or just unlocked) would make a
+  // full-width 16:9 box taller than the screen, and the player would show its middle cropped.
+  const { height: windowHeight } = useWindowDimensions();
   return <View style={styles.screen}>
-    <View style={fullscreen ? styles.fill : styles.hero}>
+    <View style={[fullscreen ? styles.fill : styles.hero, { maxHeight: windowHeight }]}>
       {playing ? props.player : <Pressable accessibilityRole="button" accessibilityLabel={t("playVideo")} style={styles.fill} onPress={() => props.onPlay(startAt)}>
         {video.thumbnail ? <Image source={source(video.thumbnail)!} style={styles.fill} resizeMode="cover" /> : null}
         <View style={styles.playShade}><View style={styles.playCircle}>
