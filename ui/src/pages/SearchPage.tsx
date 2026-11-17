@@ -11,6 +11,7 @@ import { STATE_ONLY_FEEDBACK } from "../videoCardKeep";
 import { VideoGridSkeleton } from "../components/LoadingState";
 import { EmptyState, RevealList } from "../components/ui";
 import { searchResultVideo } from "../searchResultVideo";
+import SearchResultsHeading from "../components/SearchResultsHeading";
 
 function normalizeSearchText(value: string) {
   return value
@@ -20,7 +21,7 @@ function normalizeSearchText(value: string) {
     .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
-export default function SearchPage({ onPlay, hideExternalSearch = false }: { onPlay: (video: Video) => void; hideExternalSearch?: boolean }) {
+export default function SearchPage({ onPlay, hideExternalSearch = false, musicAvailable = true }: { onPlay: (video: Video) => void; hideExternalSearch?: boolean; musicAvailable?: boolean }) {
   const { t } = useI18n();
   const [params] = useSearchParams();
   const q = params.get("q")?.trim() ?? "";
@@ -97,7 +98,7 @@ export default function SearchPage({ onPlay, hideExternalSearch = false }: { onP
 
   return (
     <div className="search-page">
-      <p className="search-info">{t("searchResultsFor")} <b>{q}</b></p>
+      <SearchResultsHeading query={q} mode="videos" offerOther={musicAvailable} />
 
       {(localLoading || localChannels.length > 0 || videos.length > 0) && (
         <section className="search-results-section search-results-section--local">

@@ -1,12 +1,13 @@
-import { type FormEvent, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Menu, Play, RefreshCw, Search } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, Play, RefreshCw } from "lucide-react";
 import type { ProfilePermissions } from "../api";
 import { emit, subscribe } from "../events";
 import ProfileMenu from "../components/ProfileMenu";
 import { useI18n } from "../i18n";
 import { toggleSidebar } from "./sidebarVisibility";
 import SessionPlayQueueMenu from "./SessionPlayQueueMenu";
+import TopBarSearch from "./TopBarSearch";
 
 function SpyLogo() {
   return (
@@ -46,17 +47,12 @@ export default function AppTopBar({
   onIncognitoChange,
 }: AppTopBarProps) {
   const { t } = useI18n();
-  const navigate = useNavigate();
   const location = useLocation();
-  const [params] = useSearchParams();
-  const [q, setQ] = useState(params.get("q") ?? "");
   const [solid, setSolid] = useState(window.scrollY > 8);
   const [feedRefreshing, setFeedRefreshing] = useState(false);
   const feedRefreshStartedAtRef = useRef(0);
   const feedRefreshFinishTimerRef = useRef<number | null>(null);
   const scrollAfterFeedRefreshRef = useRef(false);
-
-  useEffect(() => setQ(params.get("q") ?? ""), [params]);
 
   useEffect(() => {
     const onScroll = () => setSolid(window.scrollY > 8);
@@ -97,11 +93,6 @@ export default function AppTopBar({
     };
   }, []);
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    navigate(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : "/");
-  };
-
   return (
     <div
       className={`topbar${solid ? " topbar--solid" : ""}${incognito ? " topbar--incognito" : ""}${feedRefreshing ? " topbar--feed-refreshing" : ""}`}
@@ -141,12 +132,7 @@ export default function AppTopBar({
         <span className="logo-text">{appName}</span>
       </Link>
       <span className="topbar-refresh-progress" aria-hidden="true" />
-      <form className="search-wrap" onSubmit={submit}>
-        <input placeholder={t("searchPlaceholder")} value={q} onChange={(event) => setQ(event.target.value)} />
-        <button type="submit" className="search-btn" aria-label={t("search")}>
-          <Search />
-        </button>
-      </form>
+      <TopBarSearch musicAvailable={!isChildProfile} />
       <SessionPlayQueueMenu />
       <ProfileMenu
         isAdmin={isAdmin}
