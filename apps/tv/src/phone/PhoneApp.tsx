@@ -20,6 +20,7 @@ import { PhoneFollowedPlaylistsScreen, PhonePlaylistScreen } from "./PhonePlayli
 import { PhoneSearchScreen } from "./PhoneSearchScreen";
 import { PhoneSettingsScreen, type PhoneSettings } from "./PhoneSettingsScreen";
 import { PhoneSideRail } from "./PhoneSideRail";
+import { PhoneSubscriptionsScreen } from "./PhoneSubscriptionsScreen";
 import { useLandscapeLayout } from "../landscapeLayout";
 import { phoneColors, phoneMetrics, phoneType } from "./phoneTheme";
 
@@ -33,7 +34,8 @@ type Pushed =
   | { kind: "playlists"; title: string }
   | { kind: "playlist"; id: string; title: string }
   | { kind: "channel"; id: string }
-  | { kind: "phoneDownloads" };
+  | { kind: "phoneDownloads" }
+  | { kind: "subscriptions" };
 
 const libraryDestinations = new Set<string>(["/watchlist", "/followed-playlists", "/downloads", "/liked", "/bookmarks", "/archive", "/recommendations", "/shorts"]);
 
@@ -97,16 +99,17 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   };
 
   const title = !top ? tab === "search" ? t("searchTitle") : tab === "live" ? t("navLive") : tab === "library" ? t("navLibrary") : brandName
-    : top.kind === "settings" ? t("navSettings") : top.kind === "channel" || top.kind === "playlist" ? "" : top.kind === "phoneDownloads" ? t("downloadsOnPhone") : top.title;
+    : top.kind === "settings" ? t("navSettings") : top.kind === "channel" || top.kind === "playlist" ? "" : top.kind === "phoneDownloads" ? t("downloadsOnPhone") : top.kind === "subscriptions" ? t("navSubscriptions") : top.title;
   const tabScreen = (key: Tab): ReactNode => {
     if (key === "search") return <PhoneSearchScreen api={api} language={language} t={t} onOpen={onOpen} onOpenChannel={openChannel} onVideoLongPress={onVideoLongPress} />;
     if (key === "live") return <PhoneFeedScreen api={api} destination="/live" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
-    if (key === "library") return <View>{phoneDownloads.available ? <PhoneListRow title={t("downloadsOnPhone")}
+    if (key === "library") return <View><PhoneListRow title={t("navSubscriptions")} icon={<SidebarIcon name="subscriptions" color={phoneColors.text} size={22} />}
+      onPress={() => push({ kind: "subscriptions" })} />{phoneDownloads.available ? <PhoneListRow title={t("downloadsOnPhone")}
       icon={<SidebarIcon name="downloads" color={phoneColors.text} size={22} />} onPress={() => push({ kind: "phoneDownloads" })} /> : null}{library.map((item) => <PhoneListRow key={item.key} title={t(item.labelKey)}
       icon={<SidebarIcon name={item.icon} color={phoneColors.text} size={22} />} onPress={() => openLibraryItem(item)} />)}</View>;
     return <PhoneFeedScreen api={api} destination="/" sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
   };
-  const pushedScreen = (screen: Pushed): ReactNode => {
+  const pushedScreen = (screen: Pushed, active: boolean): ReactNode => {
     switch (screen.kind) {
       case "feed": return <PhoneFeedScreen api={api} destination={screen.destination} sort={sort} language={language} t={t} onOpen={onOpen} videoUpdate={videoUpdate} onVideoLongPress={onVideoLongPress} />;
       case "settings": return <PhoneSettingsScreen api={api} settings={settings} t={t} />;
@@ -114,6 +117,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
       case "playlists": return <PhoneFollowedPlaylistsScreen api={api} t={t} onOpenPlaylist={(playlist) => push({ kind: "playlist", id: playlist.playlist_id, title: playlist.title })} />;
       case "playlist": return <PhonePlaylistScreen api={api} playlistId={screen.id} language={language} t={t} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
       case "phoneDownloads": return <PhoneDownloadsScreen api={api} t={t} language={language} onOpen={(video) => onOpen(video)} />;
+      case "subscriptions": return <PhoneSubscriptionsScreen api={api} t={t} active={active} onOpenChannel={openChannel} />;
       case "channel": return <PhoneChannelScreen api={api} channelId={screen.id} language={language} t={t} shortsEnabled={shortsEnabled} videoUpdate={videoUpdate} onOpen={onOpen} onVideoLongPress={onVideoLongPress} />;
     }
   };
@@ -135,7 +139,7 @@ export function PhoneApp({ api, t, language, hidden, brandName, brandColor, prof
   </Pressable>;
   const body = <View style={styles.body}>
     {tabKeys.filter((key) => visited.has(key)).map((key) => <View key={key} style={[styles.layer, (top || key !== tab) && styles.gone]}>{tabScreen(key)}</View>)}
-    {stack.map((screen, index) => <View key={`${index}:${screen.kind}`} style={[styles.layer, index !== stack.length - 1 && styles.gone]}>{pushedScreen(screen)}</View>)}
+    {stack.map((screen, index) => <View key={`${index}:${screen.kind}`} style={[styles.layer, index !== stack.length - 1 && styles.gone]}>{pushedScreen(screen, index === stack.length - 1)}</View>)}
   </View>;
   const accountSheet = account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
     modeSwitch={onSwitchToMusic ? { music: false, onPress: onSwitchToMusic } : undefined}

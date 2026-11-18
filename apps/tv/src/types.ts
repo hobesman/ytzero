@@ -62,6 +62,8 @@ export type Channel = {
   tags: Tag[];
   watch_count?: number;
   is_live?: number;
+  /** From the subscriptions list (`GET /channels`). */
+  latest_video_at?: string | null;
 };
 
 export type ChannelAbout = {

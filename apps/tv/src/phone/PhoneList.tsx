@@ -30,7 +30,7 @@ export function PhoneGroupTitle({ title }: { title: string }) {
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 56, paddingHorizontal: 16, paddingVertical: 10 },
   pressed: { backgroundColor: "rgba(255,255,255,0.08)" },
-  icon: { width: 26, alignItems: "center" },
+  icon: { minWidth: 26, alignItems: "center" },
   copy: { flex: 1, gap: 2 },
   title: { ...phoneType.body, fontSize: 15, color: phoneColors.text },
   danger: { color: phoneColors.danger },
