@@ -102,6 +102,7 @@ describe("progressive direct video stream", () => {
       downloadCookiesFile: () => "cookies.txt",
       ytdlpStatus: async () => "test",
       now: () => 1_000,
+      freshUrlPollMs: 1,
       spawn: (() => {
         spawns++;
         return {
@@ -119,6 +120,39 @@ describe("progressive direct video stream", () => {
 
     expect((await streaming.getDirectVideoResponse(1, "video", "bytes=0-0"))?.status).toBe(206);
     expect(fetches).toBe(2);
+    expect(spawns).toBe(1);
+  });
+
+  test("keeps retrying a refused new URL until yt-dlp's available_at, without a new lookup", async () => {
+    let spawns = 0;
+    let fetches = 0;
+    let clock = 1_000_000;
+    const streaming = createDownloadVideoProgressiveStreaming({
+      YTDLP: "yt-dlp",
+      downloadCookiesConfigured: () => true,
+      downloadCookiesFile: () => "cookies.txt",
+      ytdlpStatus: async () => "test",
+      now: () => clock,
+      freshUrlPollMs: 1,
+      spawn: ((command: string[]) => {
+        spawns++;
+        expect(command).toContain("%(available_at)s");
+        return {
+          // YouTube serves this address 20 s after the lookup.
+          stdout: new Response(`https://r1.googlevideo.com/video?expire=9999999999\nmp4\navc1.64001f\nmp4a.40.2\n{"User-Agent":"signed-client"}\n${clock / 1000 + 20}\n`).body!,
+          stderr: new Response("").body!, exited: Promise.resolve(0), kill: () => {},
+        };
+      }) as unknown as typeof Bun.spawn,
+      fetchImpl: (async (_input, init) => {
+        fetches++;
+        const live = clock >= 1_020_000;
+        clock += 2_000;
+        return live ? ranged(new Headers(init?.headers).get("range")) : new Response(null, { status: 403 });
+      }) as typeof fetch,
+    });
+
+    expect((await streaming.getDirectVideoResponse(1, "video", "bytes=0-0"))?.status).toBe(206);
+    expect(fetches).toBe(11);
     expect(spawns).toBe(1);
   });
 });

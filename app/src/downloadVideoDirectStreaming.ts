@@ -7,6 +7,7 @@ import { parseMediaSidx, type MediaSidxIndex } from "./mediaSidx";
 import { ytdlpAttemptArgs } from "./downloadConfig";
 import { parseYtdlpHttpHeaders, rangedYtdlpHeaders, type YtdlpHttpHeaders } from "./ytdlpHttpHeaders";
 import { MediaRequestQueue } from "./mediaRequestQueue";
+import { freshUrlDeadline, FRESH_URL_POLL_MS, parseAvailableAt, retryWhileFresh } from "./freshStreamUrl";
 import {
   createVideoVodPresentation,
   DIRECT_VIDEO_HLS_MAX_RANGE_BYTES,
@@ -30,6 +31,8 @@ interface DownloadVideoDirectStreamingDependencies {
   now?: () => number;
   resolveTimeoutMs?: number;
   rangeTimeoutMs?: number;
+  /** Time between retries of a refused just-issued address; tests shorten it. */
+  freshUrlPollMs?: number;
 }
 
 interface YtdlpFormat {
@@ -49,6 +52,7 @@ interface YtdlpFormat {
   filesize_approx?: unknown;
   audio_channels?: unknown;
   http_headers?: unknown;
+  available_at?: unknown;
 }
 
 interface YtdlpSelection {
@@ -70,6 +74,10 @@ export interface DirectVideoMediaSource {
   bitrate: number | null;
   channels: number | null;
   httpHeaders: YtdlpHttpHeaders;
+  /** When yt-dlp returned the address. */
+  issuedAt: number;
+  /** When YouTube starts serving it, as yt-dlp reports; null when it says nothing. */
+  availableAt: number | null;
 }
 
 interface DirectVideoSources {
@@ -210,6 +218,8 @@ function selectedSource(format: YtdlpFormat, kind: "audio" | "video", now: numbe
     bitrate: bitrate == null ? null : bitrate * 1000,
     channels: numberOrNull(format.audio_channels),
     httpHeaders,
+    issuedAt: now,
+    availableAt: parseAvailableAt(format.available_at),
   };
   if (kind === "video" && (result.width == null || result.width <= 0 || result.height == null || result.height <= 0
     || result.fps == null || result.fps <= 0 || result.bitrate == null || result.bitrate <= 0)) return null;
@@ -306,6 +316,7 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     now = Date.now,
     resolveTimeoutMs = DEFAULT_RESOLVE_TIMEOUT_MS,
     rangeTimeoutMs = DEFAULT_RANGE_TIMEOUT_MS,
+    freshUrlPollMs = FRESH_URL_POLL_MS,
   } = dependencies;
   const sourceCache = new Map<string, CachedResolution>();
   const sourceResolutions = new Map<string, SharedOperation<SourceResolutionResult>>();
@@ -557,6 +568,24 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     return { kind: "failed", reason: signal.aborted ? "aborted" : "index_too_large" };
   }
 
+  /**
+   * readIndex, retried every couple of seconds while YouTube still refuses a
+   * just-issued address (see freshStreamUrl.ts), instead of giving it up.
+   */
+  async function readLiveIndex(source: DirectVideoMediaSource, signal: AbortSignal, userId: number, videoId: string) {
+    const { result, waitedMs } = await retryWhileFresh(
+      () => readIndex(source, signal),
+      (attempt) => attempt.kind === "failed" && attempt.reason === "http_403",
+      freshUrlDeadline(source.issuedAt, source.availableAt),
+      { now, pollMs: freshUrlPollMs, signal },
+    );
+    if (waitedMs > 0 && !signal.aborted) log.info("downloads.direct_stream_waited_for_fresh_url", {
+      userId, videoId, formatId: source.formatId, waitedMs, live: result.kind !== "failed",
+      availableInMs: source.availableAt == null ? null : source.availableAt - source.issuedAt,
+    });
+    return result;
+  }
+
   function presentationFor(videoId: string, quality: string, sources: DirectVideoSources, video: IndexedSource, audio: IndexedSource) {
     const generation = createHash("sha256").update([
       video.fingerprint,
@@ -594,19 +623,23 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     if (resolution.kind === "failed" || signal.aborted) return { kind: "failed" };
     let sources = resolution.sources;
     let [video, audio] = await Promise.all([
-      readIndex(sources.video, signal),
-      readIndex(sources.audio, signal),
+      readLiveIndex(sources.video, signal, userId, videoId),
+      readLiveIndex(sources.audio, signal, userId, videoId),
     ]);
     // YouTube can list the adaptive streams for an anonymous request and then
-    // refuse to serve them. With the profile's cookies the same streams usually
-    // play, so resolve again with them; success makes cookies first for a while.
+    // refuse to serve them even past their wait. With the profile's cookies the
+    // same streams usually play, so resolve again with them; success makes
+    // cookies first for a while.
     const refused = (result: typeof video) => result.kind === "failed" && result.reason === "http_403";
     if (!signal.aborted && !sources.usedCookies && (refused(video) || refused(audio)) && downloadCookiesConfigured(userId)) {
       log.info("downloads.direct_stream_cookie_retry", { userId, videoId });
       const retried = await resolveSources(userId, videoId, signal, true, true, quality);
       if (retried.kind === "sources" && !signal.aborted) {
         sources = retried.sources;
-        [video, audio] = await Promise.all([readIndex(sources.video, signal), readIndex(sources.audio, signal)]);
+        [video, audio] = await Promise.all([
+          readLiveIndex(sources.video, signal, userId, videoId),
+          readLiveIndex(sources.audio, signal, userId, videoId),
+        ]);
         if (video.kind !== "failed" && audio.kind !== "failed") recordDownloadAttempt(userId, true, true, true);
       }
     }
@@ -704,11 +737,19 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
         });
       sessionBuilds.set(key, current);
     }
-    const current = operation;
-    return waitFor(current, signal, { kind: "failed" }, () => {
-      if (sessionBuilds.get(key) === current) sessionBuilds.delete(key);
-      current.controller.abort();
-    });
+    // A build outlives the request that started it. A new address can take
+    // half a minute to go live, longer than a player waits for one playlist
+    // request, so its retry (or a prefetch) joins the build already under way
+    // instead of starting over with a new lookup. Its own timeouts bound it.
+    return waitFor(operation, signal, { kind: "failed" }, () => {});
+  }
+
+  /**
+   * Prepares a video's stream in the background so that playing it later
+   * starts at once; a later request for it joins this one.
+   */
+  function prepareDirectHls(userId: number, videoId: string, quality = ""): Promise<DirectVideoPlaylistResult["kind"]> {
+    return getDirectHlsPlaylist(userId, videoId, "index.m3u8", undefined, null, quality).then((result) => result.kind);
   }
 
   async function refreshSession(session: DirectVideoSession, signal?: AbortSignal): Promise<DirectVideoSession | null> {
@@ -737,8 +778,8 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
             return null;
           }
           const [video, audio] = await Promise.all([
-            readIndex(sources.video, controller.signal),
-            readIndex(sources.audio, controller.signal),
+            readLiveIndex(sources.video, controller.signal, session.userId, session.videoId),
+            readLiveIndex(sources.audio, controller.signal, session.userId, session.videoId),
           ]);
           if (video.kind !== "ok" || audio.kind !== "ok") {
             if (attempt === 1 && !controller.signal.aborted) continue;
@@ -1009,10 +1050,17 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     }
   }
 
+  /** Whether the video's stream is ready, so playing it needs no lookup. */
+  function directHlsReady(userId: number, videoId: string, quality = ""): boolean {
+    return sessions.has(keyFor(userId, videoId, quality === "auto" ? "" : quality));
+  }
+
   return {
+    directHlsReady,
     getDirectHlsPlaylist,
     getDirectHlsResource,
     hasDirectHlsSession,
+    prepareDirectHls,
     invalidateDirectHlsSession,
     invalidateDirectHlsSources,
     resetDirectHlsSessions,

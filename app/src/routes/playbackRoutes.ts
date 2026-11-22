@@ -1,6 +1,7 @@
 import type { Context, Hono } from "hono";
 import { database } from "../database";
 import { parsePlaybackContext, playbackContextBelongsToUser } from "../playbackContext";
+import { directStreamPrefetcher } from "../nativePlayback";
 import { resolveAdjacentPlaybackVideoId } from "../playbackAdjacent";
 import { videoExistsStmt } from "../videoRoutesSupport";
 
@@ -37,6 +38,9 @@ export function registerPlaybackRoutes(api: Api, currentUserId: (context: ApiCon
     if (!context || !await contextOwnedBy(context, uid)) return c.json({ video_id: null });
     const direction = body.direction === "oldest" ? "oldest" : "newest";
     const relative = body.relative === "previous" ? "previous" : "next";
-    return c.json({ video_id: await resolveAdjacentPlaybackVideoId(uid, body.video_id, context, direction, relative) });
+    const videoId = await resolveAdjacentPlaybackVideoId(uid, body.video_id, context, direction, relative);
+    // Prepare up next while this video plays, so the next one starts at once.
+    if (videoId && relative === "next") void directStreamPrefetcher.prefetchUpNext(uid, videoId, context, direction).catch(() => {});
+    return c.json({ video_id: videoId });
   });
 }
