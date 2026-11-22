@@ -90,8 +90,9 @@ function fakeProcess(stdout: string, exitCode = 0, stderr = "temporary extractio
   } as unknown as ReturnType<typeof Bun.spawn>;
 }
 
-function selection(version: number): string {
+function selection(version: number, options: { availableAt?: number } = {}): string {
   const expires = 9_999_999_999;
+  const available = options.availableAt == null ? {} : { available_at: options.availableAt };
   return JSON.stringify({
     duration: 12,
     http_headers: { "User-Agent": "yt-dlp-test-agent", "Accept-Language": "en-US" },
@@ -107,6 +108,7 @@ function selection(version: number): string {
         height: 1080,
         fps: 30,
         vbr: 4_000,
+        ...available,
       },
       {
         format_id: "140",
@@ -117,6 +119,7 @@ function selection(version: number): string {
         acodec: "mp4a.40.2",
         abr: 128,
         audio_channels: 2,
+        ...available,
       },
     ],
   });
@@ -151,6 +154,7 @@ function directDependencies(spawn: typeof Bun.spawn, fetchImpl: typeof fetch) {
     videoAvailable: async () => true,
     spawn,
     fetchImpl,
+    freshUrlPollMs: 1,
   };
 }
 
@@ -202,6 +206,57 @@ describe("direct no-transcode video HLS", () => {
     expect((await streaming.getDirectHlsPlaylist(1, "refused", "index.m3u8")).kind).toBe("failed");
     expect(spawned).toEqual([false]);
     streaming.resetDirectHlsSessions();
+  });
+
+  test("waits for a just-issued address YouTube refuses at first instead of looking it up again", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    let spawns = 0;
+    const spawn = (() => { spawns++; return fakeProcess(selection(1)); }) as unknown as typeof Bun.spawn;
+    const requests = new Map<string, number>();
+    // Each address is refused for its first three requests, then served for good.
+    const fetchImpl = (async (input, init) => {
+      const url = String(input).split("?")[0];
+      const count = (requests.get(url) ?? 0) + 1;
+      requests.set(url, count);
+      return count <= 3 ? new Response(null, { status: 403 }) : rangedResponse(media.bytes, new Headers(init?.headers).get("range"));
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({ ...directDependencies(spawn, fetchImpl), downloadCookiesConfigured: () => true });
+    expect((await streaming.getDirectHlsPlaylist(1, "warming", "index.m3u8")).kind).toBe("playlist");
+    // One lookup, no cookie retry: the same addresses were simply asked again.
+    expect(spawns).toBe(1);
+    // Three refusals, then the index reads (more than one when the index is large).
+    expect(requests.get("https://r1.googlevideo.com/video-v1")).toBeGreaterThanOrEqual(4);
+    expect(requests.get("https://r1.googlevideo.com/audio-v1")).toBeGreaterThanOrEqual(4);
+    streaming.resetDirectHlsSessions();
+    resetDownloadAttemptPreferences();
+  });
+
+  test("stops waiting on a refused address and looks it up with cookies once its wait is over", async () => {
+    const media = mediaFixture([6_000, 6_000], [2_000, 2_000]);
+    const spawned: boolean[] = [];
+    let clock = 1_000_000;
+    const spawn = ((command: string[]) => {
+      const withCookies = command.includes("--cookies");
+      spawned.push(withCookies);
+      return fakeProcess(selection(withCookies ? 2 : 1, { availableAt: clock / 1000 + 10 }));
+    }) as unknown as typeof Bun.spawn;
+    let anonymousRequests = 0;
+    const fetchImpl = (async (input, init) => {
+      if (!String(input).includes("-v1?")) return rangedResponse(media.bytes, new Headers(init?.headers).get("range"));
+      anonymousRequests++;
+      clock += 4_000; // every retry of the refused address takes four seconds
+      return new Response(null, { status: 403 });
+    }) as typeof fetch;
+    const streaming = createDownloadVideoDirectStreaming({
+      ...directDependencies(spawn, fetchImpl), downloadCookiesConfigured: () => true, now: () => clock,
+    });
+    expect((await streaming.getDirectHlsPlaylist(1, "refused", "index.m3u8")).kind).toBe("playlist");
+    expect(spawned).toEqual([false, true]);
+    // available_at 10 s plus 5 s grace, at 4 s a request for each of the two streams: a handful, not forever.
+    expect(anonymousRequests).toBeGreaterThan(2);
+    expect(anonymousRequests).toBeLessThan(12);
+    streaming.resetDirectHlsSessions();
+    resetDownloadAttemptPreferences();
   });
 
   test("bounds missing-format retries and never caches them as confirmed incompatibility", async () => {

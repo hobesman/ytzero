@@ -2,6 +2,7 @@ import { audioRangeHeader, parseAudioRange, parseAudioUnsatisfiedTotal, validate
 import { fetchGoogleVideoResponse, safeGoogleVideoUrl } from "./audioUpstreamUrl";
 import { downloadCookieAttempts, isAnonymousAddressRefusal, recordDownloadAttempt } from "./downloadStrategy";
 import { ytdlpAttemptArgs } from "./downloadConfig";
+import { freshUrlDeadline, FRESH_URL_POLL_MS, parseAvailableAt, retryWhileFresh } from "./freshStreamUrl";
 import { parseYtdlpHttpHeaders, rangedYtdlpHeaders, type YtdlpHttpHeaders } from "./ytdlpHttpHeaders";
 
 interface Dependencies {
@@ -13,12 +14,16 @@ interface Dependencies {
   fetchImpl?: typeof fetch;
   spawn?: typeof Bun.spawn;
   now?: () => number;
+  /** Time between retries of a refused just-issued address; tests shorten it. */
+  freshUrlPollMs?: number;
 }
 
 interface Source {
   url: string;
   expiresAt: number;
   issuedAt: number;
+  /** When YouTube starts serving the address, as yt-dlp reports; null when it says nothing. */
+  availableAt: number | null;
   httpHeaders: YtdlpHttpHeaders;
 }
 
@@ -33,8 +38,6 @@ const CHUNK_BYTES = 8 * 1024 * 1024;
 const RESOLVE_TIMEOUT_MS = 30_000;
 const RANGE_TIMEOUT_MS = 45_000;
 const MAX_BUFFERED_REQUESTS = 4;
-const FRESH_URL_WINDOW_MS = 5_000;
-const FRESH_URL_RETRY_DELAYS_MS = [250, 400, 650, 1_000];
 
 function keyFor(userId: number, videoId: string) { return `${userId}:${videoId}`; }
 
@@ -59,7 +62,7 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
   const {
     YTDLP, downloadCookiesConfigured, downloadCookiesFile, ytdlpStatus,
     dlSettings = async () => ({ quality: "best" }),
-    fetchImpl = fetch, spawn = Bun.spawn, now = Date.now,
+    fetchImpl = fetch, spawn = Bun.spawn, now = Date.now, freshUrlPollMs = FRESH_URL_POLL_MS,
   } = dependencies;
   const sources = new Map<string, Source>();
   const resolutions = new Map<string, Resolution>();
@@ -73,7 +76,7 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
       `https://www.youtube.com/watch?v=${videoId}`, "--ignore-config", "--no-playlist", "--no-warnings", "--skip-download",
       "-f", `best[ext=mp4][vcodec^=avc1][acodec^=mp4a][protocol^=http][height<=${height}]`,
       "--print", "urls", "--print", "%(ext)s", "--print", "%(vcodec)s", "--print", "%(acodec)s",
-      "--print", "%(http_headers)j",
+      "--print", "%(http_headers)j", "--print", "%(available_at)s",
     ];
     let proc: ReturnType<typeof Bun.spawn>;
     try {
@@ -89,12 +92,13 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
       if (signal.aborted || code !== 0) {
         return { source: null, refused: !useCookies && isAnonymousAddressRefusal(stderr) };
       }
-      const [candidate, ext, vcodec, acodec, serializedHeaders] = stdout.trim().split(/\r?\n/);
+      // `available_at` prints last ("NA" when yt-dlp has none), so older output still parses.
+      const [candidate, ext, vcodec, acodec, serializedHeaders, availableAt] = stdout.trim().split(/\r?\n/);
       const url = safeGoogleVideoUrl(candidate ?? "");
       const httpHeaders = parseYtdlpHttpHeaders(serializedHeaders ?? "");
       if (!url || !httpHeaders || ext !== "mp4" || !vcodec?.startsWith("avc1") || !acodec?.startsWith("mp4a")) return { source: null, refused: false };
       const issuedAt = now();
-      return { source: { url, expiresAt: sourceExpiry(url, issuedAt), issuedAt, httpHeaders }, refused: false };
+      return { source: { url, expiresAt: sourceExpiry(url, issuedAt), issuedAt, availableAt: parseAvailableAt(availableAt), httpHeaders }, refused: false };
     } finally {
       signal.removeEventListener("abort", stop);
     }
@@ -162,20 +166,6 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
     return new Response(null, { status: 416, headers });
   }
 
-  async function waitForFreshUrlRetry(delay: number, signal?: AbortSignal): Promise<boolean> {
-    if (signal?.aborted) return false;
-    return await new Promise((resolve) => {
-      const finish = (ready: boolean) => {
-        clearTimeout(timer);
-        signal?.removeEventListener("abort", onAbort);
-        resolve(ready);
-      };
-      const onAbort = () => finish(false);
-      const timer = setTimeout(() => finish(true), delay);
-      signal?.addEventListener("abort", onAbort, { once: true });
-    });
-  }
-
   async function response(userId: number, videoId: string, rangeValue: string | null, signal?: AbortSignal): Promise<Response | null> {
     const range = parseAudioRange(rangeValue, CHUNK_BYTES);
     if (!range) return notSatisfiable();
@@ -190,15 +180,19 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
         try { return await fetchGoogleVideoResponse(fetchImpl, candidate.url, { headers: rangedYtdlpHeaders(candidate.httpHeaders, audioRangeHeader(range)), signal: operation.signal }); }
         finally { operation.dispose(); }
       };
-      let upstream = await fetchRange(source);
-      if (upstream?.status === 403 && now() - source.issuedAt <= FRESH_URL_WINDOW_MS) {
-        for (const delay of FRESH_URL_RETRY_DELAYS_MS) {
-          await upstream.body?.cancel().catch(() => {});
-          if (!await waitForFreshUrlRetry(delay, signal)) return null;
-          upstream = await fetchRange(source);
-          if (!upstream || upstream.status !== 403) break;
-        }
-      }
+      // A refused new address is retried as it is until YouTube serves it (see freshStreamUrl.ts).
+      const fresh = source;
+      let upstream = (await retryWhileFresh(
+        () => fetchRange(fresh),
+        (attempt) => {
+          if (attempt?.status !== 403) return false;
+          void attempt.body?.cancel().catch(() => {});
+          return true;
+        },
+        freshUrlDeadline(fresh.issuedAt, fresh.availableAt),
+        { now, pollMs: freshUrlPollMs, signal },
+      )).result;
+      if (signal?.aborted) return null;
       if (upstream && [403, 404, 410].includes(upstream.status)) {
         await upstream.body?.cancel().catch(() => {});
         source = await resolveSource(userId, videoId, signal, true);

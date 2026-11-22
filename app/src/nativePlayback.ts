@@ -3,7 +3,9 @@ import { existsSync, statSync } from "node:fs";
 import { validateSession } from "./auth";
 import { childStatus, type ChildStatus } from "./childTime";
 import { database } from "./database";
+import { createDirectStreamPrefetcher } from "./directStreamPrefetch";
 import { directVideoStreaming } from "./directVideoStreaming";
+import { resolveAdjacentPlaybackVideoId } from "./playbackAdjacent";
 import { log } from "./logger";
 import { nativeKindForDirectPlaylist } from "./nativePlaybackKind";
 import { ensureMobilePlayback, getDownload, ytdlpStatus } from "./downloader";
@@ -11,6 +13,9 @@ import { authorizeHlsPlaylist, MediaTicketStore, ticketAllowsPath, type NativeMe
 import { tubeArchivistConfigured } from "./tubeArchivist";
 
 export const mediaTickets = new MediaTicketStore();
+
+/** How long a playback-ticket request waits for a stream before answering "preparing". */
+const NATIVE_PREPARE_WAIT_MS = 8_000;
 
 const preparations = new Map<string, { stamp: string; expires: number; complete: Promise<boolean> }>();
 async function mediaPrepared(path: string): Promise<boolean> {
@@ -83,11 +88,37 @@ export async function nativePlaybackSource(userId: number, videoId: string, sign
     log.info("downloads.native_playback_progressive_requested", { userId, videoId });
     return { kind: "direct" };
   }
-  const playlist = await directVideoStreaming.getDirectHlsPlaylist(userId, videoId, "index.m3u8", signal, null, quality);
+  // A just-issued YouTube address can take half a minute to go live. Rather
+  // than hold this request that long, answer "preparing" (the app asks again
+  // every two seconds) while the build carries on and is joined next time.
+  const patience = AbortSignal.timeout(NATIVE_PREPARE_WAIT_MS);
+  const playlist = await directVideoStreaming.getDirectHlsPlaylist(userId, videoId, "index.m3u8", AbortSignal.any([signal, patience]), null, quality);
+  if (patience.aborted && !signal.aborted) return { preparing: true };
   const kind = nativeKindForDirectPlaylist(playlist.kind);
   if (kind === "direct") log.info("downloads.native_playback_progressive_fallback", { userId, videoId, reason: playlist.kind });
   return { kind };
 }
+
+/** A video worth preparing ahead: streamable from YouTube for this profile, and not already on disk. */
+async function prefetchEligible(userId: number, videoId: string): Promise<boolean> {
+  const access = await nativePlaybackAccess(userId, videoId);
+  if ("error" in access || access.child.is_child) return false;
+  const { video } = access;
+  if (["live", "upcoming"].includes(video.live_status) || video.members_only || video.is_private || video.is_unavailable) return false;
+  const download = await getDownload(userId, videoId);
+  if (download?.status === "done" && download.path && existsSync(download.path)) return false;
+  if (tubeArchivistConfigured() && await database.prepare(
+    "SELECT 1 FROM tube_archivist_items WHERE video_id=? AND available=1",
+  ).get(videoId)) return false;
+  return Boolean(await ytdlpStatus());
+}
+
+export const directStreamPrefetcher = createDirectStreamPrefetcher({
+  eligible: prefetchEligible,
+  ready: (userId, videoId) => directVideoStreaming.directHlsReady(userId, videoId),
+  prepare: (userId, videoId) => directVideoStreaming.prepareDirectHls(userId, videoId),
+  nextVideoId: (userId, videoId, context, direction) => resolveAdjacentPlaybackVideoId(userId, videoId, context, direction, "next"),
+});
 
 /** Called in place of ordinary auth only when a media capability is present. */
 export async function serveMediaTicket(c: Context, next: Next): Promise<Response | void> {
