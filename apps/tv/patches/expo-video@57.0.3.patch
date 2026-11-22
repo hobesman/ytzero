@@ -1,5 +1,5 @@
 diff --git a/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt b/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
-index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..21f76e0cf1d7414a5efc39ca884e192ed3a41436 100644
+index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..687cdbb25357cf6e65b8a6aeeda17d7383a1ba95 100644
 --- a/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
 +++ b/android/src/main/java/expo/modules/video/playbackService/ExpoVideoPlaybackService.kt
 @@ -83,6 +83,7 @@ class ExpoVideoPlaybackService : MediaSessionService() {
@@ -32,3 +32,23 @@ index 54c0ad03443f101cb2b6370d78bad14ad4cfa9ed..21f76e0cf1d7414a5efc39ca884e192e
        .build()
  
      val notificationId = session.player.hashCode()
+diff --git a/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt b/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt
+index 1ca90e0c3dcfc78be3410c3a285e9aaf7987dfbf..e1fb766973b213774af303112befbd8afa0e7675 100644
+--- a/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt
++++ b/android/src/main/java/expo/modules/video/playbackService/VideoMediaSessionCallback.kt
+@@ -23,6 +23,15 @@ class VideoMediaSessionCallback : MediaSession.Callback {
+           MediaSession.ConnectionResult.DEFAULT_PLAYER_COMMANDS.buildUpon()
+             .add(Player.COMMAND_SEEK_FORWARD)
+             .add(Player.COMMAND_SEEK_BACK)
++            // YT Zero: without previous and next, Android puts the back and forward
++            // 10-second buttons on either side of play/pause. Otherwise "previous" takes
++            // the back slot and the 10-second buttons land the wrong way round.
++            .removeAll(
++              Player.COMMAND_SEEK_TO_PREVIOUS,
++              Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
++              Player.COMMAND_SEEK_TO_NEXT,
++              Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM
++            )
+             .build()
+         )
+         .setAvailableSessionCommands(
