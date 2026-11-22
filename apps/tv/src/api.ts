@@ -238,6 +238,11 @@ export class YtZeroApi {
     return this.request("/channels");
   }
 
+  /** Subscribes the profile to a channel given by URL, @handle or name. */
+  addChannel(url: string): Promise<{ ok: true; channel_id: string; title: string }> {
+    return this.request("/channels", { method: "POST", body: JSON.stringify({ url }) });
+  }
+
   topChannels(): Promise<{ channels: Channel[] }> {
     return this.request("/channels/top");
   }

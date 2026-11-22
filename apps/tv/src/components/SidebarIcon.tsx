@@ -3,7 +3,7 @@ import type { TvNavigationIcon } from "../navigation";
 
 type Props = {
   color: string;
-  name: TvNavigationIcon | "more";
+  name: TvNavigationIcon | "more" | "subscriptions";
   size?: number;
 };
 
@@ -45,6 +45,14 @@ export function SidebarIcon({ color, name, size = 29 }: Props) {
   }
   if (name === "archive") {
     return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"><Path d="M4 7h16v13H4zM3 4h18v3H3zm6 8h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></Svg>;
+  }
+  if (name === "subscriptions") {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="1.8" />
+      </Svg>
+    );
   }
   if (name === "settings") {
     return (

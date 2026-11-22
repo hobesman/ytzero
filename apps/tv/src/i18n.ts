@@ -16,6 +16,7 @@ import { musicMessages } from "./music/musicMessages";
 import { musicDownloadMessages } from "./music/musicDownloadMessages";
 import { shareMessages } from "./shareMessages";
 import { shareOptionMessages } from "./shareOptionMessages";
+import { subscriptionMessages } from "./subscriptionMessages";
 import { settingsGroupMessages } from "./settingsGroupMessages";
 
 type DeviceSettingsMessages = {
@@ -382,7 +383,7 @@ const videoActionMessages: Record<Language, VideoActionMessages> = {
 
 const en = {
   ...discoveryMessages.en,
-  ...phoneMessages.en, ...phoneDownloadMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en, ...sleepTimerMessages.en, ...musicMessages.en, ...musicDownloadMessages.en, ...shareMessages.en, ...shareOptionMessages.en,
+  ...phoneMessages.en, ...phoneDownloadMessages.en, ...appUpdateMessages.en, ...profilePlaybackMessages.en, ...bufferMessages.en, ...sleepTimerMessages.en, ...musicMessages.en, ...musicDownloadMessages.en, ...shareMessages.en, ...shareOptionMessages.en, ...subscriptionMessages.en,
   ...settingsGroupMessages.en,
     ...libraryMessages.en,
     ...emptyMessages.en,
@@ -450,7 +451,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.pl,
     ...systemProfileMessages.pl,
     ...discoveryMessages.pl,
-    ...phoneMessages.pl, ...phoneDownloadMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl, ...sleepTimerMessages.pl, ...musicMessages.pl, ...musicDownloadMessages.pl, ...shareMessages.pl, ...shareOptionMessages.pl,
+    ...phoneMessages.pl, ...phoneDownloadMessages.pl, ...appUpdateMessages.pl, ...profilePlaybackMessages.pl, ...bufferMessages.pl, ...sleepTimerMessages.pl, ...musicMessages.pl, ...musicDownloadMessages.pl, ...shareMessages.pl, ...shareOptionMessages.pl, ...subscriptionMessages.pl,
     ...settingsGroupMessages.pl,
     ...libraryMessages.pl,
     ...emptyMessages.pl,
@@ -509,7 +510,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.de,
     ...systemProfileMessages.de,
     ...discoveryMessages.de,
-    ...phoneMessages.de, ...phoneDownloadMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de, ...sleepTimerMessages.de, ...musicMessages.de, ...musicDownloadMessages.de, ...shareMessages.de, ...shareOptionMessages.de,
+    ...phoneMessages.de, ...phoneDownloadMessages.de, ...appUpdateMessages.de, ...profilePlaybackMessages.de, ...bufferMessages.de, ...sleepTimerMessages.de, ...musicMessages.de, ...musicDownloadMessages.de, ...shareMessages.de, ...shareOptionMessages.de, ...subscriptionMessages.de,
     ...settingsGroupMessages.de,
     ...libraryMessages.de,
     ...emptyMessages.de,
@@ -529,7 +530,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.fr,
     ...systemProfileMessages.fr,
     ...discoveryMessages.fr,
-    ...phoneMessages.fr, ...phoneDownloadMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr, ...sleepTimerMessages.fr, ...musicMessages.fr, ...musicDownloadMessages.fr, ...shareMessages.fr, ...shareOptionMessages.fr,
+    ...phoneMessages.fr, ...phoneDownloadMessages.fr, ...appUpdateMessages.fr, ...profilePlaybackMessages.fr, ...bufferMessages.fr, ...sleepTimerMessages.fr, ...musicMessages.fr, ...musicDownloadMessages.fr, ...shareMessages.fr, ...shareOptionMessages.fr, ...subscriptionMessages.fr,
     ...settingsGroupMessages.fr,
     ...libraryMessages.fr,
     ...emptyMessages.fr,
@@ -549,7 +550,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.es,
     ...systemProfileMessages.es,
     ...discoveryMessages.es,
-    ...phoneMessages.es, ...phoneDownloadMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es, ...sleepTimerMessages.es, ...musicMessages.es, ...musicDownloadMessages.es, ...shareMessages.es, ...shareOptionMessages.es,
+    ...phoneMessages.es, ...phoneDownloadMessages.es, ...appUpdateMessages.es, ...profilePlaybackMessages.es, ...bufferMessages.es, ...sleepTimerMessages.es, ...musicMessages.es, ...musicDownloadMessages.es, ...shareMessages.es, ...shareOptionMessages.es, ...subscriptionMessages.es,
     ...settingsGroupMessages.es,
     ...libraryMessages.es,
     ...emptyMessages.es,
@@ -569,7 +570,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages["pt-BR"],
     ...systemProfileMessages["pt-BR"],
     ...discoveryMessages["pt-BR"],
-    ...phoneMessages["pt-BR"], ...phoneDownloadMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"], ...sleepTimerMessages["pt-BR"], ...musicMessages["pt-BR"], ...musicDownloadMessages["pt-BR"], ...shareMessages["pt-BR"], ...shareOptionMessages["pt-BR"],
+    ...phoneMessages["pt-BR"], ...phoneDownloadMessages["pt-BR"], ...appUpdateMessages["pt-BR"], ...profilePlaybackMessages["pt-BR"], ...bufferMessages["pt-BR"], ...sleepTimerMessages["pt-BR"], ...musicMessages["pt-BR"], ...musicDownloadMessages["pt-BR"], ...shareMessages["pt-BR"], ...shareOptionMessages["pt-BR"], ...subscriptionMessages["pt-BR"],
     ...settingsGroupMessages["pt-BR"],
     ...libraryMessages["pt-BR"],
     ...emptyMessages["pt-BR"],
@@ -589,7 +590,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ru,
     ...systemProfileMessages.ru,
     ...discoveryMessages.ru,
-    ...phoneMessages.ru, ...phoneDownloadMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru, ...sleepTimerMessages.ru, ...musicMessages.ru, ...musicDownloadMessages.ru, ...shareMessages.ru, ...shareOptionMessages.ru,
+    ...phoneMessages.ru, ...phoneDownloadMessages.ru, ...appUpdateMessages.ru, ...profilePlaybackMessages.ru, ...bufferMessages.ru, ...sleepTimerMessages.ru, ...musicMessages.ru, ...musicDownloadMessages.ru, ...shareMessages.ru, ...shareOptionMessages.ru, ...subscriptionMessages.ru,
     ...settingsGroupMessages.ru,
     ...libraryMessages.ru,
     ...emptyMessages.ru,
@@ -609,7 +610,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.ja,
     ...systemProfileMessages.ja,
     ...discoveryMessages.ja,
-    ...phoneMessages.ja, ...phoneDownloadMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja, ...sleepTimerMessages.ja, ...musicMessages.ja, ...musicDownloadMessages.ja, ...shareMessages.ja, ...shareOptionMessages.ja,
+    ...phoneMessages.ja, ...phoneDownloadMessages.ja, ...appUpdateMessages.ja, ...profilePlaybackMessages.ja, ...bufferMessages.ja, ...sleepTimerMessages.ja, ...musicMessages.ja, ...musicDownloadMessages.ja, ...shareMessages.ja, ...shareOptionMessages.ja, ...subscriptionMessages.ja,
     ...settingsGroupMessages.ja,
     ...libraryMessages.ja,
     ...emptyMessages.ja,
@@ -629,7 +630,7 @@ const messages: Record<Language, Messages> = {
     ...deviceSettingsMessages.hu,
     ...systemProfileMessages.hu,
     ...discoveryMessages.hu,
-    ...phoneMessages.hu, ...phoneDownloadMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu, ...sleepTimerMessages.hu, ...musicMessages.hu, ...musicDownloadMessages.hu, ...shareMessages.hu, ...shareOptionMessages.hu,
+    ...phoneMessages.hu, ...phoneDownloadMessages.hu, ...appUpdateMessages.hu, ...profilePlaybackMessages.hu, ...bufferMessages.hu, ...sleepTimerMessages.hu, ...musicMessages.hu, ...musicDownloadMessages.hu, ...shareMessages.hu, ...shareOptionMessages.hu, ...subscriptionMessages.hu,
     ...settingsGroupMessages.hu,
     ...libraryMessages.hu,
     ...emptyMessages.hu,
