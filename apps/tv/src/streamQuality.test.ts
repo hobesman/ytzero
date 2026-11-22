@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { heightLabel, loadStreamQuality, parseStreamQuality, qualityButtonLabel, saveStreamQuality, STREAM_QUALITY_KEY, streamQuality } from "./streamQuality";
+import { FAST_START_KEY, fastStart, heightLabel, loadStreamQuality, parseStreamQuality, qualityButtonLabel, saveFastStart, saveStreamQuality, STREAM_QUALITY_KEY, streamQuality } from "./streamQuality";
 
 function memoryStore(initial: Record<string, string> = {}) {
   const values = new Map(Object.entries(initial));
@@ -26,6 +26,21 @@ describe("stream quality", () => {
     expect(store.values.get(STREAM_QUALITY_KEY)).toBe("1080");
     expect(streamQuality()).toBe("1080");
     expect(await loadStreamQuality(memoryStore())).toBe("auto");
+  });
+
+  test("Fast start is its own device setting, and the old \"fast\" quality becomes Auto with it on", async () => {
+    const old = memoryStore({ [STREAM_QUALITY_KEY]: "fast" });
+    expect(await loadStreamQuality(old)).toBe("auto");
+    expect(fastStart()).toBe(true);
+    expect(old.values.get(STREAM_QUALITY_KEY)).toBe("auto");
+    expect(old.values.get(FAST_START_KEY)).toBe("1");
+    const store = memoryStore({ [STREAM_QUALITY_KEY]: "720", [FAST_START_KEY]: "0" });
+    expect(await loadStreamQuality(store)).toBe("720");
+    expect(fastStart()).toBe(false);
+    await saveFastStart(store, true);
+    expect(fastStart()).toBe(true);
+    expect(store.values.get(FAST_START_KEY)).toBe("1");
+    expect(streamQuality()).toBe("720");
   });
 
   test("labels the playing height, else the choice", () => {

@@ -4,7 +4,7 @@ import { ActivityIndicator, AppState, Modal, Platform, Pressable, StyleSheet, Te
 import Svg, { Path } from "react-native-svg";
 import { SafeAreaProvider, SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { speedLabel, speedMemoryTarget, speedOptions } from "../playbackSpeeds";
-import { heightLabel, qualityButtonLabel, qualityChoiceLabel, saveStreamQuality, STREAM_QUALITIES, streamQuality, type StreamQuality } from "../streamQuality";
+import { fastStart, heightLabel, QUALITY_MENU_CHOICES, qualityButtonLabel, qualityChoiceLabel, saveStreamQuality, streamQuality, type StreamQuality } from "../streamQuality";
 import { cappedStreamQuality, lowResource } from "../lowResource";
 import { deviceStore } from "../deviceStore";
 import { forwardBuffer, forwardBufferOptions, NEIGHBOUR_BUFFER_OPTIONS, onForwardBufferChange } from "../forwardBuffer";
@@ -194,7 +194,9 @@ export function TvNativePlayer(props: Props) {
   // Only Android offers the quality menu; other players keep the server's choice.
   // Low-resource mode caps it at 360p whatever the menu says.
   () => ownsSpeedControl ? cappedStreamQuality(streamQuality(), lowResource()) : "",
-  (active) => forwardBufferOptions(forwardBuffer(), active)), [api]);
+  (active) => forwardBufferOptions(forwardBuffer(), active), undefined,
+  // Fast start follows the device setting; the TV app keeps the server's choice.
+  () => ownsSpeedControl && fastStart()), [api]);
   useEffect(() => onForwardBufferChange(() => buffer.refreshBuffers()), [buffer]);
 
   const endTransition = () => {
@@ -681,10 +683,10 @@ export function TvNativePlayer(props: Props) {
     options={speedOptions(rate).map((value) => ({ value, label: speedLabel(value) }))}
     onSelect={(value) => { active.player.playbackRate = Number(value); setRate(Number(value)); setSpeedSheet(false); revealSpeedButton(); rememberSpeed(active, value); }}
     onClose={() => { setSpeedSheet(false); revealSpeedButton(); }} /> : qualitySheet && active ? <TvChoiceSheet title={t("streamQuality")} t={t} value={quality}
-    options={STREAM_QUALITIES.map((value) => {
+    options={QUALITY_MENU_CHOICES.map((value) => {
       const label = qualityChoiceLabel(value, qualityLabels);
-      // "Auto" and "Fast start" name no height: show the one playing beside the current choice.
-      const playing = (value === "auto" || value === "fast") && value === quality ? heightLabel(trackHeight) : null;
+      // "Auto" names no height: show the one playing beside it.
+      const playing = value === "auto" && value === quality ? heightLabel(trackHeight) : null;
       return { value, label: playing ? `${label} (${playing})` : label };
     })}
     onSelect={(value) => {

@@ -12,6 +12,8 @@ import type { PublicShare, PublicShareUpdate } from "./publicShareOptions";
 
 type BrowseResult = { videos: Video[]; page: number; hasMore: boolean };
 export type ImageSource = { uri: string; headers?: Record<string, string> };
+/** Fast start's ticket request: where playback starts, since the stopgap stream covers only about the first minute. */
+export type PlaybackTicketFastStart = { position: number };
 
 const TV_PAGE_SIZE = 24;
 const EMPTY_IMAGE_SOURCE: ImageSource = { uri: "" };
@@ -359,11 +361,17 @@ export class YtZeroApi {
   }
 
   /**
+   * `fastStart`: when the chosen stream is not ready yet, a server may answer
+   * with a stopgap stream (`bridge: true` on the ticket) that plays at once;
+   * ask again without it for the chosen stream. Servers that predate it ignore it.
    * `prefer: "progressive"` asks for the single stream after a high-quality stream failed.
    * `quality` ("auto" or a height) shapes a streamed video; servers that predate it ignore it.
    */
-  async playbackTicket(id: string, signal?: AbortSignal, prefer?: "progressive", quality?: string): Promise<PlaybackTicket> {
-    const body = { ...(prefer ? { prefer } : {}), ...(quality && !prefer ? { quality } : {}) };
+  async playbackTicket(id: string, signal?: AbortSignal, prefer?: "progressive", quality?: string, fastStart?: PlaybackTicketFastStart): Promise<PlaybackTicket> {
+    const body = {
+      ...(prefer ? { prefer } : {}), ...(quality && !prefer ? { quality } : {}),
+      ...(fastStart && !prefer ? { bridge: true, position: fastStart.position } : {}),
+    };
     for (;;) {
       const result = await this.request<PlaybackTicket | { preparing: true }>(`/videos/${encodeURIComponent(id)}/playback-ticket`, { method: "POST", body: JSON.stringify(body), signal });
       if (!("preparing" in result)) return result;
@@ -390,7 +398,7 @@ export class YtZeroApi {
     // undownloaded videos use HLS, including its separate audio rendition.
     const mediaPath = ticket.content_type === "hls"
       ? /^\/api\/videos\/[^/]+\/(?:live-hls|direct-hls|hls)\/index\.m3u8$/
-      : ticket.content_type === "progressive" ? /^\/api\/videos\/[^/]+\/(?:stream|direct-stream)$/ : null;
+      : ticket.content_type === "progressive" ? /^\/api\/videos\/[^/]+\/(?:stream|direct-stream|bridge-stream)$/ : null;
     if (uri.origin !== new URL(this.instanceUrl).origin || uri.username || uri.password || !mediaPath?.test(uri.pathname) || uri.searchParams.get("media_ticket") !== ticket.ticket) {
       throw new ApiError("invalid playback source", 502);
     }

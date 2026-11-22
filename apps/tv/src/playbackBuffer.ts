@@ -34,8 +34,19 @@ export type BufferedPlayback = {
   resume: () => void;
   dispose: () => void;
 };
-/** "buffering": waiting for data; "reconnecting": the stream was lost and is being loaded again. */
-export type PlaybackWait = { waiting: "none" | "buffering" | "reconnecting"; held: boolean };
+/**
+ * "buffering": waiting for data; "reconnecting": the stream was lost and is
+ * being loaded again; "switching": paused until a newly chosen stream plays.
+ */
+export type PlaybackWait = { waiting: "none" | "buffering" | "reconnecting" | "switching"; held: boolean };
+
+/**
+ * Fast start's stopgap stream (the server's "bridge") is served only for about
+ * the first minute (61–68 s measured), so it is asked for only from near the
+ * start, and playback waits for the chosen stream before running out of it.
+ */
+const BRIDGE_MAX_START_SECONDS = 30;
+const BRIDGE_PLAYABLE_SECONDS = 50;
 
 /** The server answered and refused the renewal (an expired or revoked ticket), rather than being unreachable. */
 const renewalRefused = (error: unknown): boolean => {
@@ -83,6 +94,12 @@ export class PlaybackBuffer {
     /** The native buffer for a player: the playing one may buffer further ahead than its neighbours. */
     private bufferOptions?: (active: boolean) => BufferOptions,
     private now: () => number = Date.now,
+    /**
+     * Fast start: begin with the server's stopgap stream while the chosen one
+     * gets ready, and keep playing through a quality change. Off, a quality
+     * change pauses until the new stream plays.
+     */
+    private fastStart: () => boolean = () => false,
   ) {}
   private appliedBuffers = new WeakMap<VideoPlayer, string>();
 
@@ -130,9 +147,18 @@ export class PlaybackBuffer {
     // The viewer paused while playback was held up. Loading carries on; playing waits for them.
     let held = false;
     let requesting = false;
+    // The source playing is Fast start's stopgap; the chosen stream is on its way.
+    let bridged = false;
+    // A new stream is being fetched while the current one plays ("background"),
+    // or with playback paused until it plays ("paused").
+    let switching: "none" | "background" | "paused" = "none";
+    let switchVersion = 0;
+    let switchController: AbortController | null = null;
+    // Whether playback carries on once a paused switch has its stream.
+    let playAfterSwitch = false;
     const waitListeners = new Set<() => void>();
     const waitState = (): PlaybackWait => ({
-      waiting: reconnecting ? "reconnecting" : started && lastStatus === "loading" ? "buffering" : "none", held,
+      waiting: reconnecting ? "reconnecting" : switching === "paused" ? "switching" : started && lastStatus === "loading" ? "buffering" : "none", held,
     });
     const emitWait = () => waitListeners.forEach((listener) => listener());
     // Android stops the app's timers while it is in the background, so a long
@@ -190,7 +216,11 @@ export class PlaybackBuffer {
       reconnect(this.activeEntry === entry && wantsPlay);
     };
     const listeners = [
-      player.addListener("timeUpdate", ({ currentTime }) => { if (loaded && currentTime > 0) lastTime = currentTime; }),
+      player.addListener("timeUpdate", ({ currentTime }) => {
+        if (loaded && currentTime > 0) lastTime = currentTime;
+        // Nearly through the stopgap and the chosen stream is still on its way: wait for it.
+        if (bridged && switching === "background" && currentTime >= BRIDGE_PLAYABLE_SECONDS) pauseForSwitch();
+      }),
       player.addListener("playingChange", ({ isPlaying }) => {
         // Native controls or a late native command must never start a neighbour.
         if (isPlaying && this.activeEntry !== entry) void this.silence(player).catch(() => {});
@@ -203,6 +233,12 @@ export class PlaybackBuffer {
         // A loaded stream that starts buffering after its ticket lapsed is
         // being refused segments; ExoPlayer can keep retrying them without failing.
         if (status === "loading" && sourceUri && loaded && recoveries < MAX_RECOVERIES && ticketStale()) { recover(); return; }
+        if (status === "error" && sourceUri && bridged) {
+          // The stopgap ran out or was refused: wait for the chosen stream.
+          if (switching === "background") pauseForSwitch();
+          else if (switching === "none") startSwitch(undefined, true);
+          return;
+        }
         if (status === "error" && sourceUri) {
           // The connection dropped and the buffer ran out (the stream went
           // unanswered), or the ticket lapsed while paused or in the
@@ -256,7 +292,12 @@ export class PlaybackBuffer {
       reload: () => {
         if (disposed || entry.error || live || !sourceUri) return;
         fellBack = false;
-        reloadAt(!live && this.quality() === "fast" ? "progressive" : undefined, this.activeEntry === entry && player.playing);
+        const prefer = this.quality() === "fast" ? "progressive" : undefined;
+        if (!started) { reloadAt(prefer, this.activeEntry === entry && player.playing); return; }
+        // A quality change: with Fast start, keep playing until the new stream is
+        // ready; without it, pause until then. Either way it continues from
+        // where the video is when the new stream arrives.
+        startSwitch(prefer, !this.fastStart());
       },
       refresh: () => {
         if (disposed || entry.error || !sourceUri || !loaded || reconnecting || !ticketStale()) return;
@@ -269,6 +310,7 @@ export class PlaybackBuffer {
         held = true;
         wantsPlay = false;
         resume = false;
+        playAfterSwitch = false;
         void this.control.pause(player).catch(() => {});
         emitWait();
       },
@@ -277,6 +319,8 @@ export class PlaybackBuffer {
         held = false;
         wantsPlay = true;
         resume = true;
+        // Waiting for a new stream: play once it arrives, not the old one now.
+        if (switching === "paused") { playAfterSwitch = true; emitWait(); return; }
         if (reconnecting && !sourceUri) {
           // Waiting between attempts: try now rather than at the next one.
           if (!requesting) { clearTimeout(reconnectTimer); reconnectAttempt = 0; loading = loadSource(preference); }
@@ -311,16 +355,32 @@ export class PlaybackBuffer {
     this.initialRates.set(entry, live ? 1 : playableSpeed(video.channel_playback_speed ?? null));
     // Loads a ticket's source into this player: first the server's choice,
     // then once, after a full-quality stream fails, the progressive stream.
-    const loadSource = async (prefer?: "progressive") => {
+    // `fast` asks for Fast start's stopgap when the chosen stream is not ready yet.
+    const loadSource = async (prefer?: "progressive", fast = false) => {
       preference = prefer;
       requesting = true;
       try {
-        const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer, prefer || live ? undefined : this.quality());
+        const authorization = await this.api.playbackTicket(video.video_id, controller.signal, prefer, prefer || live ? undefined : this.quality(), fast ? { position } : undefined);
         requesting = false;
         if (disposed) { releaseTicket(authorization); return; }
+        await install(authorization);
+      } catch (error) {
+        requesting = false;
+        // Still offline: keep the video where it stopped and try again shortly.
+        if (started && !disposed && !entry.error && unreachable(error)) {
+          const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt++, RECONNECT_DELAYS.length - 1)]!;
+          reconnectTimer = setTimeout(() => { if (!disposed && !entry.error) loading = loadSource(prefer); }, delay);
+          return;
+        }
+        fail(error);
+      }
+    };
+    // Puts a ticket's stream into the player and keeps the ticket renewed.
+    const install = async (authorization: PlaybackTicket) => {
         if (ticket) releaseTicket(ticket);
         stopRenewing();
         ticket = authorization;
+        bridged = authorization.bridge === true;
         ticketValidUntil = this.now() + authorization.expires_in * 1000;
         renewalFailed = false;
         const source = this.api.playbackSource(authorization);
@@ -357,19 +417,71 @@ export class PlaybackBuffer {
         renewTimer = setInterval(renew, Math.max(10_000, authorization.expires_in * 1000 / 3));
         await player.replaceAsync({ ...source, useCaching: false, metadata: { title: video.title, artist: video.channel_title } });
         if (!disposed) { playable = player.status === "readyToPlay"; checkReady(); }
-      } catch (error) {
-        requesting = false;
-        // Still offline: keep the video where it stopped and try again shortly.
-        if (started && !disposed && !entry.error && unreachable(error)) {
-          const delay = RECONNECT_DELAYS[Math.min(reconnectAttempt++, RECONNECT_DELAYS.length - 1)]!;
-          reconnectTimer = setTimeout(() => { if (!disposed && !entry.error) loading = loadSource(prefer); }, delay);
-          return;
-        }
-        fail(error);
-      }
+        // Playing the stopgap: fetch the chosen stream now and switch once it is ready.
+        if (bridged && !disposed && switching === "none") startSwitch(undefined, false);
     };
-    // "fast" goes straight to the progressive stream: no high-quality attempt to wait out.
-    const firstSource = () => loadSource(!live && this.quality() === "fast" ? "progressive" : undefined);
+    // A switch running in the background has run out of time: pause until it lands.
+    const pauseForSwitch = () => {
+      if (switching !== "background") return;
+      playAfterSwitch = this.activeEntry === entry && (player.playing || wantsPlay) && !held;
+      switching = "paused";
+      void this.control.pause(player).catch(() => {});
+      emitWait();
+    };
+    /**
+     * Fetches a new stream (a new quality, or the chosen stream after the
+     * stopgap) while the current one stays in the player, then swaps to it at
+     * the position playback has reached by then. With `pauseWhileWaiting`, the
+     * video pauses meanwhile and shows that it is switching.
+     */
+    const startSwitch = (prefer: "progressive" | undefined, pauseWhileWaiting: boolean) => {
+      const version = ++switchVersion;
+      switchController?.abort();
+      const local = new AbortController();
+      switchController = local;
+      const abort = () => local.abort();
+      controller.signal.addEventListener("abort", abort, { once: true });
+      const wasPaused = switching === "paused";
+      switching = "background";
+      if (pauseWhileWaiting && !wasPaused) pauseForSwitch();
+      else if (wasPaused) switching = "paused";
+      emitWait();
+      void (async () => {
+        try {
+          const authorization = await this.api.playbackTicket(video.video_id, local.signal, prefer, prefer || live ? undefined : this.quality());
+          if (version !== switchVersion || disposed || entry.error) { releaseTicket(authorization); return; }
+          const keepPlaying = switching === "paused" ? playAfterSwitch && !held : this.activeEntry === entry && (player.playing || wantsPlay) && !held;
+          switching = "none";
+          preference = prefer;
+          fellBack = false;
+          // Continue from where the video is now, not from where the switch began.
+          if (!live) position = player.currentTime > 0 ? player.currentTime : lastTime || position;
+          resume = keepPlaying;
+          loaded = false;
+          playable = false;
+          emitWait();
+          loading = install(authorization).catch((error) => fail(error));
+        } catch {
+          if (version !== switchVersion || disposed || entry.error) return;
+          const paused = switching === "paused";
+          switching = "none";
+          emitWait();
+          // The stopgap cannot carry on by itself: load the chosen stream the ordinary way.
+          if (bridged) { reloadAt(prefer, paused ? playAfterSwitch && !held : this.activeEntry === entry && (player.playing || wantsPlay) && !held); return; }
+          // The new quality failed: carry on with the stream already playing.
+          if (paused && playAfterSwitch && !held && this.activeEntry === entry) void this.control.play(player).catch(() => {});
+        } finally {
+          controller.signal.removeEventListener("abort", abort);
+          if (switchController === local) switchController = null;
+        }
+      })();
+    };
+    // "fast" (low-resource mode) goes straight to the progressive stream: no high-quality attempt to wait out.
+    // Fast start asks for the stopgap, which covers only about the first minute, when starting near the beginning.
+    const firstSource = () => {
+      const prefer = !live && this.quality() === "fast" ? "progressive" : undefined;
+      return loadSource(prefer, !live && !prefer && this.fastStart() && position <= BRIDGE_MAX_START_SECONDS);
+    };
     loading = firstSource();
     return entry;
   }

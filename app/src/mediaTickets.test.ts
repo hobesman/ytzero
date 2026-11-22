@@ -60,6 +60,17 @@ describe("native playback capabilities", () => {
     expect(ticketAllowsPath({ ...entry, kind: "file" }, "/api/videos/video-1/stream", "HEAD")).toBe(true);
   });
 
+  test("a Fast start stopgap ticket reads only that video's stopgap stream", () => {
+    const ticket: MediaTicket = { ...entry, kind: "bridge", expiresAt: 99999 };
+    expect(mediaTicketPath(ticket)).toBe("/api/videos/video-1/bridge-stream");
+    for (const method of ["GET", "HEAD"]) expect(ticketAllowsPath(ticket, "/api/videos/video-1/bridge-stream", method)).toBe(true);
+    expect(ticketAllowsPath(ticket, "/api/videos/video-1/bridge-stream", "POST")).toBe(false);
+    for (const path of ["/api/videos/video-2/bridge-stream", "/api/videos/video-1/direct-stream", "/api/videos/video-1/direct-hls/index.m3u8", "/api/videos/video-1/stream"]) {
+      expect(ticketAllowsPath(ticket, path, "GET")).toBe(false);
+    }
+    expect(ticketAllowsPath(entry, "/api/videos/video-1/bridge-stream", "GET")).toBe(false);
+  });
+
   test("authorizes nested playlists, initialization ranges and segments without forwarding the API bearer", () => {
     const ticket: MediaTicket = { ...entry, expiresAt: 99999 };
     const source = '#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,URI="audio.m3u8?v=g1"\n#EXT-X-MAP:URI="video.mp4?v=g1",BYTERANGE="100@0"\nvideo.m3u8?v=g1\nseg00001.ts\n';

@@ -16,7 +16,17 @@ interface Dependencies {
   now?: () => number;
   /** Time between retries of a refused just-issued address; tests shorten it. */
   freshUrlPollMs?: number;
+  /** More yt-dlp arguments, e.g. a YouTube client to ask. */
+  extraArgs?: string[];
+  /**
+   * Whether a refused address is looked up again (default). A source YouTube
+   * serves only in part (the fast-start bridge) answers its refusal at once instead.
+   */
+  refreshOnRefusal?: boolean;
 }
+
+/** How long prepareDirectVideo waits for a new address to go live. */
+const PREPARE_LIVE_WAIT_MS = 4_000;
 
 interface Source {
   url: string;
@@ -63,6 +73,7 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
     YTDLP, downloadCookiesConfigured, downloadCookiesFile, ytdlpStatus,
     dlSettings = async () => ({ quality: "best" }),
     fetchImpl = fetch, spawn = Bun.spawn, now = Date.now, freshUrlPollMs = FRESH_URL_POLL_MS,
+    extraArgs = [], refreshOnRefusal = true,
   } = dependencies;
   const sources = new Map<string, Source>();
   const resolutions = new Map<string, Resolution>();
@@ -77,6 +88,7 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
       "-f", `best[ext=mp4][vcodec^=avc1][acodec^=mp4a][protocol^=http][height<=${height}]`,
       "--print", "urls", "--print", "%(ext)s", "--print", "%(vcodec)s", "--print", "%(acodec)s",
       "--print", "%(http_headers)j", "--print", "%(available_at)s",
+      ...extraArgs,
     ];
     let proc: ReturnType<typeof Bun.spawn>;
     try {
@@ -195,6 +207,7 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
       if (signal?.aborted) return null;
       if (upstream && [403, 404, 410].includes(upstream.status)) {
         await upstream.body?.cancel().catch(() => {});
+        if (!refreshOnRefusal) return new Response(null, { status: upstream.status, headers: { "Cache-Control": "no-store" } });
         source = await resolveSource(userId, videoId, signal, true);
         if (!source) return null;
         upstream = await fetchRange(source);
@@ -226,5 +239,28 @@ export function createDownloadVideoProgressiveStreaming(dependencies: Dependenci
     for (const [key, resolution] of resolutions) if (key.startsWith(prefix)) { resolutions.delete(key); resolution.controller.abort(); }
   }
 
-  return { getDirectVideoResponse: response, invalidateDirectVideoSources };
+  /**
+   * Looks the video up and checks that YouTube already serves its start, so a
+   * player given it starts at once. False when it cannot within a few seconds.
+   */
+  async function prepareDirectVideo(userId: number, videoId: string, signal?: AbortSignal): Promise<boolean> {
+    const source = await resolveSource(userId, videoId, signal);
+    if (!source || signal?.aborted) return false;
+    const { result } = await retryWhileFresh(
+      async () => {
+        const operation = abortSignal(signal, RANGE_TIMEOUT_MS, "direct video range timeout");
+        try {
+          const upstream = await fetchGoogleVideoResponse(fetchImpl, source.url, { headers: rangedYtdlpHeaders(source.httpHeaders, "bytes=0-1"), signal: operation.signal });
+          await upstream?.body?.cancel().catch(() => {});
+          return upstream?.status ?? 0;
+        } finally { operation.dispose(); }
+      },
+      (status) => status === 403,
+      Math.min(freshUrlDeadline(source.issuedAt, source.availableAt), now() + PREPARE_LIVE_WAIT_MS),
+      { now, pollMs: freshUrlPollMs, signal },
+    );
+    return result === 206;
+  }
+
+  return { getDirectVideoResponse: response, invalidateDirectVideoSources, prepareDirectVideo };
 }

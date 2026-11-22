@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { validateSession } from "./auth";
 import { childStatus, type ChildStatus } from "./childTime";
 import { database } from "./database";
+import { bridgeVideoStreaming } from "./bridgeVideoStreaming";
 import { createDirectStreamPrefetcher } from "./directStreamPrefetch";
 import { directVideoStreaming } from "./directVideoStreaming";
 import { resolveAdjacentPlaybackVideoId } from "./playbackAdjacent";
@@ -54,8 +55,10 @@ export async function nativePlaybackAccess(userId: number, videoId: string): Pro
 /**
  * `preferProgressive`: a client whose HLS stream failed asks for the single progressive stream instead.
  * `quality`: a parsed stream quality ("" for the profile's own, "auto", or a height) for a direct HLS stream.
+ * `bridge`: fast start. When that stream is not ready yet, offer the bridge
+ * (bridgeVideoStreaming.ts) to play meanwhile; the client then asks again without it.
  */
-export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal, preferProgressive = false, quality = ""): Promise<
+export async function nativePlaybackSource(userId: number, videoId: string, signal: AbortSignal = new AbortController().signal, preferProgressive = false, quality = "", bridge = false): Promise<
   { kind: NativeMediaKind } | { preparing: true } | { error: string; status: 403 | 404 | 409 | 503 }
 > {
   const access = await nativePlaybackAccess(userId, videoId);
@@ -87,6 +90,18 @@ export async function nativePlaybackSource(userId: number, videoId: string, sign
   if (preferProgressive) {
     log.info("downloads.native_playback_progressive_requested", { userId, videoId });
     return { kind: "direct" };
+  }
+  if (bridge && !directVideoStreaming.directHlsReady(userId, videoId, quality)) {
+    // The chosen stream gets ready in the background either way; the
+    // client's next request (without `bridge`) joins it.
+    void directVideoStreaming.prepareDirectHls(userId, videoId, quality).catch(() => {});
+    const started = Date.now();
+    if (await bridgeVideoStreaming.prepareDirectVideo(userId, videoId, signal)) {
+      log.info("downloads.native_playback_bridge", { userId, videoId, ms: Date.now() - started });
+      return { kind: "bridge" };
+    }
+    if (signal.aborted) return { error: "native playback unavailable", status: 503 };
+    log.info("downloads.native_playback_bridge_unavailable", { userId, videoId, ms: Date.now() - started });
   }
   // A just-issued YouTube address can take half a minute to go live. Rather
   // than hold this request that long, answer "preparing" (the app asks again

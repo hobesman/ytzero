@@ -54,7 +54,7 @@ const audioFormat = {
   protocol: "https", vcodec: "none", acodec: "mp4a.40.2", abr: 128, audio_channels: 2,
 };
 
-/** yt-dlp's answer: the selected pair plus the full format list, worst first. */
+/** yt-dlp's answer: the selected pair plus the full format list, worst first: every height, whatever was selected. */
 function selection(top: ReturnType<typeof videoFormat>) {
   return JSON.stringify({
     duration: 12,
@@ -63,7 +63,7 @@ function selection(top: ReturnType<typeof videoFormat>) {
     formats: [
       videoFormat("160", 144), videoFormat("134", 360), videoFormat("135", 480),
       videoFormat("247", 720, "vp09.00.31.08"), videoFormat("136", 720), videoFormat("137", 1080), audioFormat,
-    ].filter((format) => !("height" in format) || format.height <= top.height),
+    ],
   });
 }
 
@@ -127,6 +127,17 @@ describe("direct stream quality", () => {
     expect(fetched.at(-1)).toContain("/video-136?");
     // The profile's own quality is a separate session.
     expect((await streaming.getDirectHlsResource(1, "fixed", "video.mp4", "bytes=0-15", undefined, generation)).kind).toBe("stale");
+  });
+
+  test("another quality of a video already looked up reuses its listing, with no new lookup", async () => {
+    const { streaming, selectors } = harness();
+    expect(text(await streaming.getDirectHlsPlaylist(1, "shared", "index.m3u8", undefined, null, "720"))).toContain("RESOLUTION=1280x720");
+    expect(text(await streaming.getDirectHlsPlaylist(1, "shared", "index.m3u8", undefined, null, "480"))).toContain("RESOLUTION=853x480");
+    expect(text(await streaming.getDirectHlsPlaylist(1, "shared", "index.m3u8", undefined, null, "1080"))).toContain("RESOLUTION=1920x1080");
+    expect(selectors).toHaveLength(1);
+    // Another profile looks the video up for itself.
+    await streaming.getDirectHlsPlaylist(2, "shared", "index.m3u8", undefined, null, "480");
+    expect(selectors).toHaveLength(2);
   });
 
   test("the profile's quality setting still caps a higher request", async () => {

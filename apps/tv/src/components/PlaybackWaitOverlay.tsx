@@ -37,7 +37,7 @@ export function PlaybackWaitOverlay({ entry, t }: { entry: BufferedPlayback | nu
   // Playing, or paused and loaded again: ExoPlayer's own controls work.
   if (!entry || waiting === "none") return null;
   const caption = held ? t(waiting === "reconnecting" ? "playbackPausedOffline" : "playbackPaused")
-    : t(waiting === "reconnecting" ? "playbackReconnecting" : "playbackBuffering");
+    : t(waiting === "reconnecting" ? "playbackReconnecting" : waiting === "switching" ? "playbackSwitching" : "playbackBuffering");
   return <View pointerEvents="box-none" style={styles.overlay}>
     <Pressable accessibilityRole="button" accessibilityLabel={t(held ? "playVideo" : "pausePlayback")} hitSlop={12}
       style={({ pressed }) => [styles.button, pressed && styles.pressed]} onPress={() => held ? entry.resume() : entry.hold()}>
