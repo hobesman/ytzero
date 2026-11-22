@@ -409,7 +409,7 @@ describe("stream quality", () => {
     } finally { pool.dispose(); await flush(); }
   });
 
-  test("fast start asks for the progressive stream first, and switching away reloads the full-quality one", async () => {
+  test("the low-resource \"fast\" quality asks for the progressive stream first, and switching away reloads the full-quality one", async () => {
     const h = harness();
     let quality = "fast";
     const asked: Array<[string | undefined, string | undefined]> = [];
@@ -437,7 +437,7 @@ describe("stream quality", () => {
     } finally { pool.dispose(); await flush(); }
   });
 
-  test("fast start leaves a live stream on its own source", async () => {
+  test("the \"fast\" quality leaves a live stream on its own source", async () => {
     const h = harness();
     const prefers: Array<string | undefined> = [];
     h.api.playbackTicket = async (id: string, _signal?: AbortSignal, prefer?: "progressive") => {
@@ -452,6 +452,178 @@ describe("stream quality", () => {
       await flush(); await flush();
       expect(prefers).toEqual([undefined]);
     } finally { pool.dispose(); await flush(); }
+  });
+});
+
+describe("fast start", () => {
+  type Request = { prefer?: "progressive"; quality?: string; fastStart?: { position: number }; settle: (value: PlaybackTicket | Error) => void };
+  // Tickets the test hands out itself, so it can hold the chosen stream back.
+  function setup(fastStart: boolean, startAt = 0) {
+    const h = harness();
+    let quality = "auto";
+    let fast = fastStart;
+    const requests: Request[] = [];
+    h.api.playbackTicket = ((id: string, _signal?: AbortSignal, prefer?: "progressive", asked?: string, start?: { position: number }) =>
+      new Promise<PlaybackTicket>((resolve, reject) => {
+        requests.push({ prefer, quality: asked, fastStart: start, settle: (value) => value instanceof Error ? reject(value) : resolve(value) });
+      })) as typeof h.api.playbackTicket;
+    const pool = new PlaybackBuffer(h.api, () => {
+      const player = new FakePlayer(); h.players.push(player); return player as unknown as VideoPlayer;
+    }, async (player, seconds) => { player.currentTime = seconds; }, (entry) => h.failures.push(entry.video.video_id), undefined, h.control, undefined,
+    () => quality, undefined, undefined, () => fast);
+    const entry = pool.prepare({ ...video("v"), is_short: 0 }, startAt);
+    h.players[0]!.duration = 600;
+    const bridge = (n: number): PlaybackTicket => ({ ticket: `bridge-${n}`, url: "/api/videos/v/bridge-stream", content_type: "progressive", expires_in: 60, bridge: true });
+    const chosen = (n: number, q = quality): PlaybackTicket => ({ ticket: `hls-${n}`, url: `/api/videos/v/direct-hls/index.m3u8?q=${q}`, content_type: "hls", expires_in: 60 });
+    const uri = () => String((h.players[0]!.source as { uri: string } | null)?.uri ?? "");
+    return { h, pool, entry, requests, bridge, chosen, uri, setQuality: (value: string) => { quality = value; }, setFast: (value: boolean) => { fast = value; } };
+  }
+
+  test("starts on the stopgap, then switches to the chosen stream where playback has reached", async () => {
+    const s = setup(true);
+    try {
+      await flush();
+      expect(s.requests.map((r) => r.fastStart)).toEqual([{ position: 0 }]);
+      s.requests[0]!.settle(s.bridge(1));
+      await s.entry.ready;
+      expect(s.uri()).toContain("/bridge-stream");
+      expect(await s.pool.play(s.entry)).toBe(true);
+      // The chosen stream is asked for at once, without the stopgap.
+      expect(s.requests).toHaveLength(2);
+      expect(s.requests[1]!.fastStart).toBeUndefined();
+      expect(s.requests[1]!.quality).toBe("auto");
+      const player = s.h.players[0]!;
+      player.currentTime = 12;
+      expect(s.entry.waitState().waiting).toBe("none");
+      s.requests[1]!.settle(s.chosen(2));
+      await flush(); await flush();
+      expect(s.uri()).toContain("/direct-hls/");
+      expect(player.currentTime).toBe(12);
+      expect(player.playing).toBe(true);
+      expect(s.h.released).toEqual(["v"]);
+      expect(s.h.failures).toEqual([]);
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("near the end of the stopgap, pauses as switching until the chosen stream arrives", async () => {
+    const s = setup(true);
+    try {
+      await flush();
+      s.requests[0]!.settle(s.bridge(1));
+      await s.entry.ready;
+      await s.pool.play(s.entry);
+      const player = s.h.players[0]!;
+      player.currentTime = 50;
+      player.emit("timeUpdate", { currentTime: 50 });
+      await flush();
+      expect(player.playing).toBe(false);
+      expect(s.entry.waitState().waiting).toBe("switching");
+      s.requests[1]!.settle(s.chosen(2));
+      await flush(); await flush();
+      expect(s.uri()).toContain("/direct-hls/");
+      expect(player.currentTime).toBe(50);
+      expect(player.playing).toBe(true);
+      expect(s.entry.waitState().waiting).toBe("none");
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("a viewer's pause while switching holds the new stream paused", async () => {
+    const s = setup(true);
+    try {
+      await flush();
+      s.requests[0]!.settle(s.bridge(1));
+      await s.entry.ready;
+      await s.pool.play(s.entry);
+      s.h.players[0]!.emit("statusChange", { status: "error", error: { message: "403" } });
+      await flush();
+      expect(s.entry.waitState().waiting).toBe("switching");
+      s.entry.hold();
+      s.requests[1]!.settle(s.chosen(2));
+      await flush(); await flush();
+      expect(s.uri()).toContain("/direct-hls/");
+      expect(s.h.players[0]!.playing).toBe(false);
+      expect(s.h.failures).toEqual([]);
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("starting past the stopgap's reach asks for the chosen stream only", async () => {
+    const s = setup(true, 120);
+    try {
+      await flush();
+      expect(s.requests).toHaveLength(1);
+      expect(s.requests[0]!.fastStart).toBeUndefined();
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("off, never asks for the stopgap", async () => {
+    const s = setup(false);
+    try {
+      await flush();
+      expect(s.requests[0]!.fastStart).toBeUndefined();
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("on, a quality change keeps the current stream playing until the new one is ready", async () => {
+    const s = setup(true, 120);
+    try {
+      await flush();
+      s.requests[0]!.settle(s.chosen(1));
+      await s.entry.ready;
+      await s.pool.play(s.entry);
+      const player = s.h.players[0]!;
+      s.setQuality("480");
+      s.entry.reload();
+      await flush();
+      expect(player.playing).toBe(true);
+      expect(s.entry.waitState().waiting).toBe("none");
+      expect(s.uri()).toContain("q=auto");
+      player.currentTime = 140;
+      s.requests[1]!.settle(s.chosen(2, "480"));
+      await flush(); await flush();
+      expect(s.uri()).toContain("q=480");
+      expect(player.currentTime).toBe(140);
+      expect(player.playing).toBe(true);
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("off, a quality change pauses as switching, then plays the new stream", async () => {
+    const s = setup(false, 120);
+    try {
+      await flush();
+      s.requests[0]!.settle(s.chosen(1));
+      await s.entry.ready;
+      await s.pool.play(s.entry);
+      const player = s.h.players[0]!;
+      s.setQuality("480");
+      s.entry.reload();
+      await flush();
+      expect(player.playing).toBe(false);
+      expect(s.entry.waitState().waiting).toBe("switching");
+      s.requests[1]!.settle(s.chosen(2, "480"));
+      await flush(); await flush();
+      expect(s.uri()).toContain("q=480");
+      expect(player.playing).toBe(true);
+      expect(s.entry.waitState().waiting).toBe("none");
+    } finally { s.pool.dispose(); await flush(); }
+  });
+
+  test("a quality change that fails carries on with the stream already playing", async () => {
+    const s = setup(false, 120);
+    try {
+      await flush();
+      s.requests[0]!.settle(s.chosen(1));
+      await s.entry.ready;
+      await s.pool.play(s.entry);
+      s.setQuality("480");
+      s.entry.reload();
+      await flush();
+      s.requests[1]!.settle(new Error("unavailable"));
+      await flush(); await flush();
+      expect(s.uri()).toContain("q=auto");
+      expect(s.h.players[0]!.playing).toBe(true);
+      expect(s.entry.waitState().waiting).toBe("none");
+      expect(s.h.failures).toEqual([]);
+    } finally { s.pool.dispose(); await flush(); }
   });
 });
 

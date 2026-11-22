@@ -4,7 +4,7 @@ import type { YtZeroApi } from "../api";
 import { deviceStore } from "../deviceStore";
 import type { Translate } from "../i18n";
 import { MusicDownloadWifiSetting } from "../music/MusicDownloadViews";
-import { saveStreamQuality, streamQuality } from "../streamQuality";
+import { fastStart as fastStartEnabled, saveFastStart } from "../streamQuality";
 import { saveLowResource, useLowResource } from "../lowResource";
 import { PhoneBufferSetting } from "./PhoneBufferSetting";
 import { PhoneProfilePlaybackSettings } from "./PhoneProfilePlaybackSettings";
@@ -32,10 +32,10 @@ export function PhoneSettingsScreen({ api, settings, t }: { api: YtZeroApi; sett
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const lowResource = useLowResource();
-  // The same device choice as the player's quality menu: on is "fast", off is "auto".
-  const [fastStart, setFastStart] = useState(() => streamQuality() === "fast");
+  // A device choice, apart from the quality: how videos start and how a quality change behaves.
+  const [fastStart, setFastStart] = useState(fastStartEnabled);
   const changeFastStart = async (value: boolean) => {
-    await saveStreamQuality(deviceStore, value ? "fast" : "auto");
+    await saveFastStart(deviceStore, value);
     setFastStart(value);
   };
   const run = async (action: () => Promise<void>) => {

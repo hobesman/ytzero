@@ -156,3 +156,58 @@ describe("progressive direct video stream", () => {
     expect(spawns).toBe(1);
   });
 });
+
+describe("fast start bridge source", () => {
+  // `liveAfter`: how long after the lookup YouTube serves the address; `refused` always refuses it.
+  function bridge(liveAfter: number, refused = false) {
+    let clock = 1_000_000;
+    const commands: string[][] = [];
+    let fetches = 0;
+    const streaming = createDownloadVideoProgressiveStreaming({
+      YTDLP: "yt-dlp",
+      downloadCookiesConfigured: () => false,
+      downloadCookiesFile: () => "cookies.txt",
+      ytdlpStatus: async () => "test",
+      now: () => clock,
+      freshUrlPollMs: 1,
+      extraArgs: ["--extractor-args", "youtube:player_client=android_vr"],
+      refreshOnRefusal: false,
+      spawn: ((command: string[]) => { commands.push(command); return {
+        // The lookup reports the address going live 30 s on, as YouTube's TV client does.
+        stdout: new Response(`https://r1.googlevideo.com/video?expire=9999999999\nmp4\navc1.42001E\nmp4a.40.2\n{"User-Agent":"vr-client"}\n${clock / 1000 + 30}\n`).body!,
+        stderr: new Response("").body!, exited: Promise.resolve(0), kill: () => {},
+      }; }) as unknown as typeof Bun.spawn,
+      fetchImpl: (async (_input, init) => {
+        fetches++;
+        const live = !refused && clock >= 1_000_000 + liveAfter;
+        clock += 1_000;
+        return live ? ranged(new Headers(init?.headers).get("range")) : new Response(null, { status: 403 });
+      }) as typeof fetch,
+    });
+    return { streaming, commands, fetches: () => fetches };
+  }
+
+  test("asks yt-dlp for the chosen client", async () => {
+    const { streaming, commands } = bridge(0);
+    expect(await streaming.prepareDirectVideo(1, "video")).toBe(true);
+    expect(commands[0]!.slice(-2)).toEqual(["--extractor-args", "youtube:player_client=android_vr"]);
+  });
+
+  test("is ready when YouTube serves it within a few seconds", async () => {
+    const { streaming, fetches } = bridge(2_000);
+    expect(await streaming.prepareDirectVideo(1, "video")).toBe(true);
+    expect(fetches()).toBe(3);
+  });
+
+  test("gives up after a few seconds rather than waiting out the address", async () => {
+    const { streaming, fetches } = bridge(20_000);
+    expect(await streaming.prepareDirectVideo(1, "video")).toBe(false);
+    expect(fetches()).toBeLessThanOrEqual(6);
+  });
+
+  test("past the part YouTube serves, answers the refusal without a new lookup", async () => {
+    const { streaming, commands } = bridge(0, true);
+    expect((await streaming.getDirectVideoResponse(1, "video", "bytes=0-1"))?.status).toBe(403);
+    expect(commands).toHaveLength(1);
+  });
+});

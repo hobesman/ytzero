@@ -1,4 +1,4 @@
-import { ApiError, YtZeroApi, type ImageSource } from "./api";
+import { ApiError, YtZeroApi, type ImageSource, type PlaybackTicketFastStart } from "./api";
 import type { PlaybackPosition } from "./playback";
 import type { PhoneDownloadStore } from "./phoneDownloads";
 import type { PlaybackQueueContext } from "./playbackQueue";
@@ -28,10 +28,10 @@ export class PhoneDownloadApi extends YtZeroApi {
     }
   }
 
-  override async playbackTicket(id: string, signal?: AbortSignal, prefer?: "progressive", quality?: string): Promise<PlaybackTicket> {
+  override async playbackTicket(id: string, signal?: AbortSignal, prefer?: "progressive", quality?: string, fastStart?: PlaybackTicketFastStart): Promise<PlaybackTicket> {
     const uri = this.downloads.localUri(id);
     if (uri) return { ticket: LOCAL_TICKET, url: uri, content_type: "progressive", expires_in: 24 * 60 * 60 };
-    return super.playbackTicket(id, signal, prefer, quality);
+    return super.playbackTicket(id, signal, prefer, quality, fastStart);
   }
 
   override playbackSource(ticket: PlaybackTicket): { uri: string; contentType: "hls" | "progressive" } {

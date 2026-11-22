@@ -213,4 +213,6 @@ export type PlaybackTicket = {
   url: string;
   content_type: "hls" | "progressive";
   expires_in: number;
+  /** Fast start's stopgap stream: it plays only about the first minute, so switch to the chosen stream soon. */
+  bridge?: boolean;
 };

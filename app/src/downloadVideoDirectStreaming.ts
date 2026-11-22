@@ -325,17 +325,43 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
   const unsupported = new Map<string, number>();
   const rangeRequests = new MediaRequestQueue(MAX_BUFFERED_RANGE_REQUESTS_PER_PROFILE, 32);
 
-  async function formatSelector(userId: number, quality: string): Promise<string> {
+  /** The tallest video a stream may use: the profile's quality setting, capped by the requested height. */
+  async function heightCap(userId: number, quality: string): Promise<number | null> {
     const setting = await dlSettings(userId);
     const profileHeight = setting.quality === "best" ? null : Number(setting.quality);
     const requestedHeight = /^\d+$/.test(quality) ? Number(quality) : null;
     const parsedHeight = profileHeight != null && Number.isFinite(profileHeight) && profileHeight > 0
       ? Math.min(profileHeight, requestedHeight ?? profileHeight)
       : requestedHeight;
-    const cap = Number.isFinite(parsedHeight) && Number(parsedHeight) > 0
-      ? `[height<=${Math.floor(Number(parsedHeight))}]`
-      : "";
+    return Number.isFinite(parsedHeight) && Number(parsedHeight) > 0 ? Math.floor(Number(parsedHeight)) : null;
+  }
+
+  async function formatSelector(userId: number, quality: string): Promise<string> {
+    const height = await heightCap(userId, quality);
+    const cap = height == null ? "" : `[height<=${height}]`;
     return `bestvideo[ext=mp4][vcodec^=avc1][protocol^=http]${cap}+bestaudio[ext=m4a][acodec^=mp4a][protocol^=http]`;
+  }
+
+  /**
+   * One yt-dlp listing names every height of a video, and all its addresses go
+   * live together. Another quality of a video already looked up for this
+   * profile therefore reuses that listing: no new lookup, and no new wait for
+   * YouTube, so changing quality mid-video is quick.
+   */
+  async function sharedListing(userId: number, videoId: string, quality: string): Promise<DirectVideoSources | null> {
+    const current = now();
+    let listing: DirectVideoSources | null = null;
+    for (const [key, cached] of sourceCache) {
+      if (!keyMatches(key, videoId, userId) || cached.expiresAt <= current || !cached.sources.alternates?.length) continue;
+      if (!listing || cached.sources.video.issuedAt > listing.video.issuedAt) listing = cached.sources;
+    }
+    if (!listing) return null;
+    const cap = await heightCap(userId, quality);
+    // What `bestvideo[height<=N]` picks: yt-dlp lists formats worst first.
+    let pick: DirectVideoMediaSource | undefined;
+    for (const alternate of listing.alternates ?? []) if (cap == null || (alternate.height ?? 0) <= cap) pick = alternate;
+    if (!pick) return null;
+    return { ...listing, video: pick, expiresAt: Math.min(listing.audio.expiresAt, pick.expiresAt) };
   }
 
   async function resolveAttempt(
@@ -437,6 +463,12 @@ export function createDownloadVideoDirectStreaming(dependencies: DownloadVideoDi
     const cached = sourceCache.get(key);
     if (cached && cached.expiresAt > now()) return { kind: "sources", sources: cached.sources };
     if (cached) sourceCache.delete(key);
+    // A refresh (force) wants new addresses; otherwise another quality's listing will do.
+    const shared = force ? null : await sharedListing(userId, videoId, quality);
+    if (shared && !signal?.aborted) {
+      sourceCache.set(key, { expiresAt: shared.expiresAt, sources: shared });
+      return { kind: "sources", sources: shared };
+    }
     let operation = sourceResolutions.get(key);
     if (!operation || force) {
       if (force && operation) {
