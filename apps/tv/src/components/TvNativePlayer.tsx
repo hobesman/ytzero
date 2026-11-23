@@ -652,7 +652,7 @@ export function TvNativePlayer(props: Props) {
     {gestures.overlay}
     </View>
     {ownsSpeedControl && presented && !error && !dismissing ? <PlaybackWaitOverlay entry={active} t={t} /> : null}
-    {presented && !error && !dismissing ? <SubtitleOverlay lines={subtitles.lines} settings={props.settings} raised={showButtons} compact={inline && !props.fullscreenActive} /> : null}
+    {presented && !error && !dismissing ? <SubtitleOverlay lines={subtitles.lines} settings={props.settings} raised={showButtons || !playing} compact={inline && !props.fullscreenActive} /> : null}
     {skippedNotice && presented ? <View pointerEvents="none" style={[styles.skippedNotice, inline && !props.fullscreenActive && styles.inlineSkippedNotice]}>
       <Text style={styles.skippedNoticeText}>{skippedNotice}</Text>
     </View> : null}
