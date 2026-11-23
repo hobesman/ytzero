@@ -191,6 +191,10 @@ export type TvProfileSettings = {
   /** JSON array of SponsorBlock category ids. */
   sponsorblock_categories?: string;
   video_card_action_buttons?: string;
+  /** Captions: "1" turns them on by default, in `player_cc_lang`, else the interface language `player_hl`. */
+  player_cc?: string; player_cc_lang?: string; player_hl?: string;
+  /** Caption look: a pixel size around 19 (or "small"/"medium"/"large"), a colour, and the backdrop's opacity in percent. */
+  player_sub_size?: string; player_sub_color?: string; player_sub_bg?: string;
   /** "0" turns off music volume levelling; on otherwise. */
   music_volume_leveling?: string;
 };

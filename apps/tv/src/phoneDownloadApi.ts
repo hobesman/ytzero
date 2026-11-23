@@ -3,6 +3,7 @@ import type { PlaybackPosition } from "./playback";
 import type { PhoneDownloadStore } from "./phoneDownloads";
 import type { PlaybackQueueContext } from "./playbackQueue";
 import type { PlaybackTicket, Video } from "./types";
+import type { SubtitleTrack } from "./subtitles";
 
 /** Stands in for a media ticket when the video plays from a file on the phone. */
 const LOCAL_TICKET = "local-file";
@@ -75,6 +76,30 @@ export class PhoneDownloadApi extends YtZeroApi {
   override async recordPlayback(id: string, context: PlaybackQueueContext | null): Promise<{ ok: true }> {
     try { return await super.recordPlayback(id, context); }
     catch (error) { if (this.downloads.localUri(id)) return { ok: true }; throw error; }
+  }
+
+  /**
+   * A downloaded video's saved subtitle tracks stand in for the server's own
+   * copies of those languages, and are all there is offline.
+   */
+  override async videoSubtitles(id: string, signal?: AbortSignal): Promise<{ subtitles: SubtitleTrack[]; available?: Array<{ lang: string; label: string }> }> {
+    const saved = this.downloads.localSubtitles(id);
+    let result: Awaited<ReturnType<YtZeroApi["videoSubtitles"]>>;
+    try { result = await super.videoSubtitles(id, signal); }
+    catch (error) {
+      if (saved.length && !(error instanceof ApiError)) return { subtitles: saved };
+      throw error;
+    }
+    if (!saved.length) return result;
+    const local = new Map(saved.map((track) => [track.lang, track]));
+    const subtitles = (result.subtitles ?? []).map((track) => local.get(track.lang) ? { ...track, url: local.get(track.lang)!.url } : track);
+    for (const track of saved) if (!subtitles.some((item) => item.lang === track.lang)) subtitles.push(track);
+    return { ...result, subtitles };
+  }
+
+  override async subtitleText(url: string, signal?: AbortSignal): Promise<string> {
+    const saved = await this.downloads.readSubtitle(url);
+    return saved ?? super.subtitleText(url, signal);
   }
 
   private readonly localSources = new Map<string, ImageSource>();

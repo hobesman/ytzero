@@ -1,6 +1,8 @@
 import type { PlaybackPosition } from "./playback";
 import type { NativeDownloadStatus, PhoneDownloadsNative } from "./phoneDownloadsNative";
 import type { Video } from "./types";
+import { parseSavedSubtitles, saveDownloadSubtitles, type SavedSubtitle, type SubtitleSource } from "./phoneDownloadSubtitles";
+import type { SubtitleTrack } from "./subtitles";
 
 /**
  * Videos saved on an Android phone for offline playback.
@@ -28,6 +30,8 @@ export type PhoneDownload = {
   state: "server" | "downloading" | "done" | "failed";
   file: string;
   thumbnail: string | null;
+  /** Subtitle tracks saved beside the video (see phoneDownloadSubtitles.ts); missing in older indexes. */
+  subtitles?: SavedSubtitle[];
   nativeId: string | null;
   size: number | null;
   downloaded: number | null;
@@ -50,7 +54,7 @@ export type PhoneDownloadIndex = {
   allowMetered: boolean;
 };
 
-type DownloadApi = {
+type DownloadApi = SubtitleSource & {
   requestDeviceDownload(id: string, quality?: string): Promise<unknown>;
   videoDownload(id: string): Promise<{ download: { status: string } | null; progress: { percent: number } | null }>;
   savePlaybackProgress(id: string, value: PlaybackPosition): Promise<unknown>;
@@ -90,7 +94,7 @@ export function parseDownloadIndex(text: string | null): PhoneDownloadIndex {
   const valid = (item: Partial<PhoneDownload>): item is PhoneDownload => typeof item?.owner === "string" && typeof item.videoId === "string"
     && typeof item.file === "string" && !!item.video && typeof item.video === "object" && typeof item.video.video_id === "string"
     && ["server", "downloading", "done", "failed"].includes(item.state as string);
-  index.downloads = Array.isArray(value.downloads) ? value.downloads.filter(valid) : [];
+  index.downloads = Array.isArray(value.downloads) ? value.downloads.filter(valid).map((item) => ({ ...item, subtitles: parseSavedSubtitles(item.subtitles) })) : [];
   index.pending = Array.isArray(value.pending) ? value.pending.filter((item) => typeof item?.owner === "string" && typeof item.videoId === "string"
     && Number.isFinite(item.position) && Number.isFinite(item.duration)) : [];
   index.lastOwner = typeof value.lastOwner === "string" ? value.lastOwner : null;
@@ -255,6 +259,7 @@ export class PhoneDownloadStore {
     this.index.downloads = [...this.index.downloads, item];
     this.changed();
     void this.saveThumbnail(connection, video, `${base}.jpg`);
+    void this.saveSubtitles(connection, video, base);
     try {
       await connection.api.requestDeviceDownload(video.video_id, item.quality === "server" ? undefined : item.quality);
     } catch (error) {
@@ -275,6 +280,31 @@ export class PhoneDownloadStore {
     else if (size > 0) await this.native.deleteFile(name).catch(() => {});
   }
 
+  private async saveSubtitles(connection: DownloadConnection, video: Video, base: string) {
+    if (!this.native) return;
+    const native = this.native;
+    const saved = await saveDownloadSubtitles({ api: connection.api, video, base, instanceUrl: connection.instanceUrl, headers: this.headers(connection),
+      fetchFile: (url, headers, name) => native.fetchFile(url, headers, name) }).catch(() => []);
+    if (!saved.length) return;
+    const current = this.find(video.video_id, connection.owner);
+    if (current) this.update(current, { subtitles: saved });
+    else for (const item of saved) await native.deleteFile(item.file).catch(() => {});
+  }
+
+  /** A finished download's saved subtitle tracks, as tracks the player can read with `readSubtitle`. */
+  localSubtitles(videoId: string): SubtitleTrack[] {
+    const item = this.find(videoId);
+    if (item?.state !== "done" || !this.native) return [];
+    return (item.subtitles ?? []).map((saved) => ({ lang: saved.lang, label: saved.label, url: this.fileUri(saved.file) }));
+  }
+
+  /** The text of a saved track, or null when `url` is not one of the shown profile's saved tracks. */
+  async readSubtitle(url: string): Promise<string | null> {
+    if (!this.native) return null;
+    const saved = this.downloads().flatMap((item) => item.subtitles ?? []).find((entry) => this.fileUri(entry.file) === url);
+    return saved ? await this.native.readText(saved.file) : null;
+  }
+
   private headers(connection: DownloadConnection): Record<string, string> {
     return connection.accessToken ? { Authorization: `Bearer ${connection.accessToken}` } : {};
   }
@@ -286,6 +316,7 @@ export class PhoneDownloadStore {
     if (item.nativeId) await this.native.cancel(item.nativeId).catch(() => {});
     await this.native.deleteFile(item.file).catch(() => {});
     if (item.thumbnail) await this.native.deleteFile(item.thumbnail).catch(() => {});
+    for (const saved of item.subtitles ?? []) await this.native.deleteFile(saved.file).catch(() => {});
   }
 
   async remove(videoId: string) {

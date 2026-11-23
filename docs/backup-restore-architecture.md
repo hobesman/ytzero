@@ -733,6 +733,13 @@ archive with no such capability restores with public sharing denied.
   to the instance and is excluded from portable and exact server backups; no
   server backup adapter or archive shape changes.
 
+- The Android app's last subtitle choice (`ytzero.tv.subtitles`, SecureStore) is
+  machine-bound playback configuration for that device, shared across
+  profiles: `off` or the language code last picked in the player; missing or
+  invalid values mean no choice yet, so the profile's caption settings apply.
+  It is never sent to the instance and is excluded from portable and exact
+  server backups; no server backup adapter or archive shape changes.
+
 - The TV and Android apps' unsynced watch positions (`ytzero.tv.unsynced-positions`,
   SecureStore) are transient state: a write-ahead copy of positions the instance
   has not yet confirmed, keyed by instance origin and profile id, capped at 25
@@ -755,9 +762,11 @@ archive with no such capability restores with public sharing denied.
 - Videos downloaded to an Android phone for offline playback are **machine-bound
   device data**, kept only on that phone in the app's own external files folder
   (`Android/data/app.ytzero.tv/files/downloads`): the video files, their
-  thumbnails, and `index.json`, a versioned record (`version: 1`) of each
+  thumbnails, up to three WebVTT subtitle tracks per video (in the viewer's
+  languages), and `index.json`, a versioned record (`version: 1`) of each
   download's profile (`<instance origin>#<profile id>`), video details, file
-  names and state, plus the phone's download quality and mobile-data choice,
+  names (subtitle tracks as an optional `subtitles` list, absent in older
+  indexes) and state, plus the phone's download quality and mobile-data choice,
   the last profile signed in there (whose downloads stay playable offline) and
   watch positions not yet sent to the server. The files are rebuildable from
   the server; the index holds no credential. The server never stores or exports
