@@ -20,6 +20,8 @@ import { leavesIntoPictureInPicture, onPictureInPictureDismiss } from "../pictur
 import { TvMiniPlayer } from "./TvMiniPlayer";
 import { useFullscreenGestures } from "../phone/useFullscreenGestures";
 import { PlaybackWaitOverlay } from "./PlaybackWaitOverlay";
+import { SubtitleButton, SubtitleOverlay, SubtitleSheet } from "./SubtitleControls";
+import { useSubtitles } from "../useSubtitles";
 import { ApiError, type YtZeroApi } from "../api";
 import type { Translate } from "../i18n";
 import { PlaybackProgress, validPlaybackPosition, type PlaybackResult } from "../playback";
@@ -144,6 +146,7 @@ export function TvNativePlayer(props: Props) {
   const [speedSheet, setSpeedSheet] = useState(false);
   const [qualitySheet, setQualitySheet] = useState(false);
   const [sleepSheet, setSleepSheet] = useState(false);
+  const [subtitleSheet, setSubtitleSheet] = useState(false);
   const [quality, setQuality] = useState<StreamQuality>(streamQuality);
   // The height of the video track playing now, as ExoPlayer adapts.
   const [trackHeight, setTrackHeight] = useState<number | null>(null);
@@ -596,6 +599,9 @@ export function TvNativePlayer(props: Props) {
     categories: sponsorCategories(props.settings?.sponsorblock_enabled, props.settings?.sponsorblock_categories),
     record: !incognito, onSkip: (seconds) => showNotice(t("sponsorSkipped").replace("{seconds}", String(Math.max(1, Math.round(seconds))))) });
   const sleep = useSleepTimer(ownsSpeedControl ? active?.player ?? null : null, () => showNotice(t("sleepTimerStopped")));
+  // Android draws its own captions over the video, whatever the source; tvOS keeps AVKit's.
+  const subtitles = useSubtitles({ api, player: active?.player ?? null, video: active?.video ?? null, settings: props.settings, enabled: ownsSpeedControl });
+  useEffect(() => { if (subtitles.failed) showNotice(t("subtitlesFailed")); }, [subtitles.failed]);
   const sleepLabel = sleep.remaining !== null ? sleepCountdownLabel(sleep.remaining) : sleep.timer.kind === "end" ? t("sleepTimerEndOfVideo") : null;
   // With "remember speed changes" on, a speed picked here outlasts this video.
   const rememberSpeed = (entry: BufferedPlayback, value: string) => {
@@ -646,10 +652,13 @@ export function TvNativePlayer(props: Props) {
     {gestures.overlay}
     </View>
     {ownsSpeedControl && presented && !error && !dismissing ? <PlaybackWaitOverlay entry={active} t={t} /> : null}
+    {presented && !error && !dismissing ? <SubtitleOverlay lines={subtitles.lines} settings={props.settings} raised={showButtons} compact={inline && !props.fullscreenActive} /> : null}
     {skippedNotice && presented ? <View pointerEvents="none" style={[styles.skippedNotice, inline && !props.fullscreenActive && styles.inlineSkippedNotice]}>
       <Text style={styles.skippedNoticeText}>{skippedNotice}</Text>
     </View> : null}
     {ownsSpeedControl && showButtons ? <View style={[styles.playerButtons, inline && !props.fullscreenActive && styles.inlineButtons]}>
+      <SubtitleButton state={subtitles} t={t} style={styles.speedButton} pressedStyle={styles.speedButtonPressed} textStyle={styles.speedButtonText}
+        onPress={() => { clearTimeout(speedButtonTimer.current); setSubtitleSheet(true); }} />
       {currentVideo.live_status !== "live" ? <Pressable accessibilityRole="button" accessibilityLabel={`${t("streamQuality")}: ${qualityLabel}`} hitSlop={12}
         style={({ pressed }) => [styles.speedButton, pressed && styles.speedButtonPressed]}
         onPress={() => { clearTimeout(speedButtonTimer.current); setQualitySheet(true); }}>
@@ -704,7 +713,8 @@ export function TvNativePlayer(props: Props) {
     options={SLEEP_TIMER_CHOICES.map((value) => ({ value, label: value === "off" ? t("sleepTimerOff") : value === "end" ? t("sleepTimerEndOfVideo")
       : t("sleepTimerMinutes").replace("{count}", value) }))}
     onSelect={(value) => { setSleepTimer(value); setSleepSheet(false); revealSpeedButton(); }}
-    onClose={() => { setSleepSheet(false); revealSpeedButton(); }} /> : null;
+    onClose={() => { setSleepSheet(false); revealSpeedButton(); }} />
+    : subtitleSheet ? <SubtitleSheet state={subtitles} t={t} onClose={() => { setSubtitleSheet(false); revealSpeedButton(); }} /> : null;
 
   // Phones: the player drawn in the details page, above its title and actions.
   if (inline && !docked) return <View style={styles.inline}>

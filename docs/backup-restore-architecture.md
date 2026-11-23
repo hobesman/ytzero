@@ -733,6 +733,13 @@ archive with no such capability restores with public sharing denied.
   to the instance and is excluded from portable and exact server backups; no
   server backup adapter or archive shape changes.
 
+- The Android app's last subtitle choice (`ytzero.tv.subtitles`, SecureStore) is
+  machine-bound playback configuration for that device, shared across
+  profiles: `off` or the language code last picked in the player; missing or
+  invalid values mean no choice yet, so the profile's caption settings apply.
+  It is never sent to the instance and is excluded from portable and exact
+  server backups; no server backup adapter or archive shape changes.
+
 - The TV and Android apps' unsynced watch positions (`ytzero.tv.unsynced-positions`,
   SecureStore) are transient state: a write-ahead copy of positions the instance
   has not yet confirmed, keyed by instance origin and profile id, capped at 25

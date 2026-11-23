@@ -9,6 +9,7 @@ import type { SponsorSegment } from "./sponsorBlock";
 import { matchingChannels, searchChannel, searchVideo, type YoutubeSearchChannel, type YoutubeSearchVideo } from "./search";
 import { lowResource, smallThumbnailUrl } from "./lowResource";
 import type { PublicShare, PublicShareUpdate } from "./publicShareOptions";
+import type { SubtitleTrack } from "./subtitles";
 
 type BrowseResult = { videos: Video[]; page: number; hasMore: boolean };
 export type ImageSource = { uri: string; headers?: Record<string, string> };
@@ -358,6 +359,20 @@ export class YtZeroApi {
 
   videoComments(id: string): Promise<{ comments: VideoComment[]; fetchedAt: string; cached: boolean }> {
     return this.request(`/videos/${encodeURIComponent(id)}/comments?sort=top`);
+  }
+
+  /** The video's subtitle tracks, each a WebVTT address on this server, and every track's label. */
+  videoSubtitles(id: string, signal?: AbortSignal): Promise<{ subtitles: SubtitleTrack[]; available?: Array<{ lang: string; label: string }> }> {
+    return this.request(`/videos/${encodeURIComponent(id)}/subtitles`, { signal });
+  }
+
+  /** One subtitle track's WebVTT text, from an address `videoSubtitles` gave. */
+  async subtitleText(url: string, signal?: AbortSignal): Promise<string> {
+    const response = await fetch(new URL(url, `${this.instanceUrl}/`).toString(), {
+      signal, headers: this.accessToken ? { Authorization: `Bearer ${this.accessToken}` } : {},
+    });
+    if (!response.ok) throw new ApiError(`HTTP ${response.status}`, response.status);
+    return response.text();
   }
 
   /**
