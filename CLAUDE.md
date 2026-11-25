@@ -50,8 +50,9 @@ still costs time nobody planned for.
 ## Shipping
 
 When the user says a change is ready ("ship it", "it can go live"), run the
-**`/ship`** skill (one of the user's own skills, shared by their repos; this
-repo's settings for it are in `.claude/ship.json`): it brings the branch up to
+**`/ship-queue`** skill (one of the user's own skills, shared by their repos;
+this repo's settings for it are in `.claude/ship.json`). It is not Claude Code's
+bundled `/ship` skill, which reserves that name. It brings the branch up to
 date, runs the tests, pushes, opens the PR and labels it `ship`. That is the
 user's go-ahead for that change; do not merge it yourself.
 
