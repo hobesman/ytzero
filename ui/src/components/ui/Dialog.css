@@ -4,3 +4,16 @@
 .ui-dialog__header h2 { font-size: 16px; margin: 0; }
 .ui-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px; }
 .ui-dialog__footer { align-items: center; border-top: 1px solid var(--surface-3); display: flex; flex: 0 0 auto; gap: 8px; justify-content: flex-end; padding: 12px 16px; }
+/* Sheet: a short list of choices (a Menu as the body). */
+.ui-dialog--sheet { width: 380px; }
+.ui-dialog--sheet .ui-dialog__body { padding: 8px; }
+.ui-dialog--sheet .ui-menu { margin: 0; min-width: 0; padding: 0; }
+@media (max-width: 640px) {
+  .ui-dialog-backdrop--sheet { align-items: flex-end; padding: 0; }
+  .ui-dialog--sheet { animation: ui-dialog-sheet-in 220ms cubic-bezier(.22, 1, .36, 1); border-radius: 16px 16px 0 0; max-height: 80vh; padding-bottom: env(safe-area-inset-bottom); width: 100%; }
+  .ui-dialog--sheet .ui-dialog__header { padding: 16px 16px 12px; }
+  .ui-dialog--sheet .ui-menu__item { font-size: 16px; gap: 14px; min-height: 52px; padding: 12px 14px; }
+  .ui-dialog--sheet .ui-menu__icon svg { height: 22px; width: 22px; }
+}
+@keyframes ui-dialog-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .ui-dialog--sheet { animation: none; } }

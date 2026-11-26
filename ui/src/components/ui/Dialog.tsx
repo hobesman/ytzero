@@ -8,7 +8,11 @@ const SHORTCUT_CLOSE_EVENT = "ytzero:shortcut-close";
 
 const FOCUSABLE = "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function Dialog({ open, onOpenChange, title, children, footer, closeLabel, className, descriptionId, dismissible = true, busy = false }: { open: boolean; onOpenChange: (open: boolean) => void; title: ReactNode; children: ReactNode; footer?: ReactNode; closeLabel: string; className?: string; descriptionId?: string; dismissible?: boolean; busy?: boolean }) {
+export function Dialog({ open, onOpenChange, title, children, footer, closeLabel, className, descriptionId, dismissible = true, busy = false, variant = "default" }: {
+  open: boolean; onOpenChange: (open: boolean) => void; title: ReactNode; children: ReactNode; footer?: ReactNode; closeLabel: string; className?: string; descriptionId?: string; dismissible?: boolean; busy?: boolean;
+  /** "sheet" holds a short list of choices (a `Menu`): docked to the bottom of a phone screen with large touch rows, a compact panel elsewhere. */
+  variant?: "default" | "sheet";
+}) {
   const titleId = useId();
   const dialogRef = useRef<HTMLElement>(null);
   const onOpenChangeRef = useRef(onOpenChange);
@@ -63,5 +67,5 @@ export function Dialog({ open, onOpenChange, title, children, footer, closeLabel
   }, [open]);
 
   if (!open) return null;
-  return createPortal(<div className="ui-dialog-backdrop" onMouseDown={() => { if (dismissible) onOpenChange(false); }}><section ref={dialogRef} className={cx("ui-dialog", className)} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} aria-busy={busy} tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}><header className="ui-dialog__header"><h2 id={titleId}>{title}</h2><IconButton variant="ghost" size="sm" label={closeLabel} icon={<X />} disabled={!dismissible} onClick={() => onOpenChange(false)} /></header><div className="ui-dialog__body">{children}</div>{footer && <footer className="ui-dialog__footer">{footer}</footer>}</section></div>, document.body);
+  return createPortal(<div className={cx("ui-dialog-backdrop", variant === "sheet" && "ui-dialog-backdrop--sheet")} onMouseDown={() => { if (dismissible) onOpenChange(false); }}><section ref={dialogRef} className={cx("ui-dialog", variant === "sheet" && "ui-dialog--sheet", className)} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} aria-busy={busy} tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}><header className="ui-dialog__header"><h2 id={titleId}>{title}</h2><IconButton variant="ghost" size="sm" label={closeLabel} icon={<X />} disabled={!dismissible} onClick={() => onOpenChange(false)} /></header><div className="ui-dialog__body">{children}</div>{footer && <footer className="ui-dialog__footer">{footer}</footer>}</section></div>, document.body);
 }

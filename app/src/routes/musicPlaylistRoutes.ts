@@ -2,7 +2,7 @@ import type { Context, Hono } from "hono";
 import type { MusicPages } from "../music/musicAlbums";
 import { musicTrack, musicTracks, type StoredMusicTrack } from "../music/musicCatalog";
 import {
-  addPlaylistTrack, cleanTitle, createPlaylist, deletePlaylist, playlistTrackIds, removePlaylistTrack, renamePlaylist, reorderPlaylist,
+  MAX_PLAYLIST_TRACKS, addPlaylistTrack, addPlaylistTracks, cleanTitle, createPlaylist, deletePlaylist, playlistTrackIds, removePlaylistTrack, renamePlaylist, reorderPlaylist,
   savePlaylist, unsavePlaylist, userPlaylist, userPlaylists,
 } from "../music/musicPlaylists";
 import { upstreamFailure, withRatings } from "../music/musicRouteHelpers";
@@ -54,8 +54,21 @@ export function registerMusicPlaylistRoutes(api: Hono<ApiEnvironment>, { current
   api.delete("/music/my-playlists/:id", async (context) =>
     await deletePlaylist(currentUserId(context), context.req.param("id")) ? context.json({ ok: true }) : notFound(context));
 
+  // One song (`videoId`), or several in order (`videoIds`: an album or another playlist).
   api.post("/music/my-playlists/:id/tracks", async (context) => {
-    const body = await context.req.json().catch(() => null) as { videoId?: unknown } | null;
+    const body = await context.req.json().catch(() => null) as { videoId?: unknown; videoIds?: unknown } | null;
+    if (body?.videoIds !== undefined) {
+      const videoIds = body.videoIds;
+      if (!Array.isArray(videoIds) || !videoIds.length || videoIds.length > MAX_PLAYLIST_TRACKS
+        || !videoIds.every((videoId) => typeof videoId === "string" && VIDEO_ID.test(videoId))) return context.json({ error: "invalid songs" }, 400);
+      // As with one song, only songs the server has seen can be added; the rest are counted as unknown.
+      const unique = [...new Set(videoIds as string[])];
+      const known = await musicTracks(unique);
+      const songs = unique.filter((videoId) => known.has(videoId));
+      const result = await addPlaylistTracks(currentUserId(context), context.req.param("id"), songs);
+      if (result === "missing") return notFound(context);
+      return context.json({ ok: true, ...result, unknown: unique.length - songs.length });
+    }
     const videoId = body?.videoId;
     if (typeof videoId !== "string" || !VIDEO_ID.test(videoId)) return context.json({ error: "invalid song" }, 400);
     // Only songs the server has seen can be added, so the playlist can show them.

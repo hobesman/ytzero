@@ -9,7 +9,8 @@ import SearchResultsHeading from "../components/SearchResultsHeading";
 import {
   musicApi, type MusicAlbum, type MusicArtist, type MusicGenre, type MusicPlaylist, type MusicSeed, type MusicTrack, type MusicUserPlaylist,
 } from "../music/musicApi";
-import { MusicUserPlaylistView, useCreateMusicPlaylist } from "../music/MusicPlaylistViews";
+import { MusicUserPlaylistView } from "../music/MusicPlaylistViews";
+import { MusicAddAllToPlaylistButton, useCreateMusicPlaylist } from "../music/MusicAddToPlaylist";
 import { musicPlayer, useMusicPlayer } from "../music/musicPlayer";
 import { current } from "../music/musicQueue";
 import MusicPlayerBar from "../music/MusicPlayerBar";
@@ -170,6 +171,7 @@ function AlbumView() {
       <Button variant="primary" leadingIcon={<Play />} onClick={() => actions.play(seed(), { from: album.title })}>{t("musicPlay")}</Button>
       <Button leadingIcon={<Shuffle />} onClick={() => actions.play(seed(), { shuffle: true, from: album.title })}>{t("musicShuffle")}</Button>
       <Button leadingIcon={<Heart fill={album.saved ? "currentColor" : "none"} />} onClick={toggleSaved}>{album.saved ? t("musicSaved") : t("musicSave")}</Button>
+      <MusicAddAllToPlaylistButton tracks={album.tracks} />
     </MusicDetailHeader>
     {actions.failed ? <p className="music-error" role="alert">{t("musicStartFailed")}</p> : null}
     <MusicTrackList tracks={album.tracks} numbered albumArtist={album.artist} playingId={actions.playingId}
@@ -234,6 +236,7 @@ function PlaylistView() {
     <MusicDetailHeader art={playlist.thumbnail} title={playlist.title} detail={playlist.subtitle}>
       <Button variant="primary" leadingIcon={<Shuffle />} onClick={() => actions.play(seed, { from: playlist.title })}>{t("musicShuffle")}</Button>
       <Button leadingIcon={<Heart fill={playlist.saved ? "currentColor" : "none"} />} onClick={toggleSaved}>{playlist.saved ? t("musicSaved") : t("musicSave")}</Button>
+      <MusicAddAllToPlaylistButton tracks={playlist.tracks} />
     </MusicDetailHeader>
     {actions.failed ? <p className="music-error" role="alert">{t("musicStartFailed")}</p> : null}
     <MusicTrackList tracks={playlist.tracks} playingId={actions.playingId} onPlay={actions.playTrack} />

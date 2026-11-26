@@ -179,6 +179,10 @@ describe("music mode", () => {
     expect(result.staleOrderStatus).toBe(409);
     expect(result.renameStatus).toBe(200);
     expect(result.minePage).toEqual({ title: "Road trip 2", trackCount: 2, ids: [result.served[2], result.served[1]], thumbnail: expect.stringContaining(result.served[2]) });
+    expect(result.bulkAdd).toEqual({ ok: true, added: 2, present: 1, full: 0, unknown: 1 });
+    expect(result.bulkIds).toEqual([result.served[1], result.served[3], result.served[2]]);
+    expect(result.bulkEmptyStatus).toBe(400);
+    expect(result.bulkOtherStatus).toBe(404);
     expect(result.deletePlaylistStatus).toBe(200);
     expect(result.doomedTracksLeft).toBe(0);
     expect(result.libraryPlaylists).toEqual(["Road trip 2"]);

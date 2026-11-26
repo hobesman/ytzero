@@ -1,10 +1,11 @@
 import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, EllipsisVertical, Heart, ListEnd, ListStart, Music, Plus, ThumbsDown, X } from "lucide-react";
+import { ArrowLeft, EllipsisVertical, Heart, ListEnd, ListPlus, ListStart, Music, Plus, ThumbsDown, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { emitToast } from "../events";
 import { img } from "../img";
 import { formatSongCount, useI18n } from "../i18n";
 import { Button, EmptyState, IconButton, Menu, MenuItem, Popover, SectionHeader } from "../components/ui";
+import { useAddToMusicPlaylist } from "./MusicAddToPlaylist";
 import { musicPlayer } from "./musicPlayer";
 import "./MusicQueueParts.css";
 import type { MusicAlbum, MusicArtist, MusicGenre, MusicPlaylist, MusicTrack, MusicUserPlaylist } from "./musicApi";
@@ -107,25 +108,31 @@ export const MusicGenreTile = memo(function MusicGenreTile({ genre, onOpen }: { 
     {genre.title}
   </button>;
 });
-/** A song's ⋮ menu: Play next, Add to queue, Not this one, and Remove when it is in Up next. */
+/** A song's ⋮ menu: Play next, Add to queue, Add to playlist, Not this one, and Remove when it is in Up next. */
 export function MusicTrackMenu({ track, onRemove }: { track: MusicTrack; onRemove?: () => void }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  // The playlist picker is its own sheet, so it stays open after this menu closes.
+  const addToPlaylist = useAddToMusicPlaylist([track]);
   const run = (action: () => void) => () => { setOpen(false); action(); };
   const queue = (placement: "next" | "last") => run(() => {
     // With nothing playing the song simply starts, so there is nothing to announce.
     if (musicPlayer.snapshot().queue) emitToast(placement === "next" ? t("musicQueuedNext") : t("musicQueuedLast"));
     musicPlayer.enqueue(track, placement);
   });
-  return <Popover align="end" placement="auto" surface="menu" open={open} onOpenChange={setOpen} rootClassName="music-track-menu"
-    trigger={<IconButton size="sm" variant="ghost" label={t("musicMoreOptions")} icon={<EllipsisVertical />} />}>
-    <Menu>
-      <MenuItem icon={<ListStart />} onClick={queue("next")}>{t("musicPlayNext")}</MenuItem>
-      <MenuItem icon={<ListEnd />} onClick={queue("last")}>{t("musicAddToQueue")}</MenuItem>
-      {onRemove ? <MenuItem icon={<X />} onClick={run(onRemove)}>{t("musicRemoveFromQueue")}</MenuItem> : null}
-      <MenuItem icon={<ThumbsDown />} onClick={run(() => void musicPlayer.dislike(track).catch(() => {}))}>{t("musicNotThis")}</MenuItem>
-    </Menu>
-  </Popover>;
+  return <>
+    <Popover align="end" placement="auto" surface="menu" open={open} onOpenChange={setOpen} rootClassName="music-track-menu"
+      trigger={<IconButton size="sm" variant="ghost" label={t("musicMoreOptions")} icon={<EllipsisVertical />} />}>
+      <Menu>
+        <MenuItem icon={<ListStart />} onClick={queue("next")}>{t("musicPlayNext")}</MenuItem>
+        <MenuItem icon={<ListEnd />} onClick={queue("last")}>{t("musicAddToQueue")}</MenuItem>
+        <MenuItem icon={<ListPlus />} onClick={run(addToPlaylist.open)}>{t("musicAddToPlaylist")}</MenuItem>
+        {onRemove ? <MenuItem icon={<X />} onClick={run(onRemove)}>{t("musicRemoveFromQueue")}</MenuItem> : null}
+        <MenuItem icon={<ThumbsDown />} onClick={run(() => void musicPlayer.dislike(track).catch(() => {}))}>{t("musicNotThis")}</MenuItem>
+      </Menu>
+    </Popover>
+    {addToPlaylist.element}
+  </>;
 }
 
 /** The heading of an album, artist, genre or playlist page. */
