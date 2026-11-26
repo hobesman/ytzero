@@ -80,6 +80,9 @@ export const musicApi = {
   deletePlaylist: (playlistId: string) => http<{ ok: true }>(`/music/my-playlists/${id(playlistId)}`, { method: "DELETE" }),
   /** `added` is false when the song was already in the playlist. */
   addToPlaylist: (playlistId: string, videoId: string) => http<{ ok: true; added: boolean }>(`/music/my-playlists/${id(playlistId)}/tracks`, json({ videoId })),
+  /** Several songs in order; songs already there, past the playlist's limit, or unknown to the server are counted, not added. */
+  addManyToPlaylist: (playlistId: string, videoIds: string[]) =>
+    http<{ ok: true; added: number; present: number; full: number; unknown: number }>(`/music/my-playlists/${id(playlistId)}/tracks`, json({ videoIds })),
   removeFromPlaylist: (playlistId: string, videoId: string) =>
     http<{ ok: true }>(`/music/my-playlists/${id(playlistId)}/tracks/${id(videoId)}`, { method: "DELETE" }),
   reorderPlaylist: (playlistId: string, videoIds: string[]) =>

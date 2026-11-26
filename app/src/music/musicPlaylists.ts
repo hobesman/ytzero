@@ -106,6 +106,34 @@ export async function addPlaylistTrack(userId: number, id: string, videoId: stri
   return "added";
 }
 
+export interface AddManyResult { added: number; present: number; full: number }
+
+/**
+ * Adds several songs at the end, in the given order: an album or another
+ * playlist. Songs already there stay where they are, and songs past
+ * `MAX_PLAYLIST_TRACKS` are left out and counted as `full`.
+ */
+export async function addPlaylistTracks(userId: number, id: string, videoIds: readonly string[]): Promise<AddManyResult | "missing"> {
+  const playlist = await userPlaylist(userId, id);
+  if (!playlist) return "missing";
+  const existing = new Set(await playlistTrackIds(id));
+  const wanted = [...new Set(videoIds)];
+  const fresh = wanted.filter((videoId) => !existing.has(videoId));
+  const room = Math.max(0, MAX_PLAYLIST_TRACKS - existing.size);
+  const adding = fresh.slice(0, room);
+  if (adding.length) {
+    const last = await database.prepare("SELECT MAX(position) AS position FROM music_playlist_tracks WHERE playlist_id = ?").get<{ position: number | null }>(id);
+    const start = last?.position == null ? 0 : Number(last.position) + 1;
+    const at = now();
+    await database.transaction(async () => {
+      const insert = database.prepare("INSERT INTO music_playlist_tracks (playlist_id, video_id, position, added_at) VALUES (?, ?, ?, ?) ON CONFLICT(playlist_id, video_id) DO NOTHING");
+      for (const [offset, videoId] of adding.entries()) await insert.run(id, videoId, start + offset, at);
+    })();
+    await touch(id);
+  }
+  return { added: adding.length, present: wanted.length - fresh.length, full: fresh.length - adding.length };
+}
+
 export async function removePlaylistTrack(userId: number, id: string, videoId: string): Promise<boolean> {
   if (!await userPlaylist(userId, id)) return false;
   await database.prepare("DELETE FROM music_playlist_tracks WHERE playlist_id = ? AND video_id = ?").run(id, videoId);

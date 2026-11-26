@@ -192,6 +192,11 @@ const otherDeleteStatus = (await call(`/music/my-playlists/${mine.id}`, "DELETE"
 const childPlaylistsStatus = (await call("/music/my-playlists", "GET", undefined, child.id)).status;
 const doomed = (await (await call("/music/my-playlists", "POST", { title: "Doomed" })).json() as any).playlist;
 await call(`/music/my-playlists/${doomed.id}/tracks`, "POST", { videoId: served[1] });
+// Several at once, as for an album: duplicates, songs already there and unseen songs are counted, not added.
+const bulkAdd = await (await call(`/music/my-playlists/${doomed.id}/tracks`, "POST", { videoIds: [served[3], served[1], served[2], served[3], "videoAAAAA1"] })).json() as any;
+const bulkIds = ((await (await call(`/music/my-playlists/${doomed.id}`)).json() as any).tracks as any[]).map((track) => track.videoId);
+const bulkEmptyStatus = (await call(`/music/my-playlists/${doomed.id}/tracks`, "POST", { videoIds: [] })).status;
+const bulkOtherStatus = (await call(`/music/my-playlists/${doomed.id}/tracks`, "POST", { videoIds: [served[4]] }, secondary.id)).status;
 const deletePlaylistStatus = (await call(`/music/my-playlists/${doomed.id}`, "DELETE")).status;
 const doomedTracksLeft = (db.prepare("SELECT COUNT(*) AS n FROM music_playlist_tracks WHERE playlist_id = ?").get(doomed.id) as { n: number }).n;
 const playlistSavedBefore = playlistPage.saved;
@@ -310,6 +315,10 @@ console.log("RESULT " + JSON.stringify({
   childPlaylistsStatus,
   deletePlaylistStatus,
   doomedTracksLeft,
+  bulkAdd,
+  bulkIds,
+  bulkEmptyStatus,
+  bulkOtherStatus,
   playlistSavedBefore,
   playlistSaveStatus,
   playlistSavedAfter,

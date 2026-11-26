@@ -5,7 +5,7 @@ import { MusicLyricsButton } from "./MusicLyricsParts";
 import { MusicArtwork, durationLabel } from "./MusicParts";
 import { musicPlayer, useMusicPlayer } from "./musicPlayer";
 import { current, fromTitle } from "./musicQueue";
-import { MusicAddToPlaylistButton } from "./MusicPlaylistViews";
+import { MusicAddToPlaylistButton } from "./MusicAddToPlaylist";
 import { MusicUpNext } from "./MusicQueueParts";
 
 /** The music now playing, with its controls; shown under music mode's pages. */
