@@ -1,7 +1,7 @@
 import Svg, { Path, Rect } from "react-native-svg";
 
 export type MusicIconName = "play" | "pause" | "next" | "previous" | "like" | "liked" | "dislike" | "note" | "sleep" | "down" | "shuffle" | "back" | "save" | "saved" | "station"
-  | "more" | "queueNext" | "queueAdd" | "remove" | "up" | "lyrics" | "share";
+  | "more" | "queueNext" | "queueAdd" | "remove" | "up" | "lyrics" | "share" | "playlistAdd";
 
 /** The music player's control glyphs. */
 export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; color: string; size?: number }) {
@@ -27,6 +27,8 @@ export function MusicIcon({ name, color, size = 24 }: { name: MusicIconName; col
     case "more": return svg(<><Rect x="10.75" y="4" width="2.5" height="2.5" rx="1.25" fill={color} /><Rect x="10.75" y="10.75" width="2.5" height="2.5" rx="1.25" fill={color} /><Rect x="10.75" y="17.5" width="2.5" height="2.5" rx="1.25" fill={color} /></>);
     case "queueNext": return svg(<Path d="M4 6h10M4 11h10M4 16h6M15 14v6l5-3z" {...stroke} />);
     case "queueAdd": return svg(<Path d="M4 6h12M4 11h12M4 16h7M18 14v6M15 17h6" {...stroke} />);
+    // A bookmark with a plus: Add to playlist, apart from the queue's list-and-plus.
+    case "playlistAdd": return svg(<Path d="M6.5 4h11v16l-5.5-3.8L6.5 20zM12 7.5v6M9 10.5h6" {...stroke} />);
     case "remove": return svg(<Path d="M6 6l12 12M18 6 6 18" {...stroke} />);
     case "up": return svg(<Path d="m6 15 6-6 6 6" {...stroke} />);
     case "share": return svg(<Path d="M12 15V4M8 7.5 12 4l4 3.5M7 11H5.5A1.5 1.5 0 0 0 4 12.5v6A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-6a1.5 1.5 0 0 0-1.5-1.5H17" {...stroke} />);

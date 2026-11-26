@@ -193,6 +193,14 @@ export class MusicApi {
     return this.request(`/my-playlists/${encodeURIComponent(id)}/tracks`, { method: "POST", body: JSON.stringify({ videoId }) });
   }
 
+  /**
+   * Adds several songs in order (an album or a playlist). Songs already there
+   * (`present`), past the playlist's limit (`full`) or unknown to the server are counted, not added.
+   */
+  addManyToPlaylist(id: string, videoIds: string[]): Promise<{ ok: true; added: number; present: number; full: number; unknown: number }> {
+    return this.request(`/my-playlists/${encodeURIComponent(id)}/tracks`, { method: "POST", body: JSON.stringify({ videoIds }) });
+  }
+
   removeFromPlaylist(id: string, videoId: string): Promise<{ ok: true }> {
     return this.request(`/my-playlists/${encodeURIComponent(id)}/tracks/${encodeURIComponent(videoId)}`, { method: "DELETE" });
   }
