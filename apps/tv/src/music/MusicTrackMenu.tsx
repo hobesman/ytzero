@@ -9,15 +9,18 @@ import { useMusicTrackDownloadAction } from "./MusicDownloadViews";
 import { MusicIcon, type MusicIconName } from "./MusicIcon";
 import type { MusicSession } from "./musicSession";
 import { MusicArtwork } from "./MusicTrackRow";
-import { MusicTrackMenuContext, type MusicTrackMenuExtras, type OpenMusicTrackMenu } from "./musicTrackMenuContext";
+import { MusicTrackMenuContext, type AddToMusicPlaylist, type MusicTrackMenuExtras, type OpenMusicTrackMenu } from "./musicTrackMenuContext";
 
 /** Hosts the one song menu music mode shows, so every list can open it. */
-export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: {
-  api: MusicApi; session: MusicSession; t: Translate; onNotice: (text: string) => void; children: ReactNode;
+export function MusicTrackMenuProvider({ api, session, t, onNotice, onAddToPlaylist, children }: {
+  api: MusicApi; session: MusicSession; t: Translate; onNotice: (text: string) => void;
+  /** Opens the "Add to playlist" sheet; pages use it too, through the context, for all their songs. */
+  onAddToPlaylist?: AddToMusicPlaylist;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState<{ track: MusicTrack; extras: MusicTrackMenuExtras } | null>(null);
   const show = useCallback<OpenMusicTrackMenu>((track, extras = {}) => setOpen({ track, extras }), []);
-  const menu = useMemo(() => ({ open: show, label: t("musicMoreOptions") }), [show, t]);
+  const menu = useMemo(() => ({ open: show, label: t("musicMoreOptions"), addToPlaylist: onAddToPlaylist }), [onAddToPlaylist, show, t]);
   const close = () => setOpen(null);
   // Download or Remove download, on phones that keep music for offline listening.
   const download = useMusicTrackDownloadAction(open?.track ?? null, t);
@@ -33,6 +36,7 @@ export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: 
       { key: "next", icon: "queueNext", label: t("musicPlayNext"), run: queue("next", t("musicQueuedNext")) },
       { key: "last", icon: "queueAdd", label: t("musicAddToQueue"), run: queue("last", t("musicQueuedLast")) },
     ];
+    if (onAddToPlaylist) list.push({ key: "playlist", icon: "playlistAdd", label: t("musicAddToPlaylist"), run: () => onAddToPlaylist([track]) });
     if (download) list.push({ key: "download", icon: <MusicDownloadGlyph progress={{ state: "none", fraction: null, done: 0, count: 1 }} color={phoneColors.text} size={22} />, ...download });
     // The music.youtube.com link: music mode's songs aren't in the profile's video library, so there's no YT Zero link for them.
     const link = youtubeMusicUrl(track.videoId);
@@ -41,7 +45,7 @@ export function MusicTrackMenuProvider({ api, session, t, onNotice, children }: 
     if (extras.onRemove) list.push({ key: "remove", icon: "remove", label: t("musicRemoveFromQueue"), run: extras.onRemove });
     list.push({ key: "dislike", icon: "dislike", label: t("musicNotThis"), run: () => void session.dislike(track) });
     return list;
-  }, [download, onNotice, open, session, t]);
+  }, [download, onAddToPlaylist, onNotice, open, session, t]);
   return <MusicTrackMenuContext.Provider value={menu}>
     {children}
     {open ? <Modal transparent visible animationType="fade" onRequestClose={close}>
