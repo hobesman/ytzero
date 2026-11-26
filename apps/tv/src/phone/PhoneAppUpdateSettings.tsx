@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, Switch, Text } from "react-native";
 import type { Translate } from "../i18n";
 import { appUpdatesAvailable, useAppUpdate, type AppUpdateState } from "../useAppUpdate";
@@ -38,7 +39,9 @@ function UpdateRow({ row, onPress }: { row: Row; onPress: () => void }) {
 
 /** Settings: the installed build, the newest one on GitHub, and whether new ones download by themselves. */
 export function PhoneAppUpdateSettings({ t }: { t: Translate }) {
-  const { state, installed, autoDownload, act, setAutoDownload, installsItself } = useAppUpdate(t);
+  const { state, installed, autoDownload, act, check, setAutoDownload, installsItself } = useAppUpdate(t);
+  // Opening Settings shows the newest build, not one found up to an hour ago.
+  useEffect(() => { if (appUpdatesAvailable) check(); }, [check]);
   if (!appUpdatesAvailable) return null;
   const version = installed === null ? t("appLocalBuild") : t("appBuild").replace("{build}", String(installed));
   return <>
