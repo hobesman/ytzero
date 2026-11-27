@@ -35,7 +35,8 @@ describe("fresh stream addresses", () => {
 
   test("does not retry an address that was served the first time", async () => {
     let calls = 0;
-    const { result, waitedMs } = await retryWhileFresh(async () => { calls++; return "ok"; }, () => false, Date.now() + 60_000, { pollMs: 1 });
+    // A clock of its own: on a slow runner the real one can tick during the one call.
+    const { result, waitedMs } = await retryWhileFresh(async () => { calls++; return "ok"; }, () => false, 1_000_000 + 60_000, { pollMs: 1, now: () => 1_000_000 });
     expect([result, calls, waitedMs]).toEqual(["ok", 1, 0]);
   });
 
