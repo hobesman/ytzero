@@ -250,8 +250,15 @@ on, not on a speaker group.
   The server keeps no Alexa session, so a restart doesn't interrupt the queue.
 - When a song nears its end, YT Zero picks the next one and starts fetching its
   audio, so it starts without a gap.
-- A video's progress is saved when it stops or pauses, and it's marked watched
-  when it plays to the end, as in the app's player.
+- A video's progress is saved when it stops or pauses, and every 30 seconds
+  while it plays (Alexa reports nothing in between, so this is the time since
+  it started), so Continue watching keeps up. It's marked watched when it plays
+  to the end, as in the app's player. A stream that ends more than a minute
+  before the video does keeps its place instead.
+- "Alexa, ask Hoban Tube to resume" continues the video the Echo last played.
+  If the Echo has since played something else, it picks up the last video that
+  Echo played, or else the profile's most recent unfinished one, where it
+  stopped.
 
 The configuration is machine-bound: none of it is stored in the database,
 settings or backups. The Echo devices, their rooms and what each is playing are

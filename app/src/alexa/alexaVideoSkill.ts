@@ -2,7 +2,7 @@ import { log } from "../logger";
 import type { SearchResult } from "../youtube";
 import { createChannelDialog, type ChannelDialogDependencies } from "./alexaChannelDialog";
 import { playDirective, playResponse, silent, speak, stopDirective, type AlexaResponse } from "./alexaPlayback";
-import type { AlexaEnvelope } from "./alexaSkill";
+import { envelopeDeviceId, type AlexaEnvelope } from "./alexaSkill";
 import type { AlexaChannel, AlexaVideo } from "./alexaVideoCatalog";
 import {
   bestMatch, CHANNEL_MATCH_MIN, channelScore, fromSplits, isoDurationSeconds, TITLE_MATCH_MIN, titleScore,
@@ -28,6 +28,11 @@ export interface AlexaVideoSkillDependencies {
   recordStarted: (userId: number, videoId: string) => Promise<void>;
   recordProgress: (userId: number, videoId: string, position: number, duration: number | null) => Promise<void>;
   recordFinished: (userId: number, videoId: string) => Promise<void>;
+  /**
+   * Videos to resume when the Echo holds none of ours, most likely first: the
+   * last one this device played, then the profile's latest unfinished one.
+   */
+  resumeCandidates?: (userId: number, deviceId: string | undefined) => Promise<string[]>;
   /** Following and unfollowing by voice; left out, those intents say they aren't available. */
   channels?: ChannelDialogDependencies;
 }
@@ -35,6 +40,8 @@ export interface AlexaVideoSkillDependencies {
 const TOKEN_PREFIX = "yv1.";
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const DEFAULT_SKIP_SECONDS = 30;
+// A stream reported finished further than this from the video's end broke off early.
+const FINISHED_MARGIN_SECONDS = 60;
 const STARTED_LIMIT = 256;
 const ASK = "Which video would you like to hear?";
 const HELP = "You can say play, then a video's name from a channel you follow, like play how to fix a leaky faucet from This Old House. You can also say play the latest from a channel, shuffle a channel, or find the channel, then a name, to follow it.";
@@ -181,8 +188,29 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     return play(userId, next.video, next.video.resumeAt ?? 0, undefined, { token: encodeShuffleToken(next.state) });
   }
 
+  /**
+   * Resuming when the Echo no longer holds a video of ours (other audio
+   * played since, say): the last unfinished video this Echo or the profile
+   * played, from where it stopped.
+   */
+  async function resumeLast(userId: number, envelope: AlexaEnvelope, speech: boolean): Promise<AlexaResponse | null> {
+    for (const videoId of await dependencies.resumeCandidates?.(userId, envelopeDeviceId(envelope)) ?? []) {
+      const video = await dependencies.findVideo(userId, videoId);
+      if (!video?.playable || video.watched) continue;
+      const intro = video.resumeAt
+        ? `Resuming ${video.title} from ${video.channelTitle}, where you left off.`
+        : `Playing ${video.title} from ${video.channelTitle}.`;
+      return play(userId, video, video.resumeAt ?? 0, speech ? intro : undefined);
+    }
+    return null;
+  }
+
   async function seek(userId: number, envelope: AlexaEnvelope, change: number | "start" | "same", speech: boolean): Promise<AlexaResponse> {
     const playing = await current(userId, envelope);
+    if (!playing && change === "same") {
+      const resumed = await resumeLast(userId, envelope, speech);
+      if (resumed) return resumed;
+    }
     if (!playing) return speech ? speak(`Nothing is playing. ${ASK}`, ASK) : silent();
     const target = change === "start" ? 0 : change === "same" ? playing.offset : playing.offset + change;
     const limit = playing.video.duration ? Math.max(0, playing.video.duration - 1) : Number.POSITIVE_INFINITY;
@@ -209,7 +237,16 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
       await dependencies.recordProgress(userId, videoId, position, video?.duration ?? null);
     } else if (type === "AudioPlayer.PlaybackFinished") {
       started.delete(token);
-      await dependencies.recordFinished(userId, videoId);
+      // A stream that ends well before the video does broke off: keep the
+      // place instead of marking it watched, which would make every later
+      // play start over.
+      const video = await dependencies.findVideo(userId, videoId);
+      if (video?.duration && position < video.duration - FINISHED_MARGIN_SECONDS) {
+        log.warn("alexa.video_ended_early", { videoId, position, duration: video.duration });
+        await dependencies.recordProgress(userId, videoId, position, video.duration);
+      } else {
+        await dependencies.recordFinished(userId, videoId);
+      }
     } else if (type === "AudioPlayer.PlaybackNearlyFinished") {
       const state = decodeShuffleToken(token);
       const next = state ? await nextShuffled(userId, state) : null;
