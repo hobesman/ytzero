@@ -251,6 +251,15 @@ control groups may carry the separate `public_sharing` capability as portable
 configuration; because the normal profile-role defaults omit it, an older
 archive with no such capability restores with public sharing denied.
 
+The Alexa skills' Echo devices are instance-local, like the skills'
+environment-variable configuration. `alexa_devices` maps each skill's opaque
+Amazon device ID to a room name (machine-bound: the IDs belong to this
+server's skills and mean nothing elsewhere), `alexa_now_playing` is transient
+state rewritten by the next playback event, and `alexa_pairing` is a
+two-minute transient pairing request. None of them is exposed through settings
+or included in any portable backup section; an exact stopped-instance backup
+preserves them.
+
 ### Portable configuration and organization
 
 - `settings`: only registered, non-secret global settings. Exclude Child Lock

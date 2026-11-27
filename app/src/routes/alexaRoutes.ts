@@ -5,6 +5,10 @@ import { findGenrePlaylist } from "../alexa/alexaGenreMatch";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
 import { speak, type AlexaResponse } from "../alexa/alexaPlayback";
 import { describeAlexaExchange } from "../alexa/alexaLogging";
+import { decodePlaybackToken } from "../alexa/alexaPlayback";
+import { answerRoomIntent, trackDevice, type NowPlayingTracking } from "../alexa/alexaRoomIntents";
+import { createAlexaRoomStore, type AlexaRoomStore } from "../alexa/alexaRooms";
+import { decodeVideoToken } from "../alexa/alexaVideoSkill";
 import { createAlexaSignatureVerifier, type AlexaSignatureVerifier } from "../alexa/alexaSignature";
 import { createAlexaSkill, envelopeSkillId, type AlexaEnvelope, type AlexaSkillDependencies } from "../alexa/alexaSkill";
 import {
@@ -36,8 +40,25 @@ export interface AlexaRouteDependencies {
   videoSkill?: Partial<AlexaVideoSkillDependencies>;
   /** Whether a video's audio may be served; the default reads the catalog. */
   videoPlayable?: (userId: number, videoId: string) => Promise<boolean>;
+  /** Devices, their rooms and what each is playing. */
+  rooms?: AlexaRoomStore;
+  describeStream?: NowPlayingTracking["describe"];
   now?: () => number;
 }
+
+const seconds = (value: number | null | undefined) => value ? value * 1000 : null;
+
+/** The video behind a stream token, with what the catalog says about it. */
+const describeStream: NowPlayingTracking["describe"] = async (skill, userId, token) => {
+  if (skill === "music") {
+    const videoId = decodePlaybackToken(token)?.videoId;
+    const track = videoId ? await musicTrack(videoId) : null;
+    return track && { videoId: track.videoId, item: { title: track.title, artist: track.artist, art: track.thumbnail, durationMs: seconds(track.duration) } };
+  }
+  const videoId = decodeVideoToken(token);
+  const video = videoId ? await alexaVideo(userId, videoId) : null;
+  return video && { videoId: video.videoId, item: { title: video.title, artist: video.channelTitle, art: video.thumbnail, durationMs: seconds(video.duration) } };
+};
 
 /**
  * Two private Alexa skills, music and video, on one endpoint, told apart by
@@ -53,6 +74,10 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const resolveProfile = dependencies.resolveProfile ?? resolveAlexaProfile;
   const isChild = dependencies.isChild ?? isChildUser;
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
+  const tracking: NowPlayingTracking = {
+    rooms: dependencies.rooms ?? createAlexaRoomStore(),
+    describe: dependencies.describeStream ?? describeStream,
+  };
   let audioDependencies: ReturnType<typeof defaultMusicAudio> | null = null;
   const audioService = dependencies.audio ?? (() => audioDependencies ??= defaultMusicAudio());
   const prepare = (userId: number, videoId: string) => {
@@ -133,7 +158,8 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
     const skill = kind === "music" ? musicSkillFor(settings) : videoSkillFor(settings);
-    const response = await skill.handle(userId, envelope);
+    const response = await answerRoomIntent(tracking.rooms, userId, kind, envelope, now()) ?? await skill.handle(userId, envelope);
+    await trackDevice(tracking, userId, kind, envelope, response, now());
     log.info("alexa.request", describeAlexaExchange(kind, envelope, response));
     return context.json(response);
   });

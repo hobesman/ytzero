@@ -132,6 +132,46 @@
             "rewind"
           ]
         },
+        {
+          "name": "PairDeviceIntent",
+          "slots": [],
+          "samples": [
+            "pair",
+            "pair this",
+            "pair this echo",
+            "pair this device",
+            "pair this speaker",
+            "pair device",
+            "start pairing"
+          ]
+        },
+        {
+          "name": "SetRoomIntent",
+          "slots": [{ "name": "room", "type": "AMAZON.SearchQuery" }],
+          "samples": [
+            "this is the {room}",
+            "this is {room}",
+            "this echo is in the {room}",
+            "this speaker is in the {room}",
+            "this device is in the {room}",
+            "this room is the {room}",
+            "this room is {room}",
+            "set the room to {room}",
+            "call this room {room}",
+            "I am in the {room}"
+          ]
+        },
+        {
+          "name": "WhichRoomIntent",
+          "slots": [],
+          "samples": [
+            "which room is this",
+            "what room is this",
+            "which room am I in",
+            "what room am I in",
+            "what is this room called"
+          ]
+        },
         { "name": "AMAZON.YesIntent", "samples": [] },
         { "name": "AMAZON.NoIntent", "samples": [] },
         { "name": "AMAZON.PauseIntent", "samples": [] },
