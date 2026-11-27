@@ -95,7 +95,12 @@ describe("HTTP route manifest", () => {
       "PUT /music/playlists/:id/saved", "DELETE /music/playlists/:id/saved",
     ];
     for (const route of musicRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(307);
+    const alexaRoomRoutes = [
+      "GET /alexa/rooms", "GET /alexa/devices", "PATCH /alexa/devices", "DELETE /alexa/devices",
+      "POST /alexa/rooms/rename", "POST /alexa/pairing", "DELETE /alexa/pairing",
+    ];
+    for (const route of alexaRoomRoutes) expect(routes).toContain(route);
+    expect(routes).toHaveLength(314);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);
@@ -119,7 +124,7 @@ describe("HTTP route manifest", () => {
     for (const route of childDownloadRequestRoutes) expect(routes).toContain(route);
     expect(routes).toContain("GET /plugins/tubearchivist/config");
     expect(routes).toContain("POST /plugins/tubearchivist/sync");
-    const legacyRoutes = routes.filter((route) => route !== "GET /videos/:id/live-hls/:file" && route !== "PUT /channel-playlists/:id/sort" && route !== directHlsRoute && !nativePlaybackRoutes.includes(route) && route !== transcriptRoute && route !== playbackAdjacentRoute && route !== liveAudioRoute && route !== vodAudioRoute && route !== retryAudioRoute && route !== directStreamRoute && route !== ytdlpConfigRoute && route !== ytdlpUpdateRoute && route !== importVideoRoute && route !== sessionPlaylistRoute && route !== clearVideoBookmarksRoute && route !== clusterStatusRoute && route !== followedPlaylistOfflinePolicyRoute && !feedBuilderRoutes.includes(route) && !accessControlRoutes.includes(route) && !notificationPreferenceRoutes.includes(route) && !publicShareManagementRoutes.includes(route) && !deviceAuthRoutes.includes(route) && !childDownloadRequestRoutes.includes(route) && !musicRoutes.includes(route));
+    const legacyRoutes = routes.filter((route) => route !== "GET /videos/:id/live-hls/:file" && route !== "PUT /channel-playlists/:id/sort" && route !== directHlsRoute && !nativePlaybackRoutes.includes(route) && route !== transcriptRoute && route !== playbackAdjacentRoute && route !== liveAudioRoute && route !== vodAudioRoute && route !== retryAudioRoute && route !== directStreamRoute && route !== ytdlpConfigRoute && route !== ytdlpUpdateRoute && route !== importVideoRoute && route !== sessionPlaylistRoute && route !== clearVideoBookmarksRoute && route !== clusterStatusRoute && route !== followedPlaylistOfflinePolicyRoute && !feedBuilderRoutes.includes(route) && !accessControlRoutes.includes(route) && !notificationPreferenceRoutes.includes(route) && !publicShareManagementRoutes.includes(route) && !deviceAuthRoutes.includes(route) && !childDownloadRequestRoutes.includes(route) && !musicRoutes.includes(route) && !alexaRoomRoutes.includes(route));
     expect(createHash("sha256").update(legacyRoutes.join("\n")).digest("hex"))
       .toBe("80c5a76e8b9e73067474352689dee5912762cbd8933feb23ceb68592f592158b");
   });
