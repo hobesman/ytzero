@@ -98,9 +98,11 @@ describe("HTTP route manifest", () => {
     const alexaRoomRoutes = [
       "GET /alexa/rooms", "GET /alexa/devices", "PATCH /alexa/devices", "DELETE /alexa/devices",
       "POST /alexa/rooms/rename", "POST /alexa/pairing", "DELETE /alexa/pairing",
+      "GET /alexa/home-assistant", "PUT /alexa/rooms/:room/entity", "POST /alexa/rooms/:room/control", "POST /alexa/rooms/:room/pair",
+      "GET /alexa/rooms/:room/queue", "PUT /alexa/rooms/:room/queue", "DELETE /alexa/rooms/:room/queue", "POST /alexa/rooms/:room/queue/play",
     ];
     for (const route of alexaRoomRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(314);
+    expect(routes).toHaveLength(322);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);
