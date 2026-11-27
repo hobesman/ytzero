@@ -4,6 +4,7 @@ import type { Translate } from "../i18n";
 import { PhoneChip } from "../phone/PhoneChip";
 import { PhoneSectionTitle } from "../phone/PhoneList";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
+import { MusicAddAllToPlaylistChip } from "./MusicAddAllToPlaylistChip";
 import { MusicListShelf, MusicShelf } from "./MusicAlbumCard";
 import type { MusicApi, MusicGenre, MusicGenrePage, MusicPlaylist, MusicPlaylistPage, MusicTrack } from "./musicApi";
 import { PageFrame, usePageData, type MusicPage, type PageProps } from "./MusicPages";
@@ -105,6 +106,7 @@ export function MusicPlaylistScreen({ api, session, t, playingId, id, onBack }: 
         <PhoneChip primary label={t("musicShuffle")} disabled={!playlist.tracks.length}
           onPress={() => void session.start({ kind: "playlist", playlistId: playlist.playlistId }, { from: playlist.title })} />
         <PhoneChip label={playlist.saved ? t("musicSaved") : t("musicSave")} disabled={saving} onPress={() => void toggleSaved()} />
+        <MusicAddAllToPlaylistChip t={t} tracks={playlist.tracks} />
       </View>
       <MusicCollectionDownloadButton kind="playlist" page={playlist} t={t} />
     </View>

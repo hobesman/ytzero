@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { AppState, Linking, Platform } from "react-native";
-import { downloadFraction, fetchLatestAndroidRelease, installedBuild, isUpdate, shouldDownloadInBackground, type AndroidRelease } from "./appUpdate";
+import {
+  RECHECK_BEFORE_ACTING_MS, downloadFraction, fetchLatestAndroidRelease, installedBuild, isUpdate, shouldDownloadInBackground, shouldRecheckBeforeActing, type AndroidRelease,
+} from "./appUpdate";
 import { appUpdateNative } from "./appUpdateNative";
 import { deviceStore } from "./deviceStore";
 import type { Translate } from "./i18n";
@@ -48,9 +50,10 @@ const notify = () => { for (const listener of listeners) listener(); };
 const installsItself = (release: AndroidRelease) => Boolean(native && release.sha256);
 const busy = () => state.status === "downloading" || state.status === "installing" || state.status === "permission";
 
-async function refresh(force: boolean) {
+/** Asks GitHub for the newest build, unless the last check is younger than `maxAgeMs`. */
+async function refresh(maxAgeMs: number) {
   if (!appUpdatesAvailable || busy()) return;
-  if (!force && Date.now() - checkedAt < recheckAfterMs) return;
+  if (Date.now() - checkedAt < maxAgeMs) return;
   checkedAt = Date.now();
   // A found update stays on screen while it's checked again.
   if (state.status === "current" || state.status === "failed") set({ status: "checking" });
@@ -118,8 +121,24 @@ async function install() {
   }, 1000);
 }
 
-/** The one thing a tap on the update row does in each state. */
+let acting = false;
+
+/**
+ * A tap on the update row. A found or downloaded build is checked against
+ * GitHub first (unless that was just done), so a newer build published since
+ * replaces it; offline, the one already found goes ahead.
+ */
 async function act() {
+  if (acting) return;
+  acting = true;
+  try {
+    if (shouldRecheckBeforeActing(state.status, checkedAt, Date.now())) await refresh(0);
+    await perform();
+  } finally { acting = false; }
+}
+
+/** The one thing a tap on the update row does in each state. */
+async function perform() {
   switch (state.status) {
     case "available":
       if (!installsItself(state.release)) { void Linking.openURL(state.release.apkUrl); return; }
@@ -138,7 +157,7 @@ async function act() {
     case "permission":
       if (native!.canInstall()) await install(); else native!.openInstallPermission();
       return;
-    default: void refresh(true);
+    default: void refresh(0);
   }
 }
 
@@ -166,12 +185,12 @@ export function useAppUpdatesInBackground() {
     try { native?.cleanup(); } catch {}
     let active = true;
     void deviceStore.getItemAsync(AUTO_UPDATE_KEY).then((value) => { if (active) { auto = value !== "0"; notify(); } }, () => {})
-      .finally(() => { if (active) void refresh(false); });
-    const timer = setInterval(() => void refresh(false), recheckAfterMs);
+      .finally(() => { if (active) void refresh(recheckAfterMs); });
+    const timer = setInterval(() => void refresh(recheckAfterMs), recheckAfterMs);
     const subscription = AppState.addEventListener("change", (next) => {
       if (next !== "active") return;
       if (state.status === "permission" && native?.canInstall()) void install();
-      else void refresh(false);
+      else void refresh(recheckAfterMs);
     });
     return () => { active = false; clearInterval(timer); subscription.remove(); };
   }, []);
@@ -182,7 +201,8 @@ export function useAppUpdate(t: Translate) {
   const autoDownload = useSyncExternalStore(subscribe, autoSnapshot, autoSnapshot);
   // The new version posts this once it runs, so it's set while the old one still knows the language.
   useEffect(() => { texts = { title: t("updateNotifyTitle"), text: t("updateNotifyText"), channel: t("appUpdates") }; }, [t]);
-  const check = useCallback(() => void refresh(true), []);
+  /** Checks GitHub unless that was done in the last minute; Settings calls it when it opens. */
+  const check = useCallback(() => void refresh(RECHECK_BEFORE_ACTING_MS), []);
   const run = useCallback(() => void act(), []);
   const changeAuto = useCallback((value: boolean) => setAuto(value), []);
   return {

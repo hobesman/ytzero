@@ -1,7 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import {
-  assetSha256, downloadFraction, fetchLatestAndroidRelease, installedBuild, isUpdate, latestAndroidRelease, releaseRepository, shouldDownloadInBackground,
+  RECHECK_BEFORE_ACTING_MS, assetSha256, downloadFraction, fetchLatestAndroidRelease, installedBuild, isUpdate, latestAndroidRelease, releaseRepository,
+  shouldDownloadInBackground, shouldRecheckBeforeActing,
 } from "./appUpdate";
+
+describe("shouldRecheckBeforeActing", () => {
+  const now = 10_000_000;
+  test("checks again before installing or downloading a build found a while ago", () => {
+    expect(shouldRecheckBeforeActing("ready", now - RECHECK_BEFORE_ACTING_MS, now)).toBe(true);
+    expect(shouldRecheckBeforeActing("available", now - 60 * 60 * 1000, now)).toBe(true);
+    expect(shouldRecheckBeforeActing("ready", 0, now)).toBe(true);
+  });
+  test("goes ahead when the last check was just now", () => {
+    expect(shouldRecheckBeforeActing("ready", now - 5_000, now)).toBe(false);
+    expect(shouldRecheckBeforeActing("available", now, now)).toBe(false);
+  });
+  test("leaves other states alone", () => {
+    for (const status of ["checking", "failed", "current", "downloading", "permission", "installing"]) expect(shouldRecheckBeforeActing(status, 0, now)).toBe(false);
+  });
+});
 
 const hex = "6babff756a0ee7612bf85b2e666878b27ddf1dc6985834a197e143826b3f6913";
 

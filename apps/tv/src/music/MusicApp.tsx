@@ -17,7 +17,8 @@ import { MusicIcon } from "./MusicIcon";
 import { MusicMiniBar, MusicNowPlaying } from "./MusicPlayerViews";
 import { MusicGenreScreen, MusicPlaylistScreen } from "./MusicGenreScreens";
 import { MusicAlbumScreen, MusicArtistScreen } from "./MusicPages";
-import { MusicAddToPlaylistSheet, MusicUserPlaylistScreen, type MusicAppPage } from "./MusicPlaylistScreens";
+import { MusicAddToPlaylistSheet, type MusicPlaylistAddition } from "./MusicAddToPlaylistSheet";
+import { MusicUserPlaylistScreen, type MusicAppPage } from "./MusicPlaylistScreens";
 import { MusicTrackMenuProvider } from "./MusicTrackMenu";
 import { current } from "./musicQueue";
 import { useMusicSession, type MusicSession } from "./musicSession";
@@ -49,7 +50,9 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, settin
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Album and artist pages opened from the tabs; Back closes the top one.
   const [pages, setPages] = useState<MusicAppPage[]>([]);
-  const [adding, setAdding] = useState<MusicTrack | null>(null);
+  const [adding, setAdding] = useState<MusicPlaylistAddition | null>(null);
+  const addToPlaylist = useCallback((tracks: MusicTrack[], excludeId?: string) => { if (tracks.length) setAdding({ tracks, excludeId }); }, []);
+  const addPlaying = useCallback((track: MusicTrack) => setAdding({ tracks: [track] }), []);
   const openPage = useCallback((page: MusicAppPage) => setPages((open) => [...open.slice(-9), page]), []);
   const closePage = useCallback(() => setPages((open) => open.slice(0, -1)), []);
   const topPage = pages.at(-1) ?? null;
@@ -128,11 +131,11 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, settin
   const accountSheet = account ? <PhoneAccountSheet api={api} profiles={profiles} t={t} onClose={() => setAccount(false)}
     modeSwitch={{ music: true, onPress: onSwitchToVideo }}
     onSettings={() => { setAccount(false); setSettingsOpen(true); }} /> : null;
-  const addSheet = adding ? <MusicAddToPlaylistSheet api={musicApi} t={t} track={adding} onNotice={setNotice} onClose={() => setAdding(null)} /> : null;
+  const addSheet = adding ? <MusicAddToPlaylistSheet api={musicApi} t={t} language={language} addition={adding} onNotice={setNotice} onClose={() => setAdding(null)} /> : null;
 
   if (landscape) {
     const paneWidth = landscapePlayerWidth(window.width - landscapeRailWidth);
-    return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={[styles.screen, styles.row]}>
+    return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice} onAddToPlaylist={addToPlaylist}><View style={[styles.screen, styles.row]}>
       <PhoneSideRail items={tabs} selected={tab} onSelect={selectTab} top={<MusicIcon name="note" color={phoneColors.accent} size={28} />} bottom={avatar} />
       <View style={styles.main}>
         <View style={styles.topBar}>{backButton}<Text numberOfLines={1} style={styles.title}>{title}</Text></View>
@@ -143,14 +146,14 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, settin
         {!playingId ? <MusicMiniBar api={musicApi} session={session} state={state} t={t} onOpen={() => {}} /> : null}
       </View>
       {playingId ? <View style={[styles.pane, { width: paneWidth }]}>
-        <MusicNowPlaying api={musicApi} session={session} state={state} t={t} paneWidth={paneWidth} onClose={() => {}} onAddToPlaylist={setAdding} />
+        <MusicNowPlaying api={musicApi} session={session} state={state} t={t} paneWidth={paneWidth} onClose={() => {}} onAddToPlaylist={addPlaying} />
       </View> : null}
       {addSheet}
       {accountSheet}
     </View></MusicTrackMenuProvider>;
   }
 
-  return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice}><View style={styles.screen}>
+  return <MusicTrackMenuProvider api={musicApi} session={session} t={t} onNotice={setNotice} onAddToPlaylist={addToPlaylist}><View style={styles.screen}>
     <View style={styles.topBar}>
       {backButton ?? <MusicIcon name="note" color={phoneColors.accent} size={26} />}
       <Text numberOfLines={1} style={styles.title}>{title}</Text>
@@ -171,7 +174,7 @@ export function MusicApp({ api, musicApi, session, t, language, profiles, settin
       })}
     </View>
     {playerOpen && playingId ? <View style={styles.overlay}>
-      <MusicNowPlaying api={musicApi} session={session} state={state} t={t} onClose={() => setPlayerOpen(false)} onAddToPlaylist={setAdding} />
+      <MusicNowPlaying api={musicApi} session={session} state={state} t={t} onClose={() => setPlayerOpen(false)} onAddToPlaylist={addPlaying} />
       {notice ? <Text accessibilityLiveRegion="polite" style={[styles.notice, styles.noticeOver]}>{notice}</Text> : null}
     </View> : null}
     {addSheet}

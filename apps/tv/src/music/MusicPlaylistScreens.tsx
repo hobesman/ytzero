@@ -1,12 +1,12 @@
 import { memo, useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { TvChoiceSheet } from "../components/TvChoiceSheet";
 import type { Translate } from "../i18n";
 import { PhoneChip } from "../phone/PhoneChip";
 import { PhoneTextSheet } from "../phone/PhoneTextSheet";
 import { phoneColors, phoneType } from "../phone/phoneTheme";
 import type { Language } from "../types";
 import type { MusicApi, MusicTrack, MusicUserPlaylist, MusicUserPlaylistPage } from "./musicApi";
+import { MusicAddAllToPlaylistChip } from "./MusicAddAllToPlaylistChip";
 import { MusicCollectionDownloadButton } from "./MusicDownloadViews";
 import { MusicIcon } from "./MusicIcon";
 import { PageFrame, usePageData, type MusicPage, type PageProps } from "./MusicPages";
@@ -121,6 +121,7 @@ export function MusicUserPlaylistScreen({ api, session, t, language, playingId, 
         <PhoneChip primary label={t("musicPlay")} disabled={!tracks.length} onPress={() => play()} />
         <PhoneChip label={t("musicShuffle")} disabled={tracks.length < 2} onPress={() => play({ shuffle: true })} />
         <PhoneChip label={t("musicRenamePlaylist")} onPress={() => setRenaming(true)} />
+        {tracks.length ? <MusicAddAllToPlaylistChip t={t} tracks={tracks} excludeId={playlist.id} /> : null}
         {tracks.length ? <PhoneChip label={editing ? t("musicDoneEditing") : t("musicEditPlaylist")} onPress={() => setEditing(!editing)} /> : null}
         <PhoneChip label={t("musicDelete")} onPress={confirmDelete} />
       </View>
@@ -137,37 +138,6 @@ export function MusicUserPlaylistScreen({ api, session, t, language, playingId, 
       error={t("musicActionFailed")} t={t} onClose={() => setRenaming(false)}
       onSave={async (name) => { const { title } = await api.renamePlaylist(playlist.id, name); setData({ ...playlist, title }); setRenaming(false); }} /> : null}
   </PageFrame>;
-}
-
-/**
- * Adds a song to one of the profile's playlists, or to a new one. `onNotice`
- * says how it went; the sheet closes after any choice.
- */
-export function MusicAddToPlaylistSheet({ api, t, track, onNotice, onClose }: {
-  api: MusicApi; t: Translate; track: MusicTrack; onNotice: (text: string) => void; onClose: () => void;
-}) {
-  const [playlists, setPlaylists] = useState<MusicUserPlaylist[] | null>(null);
-  const [naming, setNaming] = useState(false);
-  useEffect(() => {
-    let live = true;
-    api.myPlaylists().then((list) => { if (live) setPlaylists(list); }, () => { if (live) setPlaylists([]); });
-    return () => { live = false; };
-  }, [api]);
-  const add = async (playlist: MusicUserPlaylist) => {
-    try {
-      const { added } = await api.addToPlaylist(playlist.id, track.videoId);
-      onNotice(t(added ? "musicAddedToPlaylist" : "musicAlreadyInPlaylist").replace("{name}", playlist.title));
-    } catch { onNotice(t("musicActionFailed")); }
-  };
-  if (naming) return <MusicNewPlaylistSheet api={api} t={t} onClose={onClose} onCreated={async (playlist) => { onClose(); await add(playlist); }} />;
-  const options = [{ value: "", label: `+ ${t("musicNewPlaylist")}` }, ...(playlists ?? []).map((playlist) => ({ value: playlist.id, label: playlist.title }))];
-  return <TvChoiceSheet<string> title={t("musicAddToPlaylist")} t={t} value="\u0000" busy={playlists === null} options={options} onClose={onClose}
-    onSelect={(value) => {
-      if (!value) { setNaming(true); return; }
-      const playlist = playlists?.find((entry) => entry.id === value);
-      onClose();
-      if (playlist) void add(playlist);
-    }} />;
 }
 
 const styles = StyleSheet.create({
