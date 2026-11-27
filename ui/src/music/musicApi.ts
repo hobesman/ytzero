@@ -13,6 +13,8 @@ export type MusicTrack = {
   rating: 1 | -1 | null;
   /** dB above YouTube's loudness target; absent until the server has asked YouTube. */
   loudnessDb?: number;
+  /** False for a song an Echo played that has no YouTube Music track; its videoId is only a list key. */
+  playable?: false;
 };
 
 export type MusicAlbum = {

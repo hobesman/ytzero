@@ -90,3 +90,23 @@ CREATE TABLE IF NOT EXISTS music_saved_playlists (
   saved_at    TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (user_id, playlist_id)
 );
+
+-- Songs heard on the household's Echoes through another service, such as
+-- Amazon Music, that YT Zero found no YouTube Music track for. Recently played
+-- shows them greyed out. A song it did match is a music_plays row instead.
+-- Portable personal state.
+CREATE TABLE IF NOT EXISTS music_echo_plays (
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- Normalized "artist|title", as music_tracks.song_key.
+  song_key         TEXT NOT NULL,
+  title            TEXT NOT NULL DEFAULT '',
+  artist           TEXT NOT NULL DEFAULT '',
+  album            TEXT,
+  art              TEXT NOT NULL DEFAULT '',
+  started_at       TEXT NOT NULL,
+  listened_seconds REAL NOT NULL DEFAULT 0,
+  duration         REAL,
+  end_reason       TEXT NOT NULL DEFAULT 'stopped' CHECK (end_reason IN ('completed', 'skipped', 'stopped')),
+  PRIMARY KEY (user_id, song_key, started_at)
+);
+CREATE INDEX IF NOT EXISTS idx_music_echo_plays_recent ON music_echo_plays(user_id, started_at DESC);

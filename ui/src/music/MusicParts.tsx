@@ -49,8 +49,12 @@ export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number
   /** The ⋮ menu acts on this browser's own player; a page that plays elsewhere (a room's Echo) leaves it out. */
   menu?: boolean;
 }) {
+  const { t } = useI18n();
   const detail = [hideArtist ? null : track.artist, number == null ? track.album : null].filter(Boolean).join(" · ");
-  return <div className="music-track-row"><button type="button" className={`music-track${active ? " music-track--active" : ""}`} onClick={() => onPlay(track)}>
+  const playable = track.playable !== false;
+  return <div className="music-track-row"><button type="button" className={`music-track${active ? " music-track--active" : ""}${playable ? "" : " music-track--unplayable"}`}
+    aria-disabled={playable ? undefined : true} title={playable ? undefined : t("musicEchoUnplayable")}
+    onClick={() => playable ? onPlay(track) : emitToast(t("musicEchoUnplayable"))}>
     {number == null ? <MusicArtwork url={track.thumbnail} size={44} /> : <span className="music-track__number">{number}</span>}
     <span className="music-track__copy">
       <span className="music-track__title">{track.title}</span>
@@ -58,7 +62,7 @@ export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number
     </span>
     {track.rating === 1 ? <Heart className="music-track__liked" aria-hidden="true" /> : null}
     <span className="music-track__time">{durationLabel(track.duration)}</span>
-  </button>{menu ? <MusicTrackMenu track={track} /> : null}</div>;
+  </button>{menu && playable ? <MusicTrackMenu track={track} /> : null}</div>;
 });
 
 export function MusicTrackList({ tracks, playingId, numbered, albumArtist, onPlay, menu }: {

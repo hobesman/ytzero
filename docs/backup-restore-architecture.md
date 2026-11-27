@@ -576,7 +576,7 @@ preserves them.
 - `watch_time_log`, `scheduling_event_log`, `watch_tag_time_log`, and
   `sponsorblock_skip_log` if Insights/Pulse history is selected.
 - Music mode is a separate service and has its own versioned section,
-  `profile.music` (schema v3, `profiles/<uuid>/music.json`). It holds the
+  `profile.music` (schema v4, `profiles/<uuid>/music.json`). It holds the
   profile's `music_ratings` (liked songs and "not this one"), `music_plays`
   (listening history with listened seconds and how each song ended), since
   v2 `music_saved_albums` (albums saved to the library, keyed by YouTube
@@ -585,7 +585,11 @@ preserves them.
   `music_playlist_tracks`, exported as `playlists`: each with its UUID, title,
   created and updated times and its songs' video IDs in order) and
   `music_saved_playlists` (YouTube Music playlists saved to the library, keyed
-  by playlist ID, with the title, subtitle and artwork shown there). All of
+  by playlist ID, with the title, subtitle and artwork shown there), and
+  since v4 `music_echo_plays` (exported as `echo_plays`: songs heard on the
+  household's Echoes through another service, such as Amazon Music, that
+  matched no YouTube Music track, keyed by profile, song key and start time,
+  with the title, artist, album, art, listened seconds and how each ended). All of
   these are portable personal state. A v1 document has no saved albums or
   playlists and a v2 document has no playlists; both restore as before.
   Ratings, plays and playlist songs are
@@ -601,7 +605,9 @@ preserves them.
   already owned by another profile (a backup restored into a second profile)
   is replaced by one derived from the UUID and the target profile, so
   restoring again finds the same copy. Replace clears the mapped profile's
-  ratings, plays, saved albums, playlists and saved playlists first.
+  ratings, plays, saved albums, playlists, saved playlists and Echo plays first.
+  Echo plays merge idempotently by profile, song key and start time; a v3 or
+  older document has none.
   Malformed rows are skipped and counted.
   A play's `station_seed` names the station it came from (`track:<id>`,
   `album:<id>`, `artist:<id>`, `playlist:<id>`, `liked` or `mix`), up to 80
@@ -834,6 +840,11 @@ preserves them.
   configured profile, already classified above: `music_plays` rows for the
   music skill, and `user_videos` progress and watched state plus `history`
   rows for the video skill, written the same way the app's player writes them
+  (the Echo listening watcher, which records songs Home Assistant sees an Echo
+  play through other services, adds `music_plays` rows for songs it matches and
+  `music_echo_plays` rows, in `profile.music`, for songs it doesn't; what each
+  Echo is playing now, and which songs it searched for without a match in the
+  last day, are kept in memory and are transient)
 - OIDC client secret and active authentication configuration, including the
   instance-local choice to hide other profile names in the authenticated
   profile picker

@@ -687,6 +687,26 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_queues (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, queue_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', seed TEXT, video_ids TEXT NOT NULL DEFAULT '', saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
     ],
   },
+  {
+    version: 125,
+    name: "music-echo-plays",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+      "app/src/musicSchema.sql": "bd6ec87c97c08a627c413c0dc7c198c084ced480e6ef411dbd235013be16c507",
+      "app/src/publicShareSchema.sql": "607906c8adae087f6105876c76848ef1afebf180259cabee84ff2ddf203af1ae",
+      "app/src/alexaSchema.sql": "29c0befee4e63a2a4415e10a85e9509b408fdbe34112582563a1e6ec8afea92a",
+    },
+    sqlite: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_echo_plays (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, song_key TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', album TEXT, art TEXT NOT NULL DEFAULT '', started_at TEXT NOT NULL, listened_seconds REAL NOT NULL DEFAULT 0, duration REAL, end_reason TEXT NOT NULL DEFAULT 'stopped' CHECK (end_reason IN ('completed', 'skipped', 'stopped')), PRIMARY KEY (user_id, song_key, started_at))" },
+      { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_music_echo_plays_recent ON music_echo_plays(user_id, started_at DESC)" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS music_echo_plays (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, song_key TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', album TEXT, art TEXT NOT NULL DEFAULT '', started_at TEXT NOT NULL, listened_seconds DOUBLE PRECISION NOT NULL DEFAULT 0, duration DOUBLE PRECISION, end_reason TEXT NOT NULL DEFAULT 'stopped' CHECK (end_reason IN ('completed', 'skipped', 'stopped')), PRIMARY KEY (user_id, song_key, started_at))" },
+      { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_music_echo_plays_recent ON music_echo_plays(user_id, started_at DESC)" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {
