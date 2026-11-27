@@ -5,6 +5,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { roomMessages } from "./room";
 import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 
@@ -14,7 +15,7 @@ export const ru: Locale = {
     ...feedBuilderMessages.ru,
     ...clusterMessages.ru,
     ...notificationMessages.ru,
-    ...tvPairingMessages.ru, ...musicMessages.ru, ...playbackSpeedMemoryMessages.ru,
+    ...tvPairingMessages.ru, ...roomMessages.ru, ...musicMessages.ru, ...playbackSpeedMemoryMessages.ru,
     "navToday": "Главная",
     "navSocial": "Общение",
     "navDiscovery": "Открытия",

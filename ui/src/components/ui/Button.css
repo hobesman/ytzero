@@ -13,6 +13,15 @@
 .ui-button--sm.ui-button--icon { width: 30px; }
 .ui-button__icon { align-items: center; display: inline-flex; }
 .ui-button svg { height: 16px; stroke-width: 1.8; width: 16px; }
+.ui-button--lg { font-size: 18px; gap: 10px; height: 56px; padding: 0 24px; }
+.ui-button--lg.ui-button--icon { padding: 0; width: 56px; }
+.ui-button--lg svg { height: 24px; width: 24px; }
+.ui-button--xl { font-size: 22px; gap: 12px; height: 88px; padding: 0 32px; }
+.ui-button--xl.ui-button--icon { padding: 0; width: 88px; }
+.ui-button--xl svg { height: 40px; width: 40px; }
+.ui-button--busy { animation: ui-button-busy 1.1s ease-in-out infinite; }
+@keyframes ui-button-busy { 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .ui-button--busy { animation: none; opacity: .7; } }
 
 .ui-button.like-btn { background: transparent; padding: 0 8px; position: relative; transition: color 180ms ease; }
 .ui-button.like-btn:hover, .ui-button.like-btn[aria-pressed="true"] { background: transparent; }

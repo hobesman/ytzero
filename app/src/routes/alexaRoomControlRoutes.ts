@@ -6,6 +6,8 @@ import {
 } from "../alexa/alexaRoomControl";
 import { normalizeRoomName, type AlexaRoomStore } from "../alexa/alexaRooms";
 import { cleanVideoIds, type AlexaRoomQueue, type AlexaRoomSettings } from "../alexa/alexaRoomSettings";
+import { parseRoomVideoRequest, playRoomVideo, type RoomVideoLookup } from "../alexa/alexaRoomVideo";
+import { alexaVideo, followedChannels } from "../alexa/alexaVideoCatalog";
 import {
   alexaInvocations, createHomeAssistantClient, homeAssistantConfig, homeAssistantReport, HomeAssistantError, isAlexaMediaPlayer,
   isMediaPlayerEntity, type AlexaInvocations, type HomeAssistantClient, type HomeAssistantReport,
@@ -29,6 +31,8 @@ export interface AlexaRoomControlDependencies {
   now: () => number;
   sleep?: (ms: number) => Promise<void>;
   pairWaitMs?: number;
+  /** The profile's videos and followed channels, for starting a video from a screen. */
+  videoLookup?: (userId: number) => RoomVideoLookup;
 }
 
 let defaultClient: { key: string; client: HomeAssistantClient } | null = null;
@@ -45,7 +49,12 @@ function defaultSkills(): Record<AlexaSkillKind, boolean> {
   return "disabled" in config ? { music: false, video: false } : { music: Boolean(config.musicSkillId), video: Boolean(config.videoSkillId) };
 }
 
-const defaultKnownSongs = async (videoIds: readonly string[]) => new Set((await musicTracks(videoIds)).keys());
+const defaultVideoLookup = (userId: number): RoomVideoLookup => ({
+  video: (videoId) => alexaVideo(userId, videoId),
+  followed: () => followedChannels(userId),
+});
+
+const defaultKnownSongs =async (videoIds: readonly string[]) => new Set((await musicTracks(videoIds)).keys());
 
 /** How long the rooms list waits for Home Assistant, which a tablet polls. */
 const ROOMS_STATE_WAIT_MS = 2500;
@@ -85,6 +94,7 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
   const invocations = dependencies.invocations ?? (() => alexaInvocations());
   const skills = dependencies.skills ?? defaultSkills;
   const knownSongs = dependencies.knownSongs ?? defaultKnownSongs;
+  const videoLookup = dependencies.videoLookup ?? defaultVideoLookup;
 
   const roomParam = (context: ApiContext) => normalizeRoomName(context.req.param("room"));
   const body = async (context: ApiContext) => await context.req.json().catch(() => null) as Record<string, unknown> | null;
@@ -208,6 +218,22 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
     const room = roomParam(context);
     if (!room) return context.json({ error: "invalid room" }, 400);
     return await settings.clearQueue(currentUserId(context), room) ? context.json({ ok: true }) : context.json({ error: "not found" }, 404);
+  });
+
+  // Starts a video, a channel's latest or a channel shuffle on the room's Echo, through the video skill.
+  api.post("/alexa/rooms/:room/video", async (context) => {
+    const room = roomParam(context);
+    const request = parseRoomVideoRequest(await body(context));
+    if (!room) return context.json({ error: "invalid room" }, 400);
+    if (!request) return context.json({ error: "give { kind: \"video\", videoId } or { kind: \"latest\" | \"shuffle\", channelId }" }, 400);
+    const ready = controls();
+    if (typeof ready === "string") return context.json({ error: ready }, 503);
+    const userId = currentUserId(context);
+    try {
+      return context.json(await playRoomVideo(ready, videoLookup(userId), userId, room, request));
+    } catch (error) {
+      return failure(context, error);
+    }
   });
 
   // Starts the saved queue on the room's Echo.
