@@ -183,11 +183,14 @@ describe("portable backup classification and restore", () => {
     db.prepare("INSERT INTO alexa_pairing(user_id,room,expires_at) VALUES(1,'ALEXA_PAIRING_SENTINEL',?)").run(at);
     db.prepare(`INSERT INTO alexa_pending_play(user_id,skill,device_id,token,video_id,title,requested_at)
       VALUES(1,'music','ALEXA_DEVICE_SENTINEL','ALEXA_PENDING_TOKEN_SENTINEL','portable001','ALEXA_PENDING_TITLE_SENTINEL',?)`).run(at);
+    db.prepare("INSERT INTO alexa_rooms(user_id,room_key,room,ha_entity,updated_at) VALUES(1,'alexa_room_key_sentinel','ALEXA_ROOM_ROW_SENTINEL','media_player.alexa_entity_sentinel',?)").run(at);
+    db.prepare("INSERT INTO alexa_room_queues(user_id,room_key,queue_id,title,video_ids,saved_at) VALUES(1,'alexa_room_key_sentinel','ALEXAQUEUEID','ALEXA_QUEUE_TITLE_SENTINEL','portable001',?)").run(at);
     try {
       const zip = await backup.createPortableBackup({ preset: "full" });
       const archiveText = [...backup.readPortableZip(zip).values()].map((bytes) => decoder.decode(bytes)).join("\n");
       for (const sentinel of ["ALEXA_DEVICE_SENTINEL", "ALEXA_ROOM_SENTINEL", "ALEXA_TOKEN_SENTINEL", "ALEXA_TITLE_SENTINEL", "ALEXA_PAIRING_SENTINEL",
-        "ALEXA_PENDING_TOKEN_SENTINEL", "ALEXA_PENDING_TITLE_SENTINEL"]) {
+        "ALEXA_PENDING_TOKEN_SENTINEL", "ALEXA_PENDING_TITLE_SENTINEL", "alexa_room_key_sentinel", "ALEXA_ROOM_ROW_SENTINEL", "alexa_entity_sentinel",
+        "ALEXAQUEUEID", "ALEXA_QUEUE_TITLE_SENTINEL"]) {
         expect(archiveText).not.toContain(sentinel);
       }
     } finally {
@@ -195,6 +198,8 @@ describe("portable backup classification and restore", () => {
       db.prepare("DELETE FROM alexa_devices WHERE user_id=1").run();
       db.prepare("DELETE FROM alexa_pairing WHERE user_id=1").run();
       db.prepare("DELETE FROM alexa_pending_play WHERE user_id=1").run();
+      db.prepare("DELETE FROM alexa_room_queues WHERE user_id=1").run();
+      db.prepare("DELETE FROM alexa_rooms WHERE user_id=1").run();
     }
   });
 

@@ -2,7 +2,10 @@ import type { Context, Hono } from "hono";
 import type { AlexaSkillKind, NowPlaying } from "../alexa/alexaNowPlaying";
 import { nowPlayingPosition } from "../alexa/alexaNowPlaying";
 import { createAlexaRoomStore, normalizeRoomName, type AlexaDevice, type AlexaRoomStore } from "../alexa/alexaRooms";
+import { createAlexaRoomSettings, type AlexaRoomSettings } from "../alexa/alexaRoomSettings";
+import { homeAssistantSeesMedia, type HomeAssistantReport } from "../alexa/homeAssistant";
 import { isChildUser } from "../childTime";
+import { defaultHomeAssistant, homeAssistantByRoom, registerAlexaRoomControlRoutes, type AlexaRoomControlDependencies } from "./alexaRoomControlRoutes";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type ApiContext = Context<ApiEnvironment>;
@@ -12,6 +15,9 @@ export interface AlexaRoomRouteDependencies {
   rooms?: AlexaRoomStore;
   isChild?: (userId: number) => Promise<boolean>;
   now?: () => number;
+  roomSettings?: AlexaRoomSettings;
+  /** Home Assistant, invocation names and the rest of the room controls' wiring. */
+  control?: Partial<Omit<AlexaRoomControlDependencies, "currentUserId" | "rooms" | "settings" | "now">>;
 }
 
 const SKILLS = new Set<AlexaSkillKind>(["music", "video"]);
@@ -55,6 +61,19 @@ const publicDevice = (device: AlexaDevice, now: number) => ({
   pending: publicPending(device, now),
 });
 
+/**
+ * What the room's screen should show: our skills' record while it plays, else
+ * what Home Assistant sees (Amazon Music, say), else our last record.
+ */
+function roomCurrent(ours: ReturnType<typeof publicNowPlaying> | null, seen: HomeAssistantReport | null) {
+  const fromOurs = ours && { origin: ours.skill, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, durationMs: ours.durationMs, positionMs: ours.positionMs, source: null };
+  if (ours?.state === "playing") return fromOurs;
+  if (seen && homeAssistantSeesMedia(seen)) {
+    return { origin: "home-assistant" as const, state: seen.state, title: seen.title, artist: seen.artist, art: seen.art, durationMs: seen.durationMs, positionMs: seen.positionMs, source: seen.source };
+  }
+  return fromOurs;
+}
+
 /** What a room is playing: whatever is playing now, else whichever device changed last. */
 function roomNowPlaying(devices: AlexaDevice[]): AlexaDevice | null {
   const withRecord = devices.filter((device) => device.nowPlaying);
@@ -73,6 +92,8 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
   const rooms = dependencies.rooms ?? createAlexaRoomStore();
   const isChild = dependencies.isChild ?? isChildUser;
   const now = dependencies.now ?? Date.now;
+  const settings = dependencies.roomSettings ?? createAlexaRoomSettings();
+  const homeAssistant = dependencies.control?.homeAssistant ?? defaultHomeAssistant;
 
   api.use("/alexa/*", async (context, next) => {
     if (await isChild(currentUserId(context))) return context.json({ error: "not allowed" }, 403);
@@ -89,14 +110,21 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
       const key = device.room.toLowerCase();
       byRoom.set(key, [...byRoom.get(key) ?? [], device]);
     }
-    const list = [...byRoom.values()].map((members) => {
+    const seen = await homeAssistantByRoom(settings, homeAssistant(), userId, at);
+    const entities = await settings.entities(userId);
+    for (const key of entities.keys()) if (!byRoom.has(key)) byRoom.set(key, []);
+    const list = [...byRoom].map(([key, members]) => {
       const playing = roomNowPlaying(members);
       const pending = members.map((device) => publicPending(device, at)).filter((item) => item !== null)
         .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0] ?? null;
+      const nowPlaying = playing ? publicNowPlaying(playing.skill, playing.nowPlaying!, at) : null;
+      const homeAssistantState = seen.get(key) ?? null;
       return {
-        room: members[0]!.room!,
-        nowPlaying: playing ? publicNowPlaying(playing.skill, playing.nowPlaying!, at) : null,
+        room: members[0]?.room ?? entities.get(key)!.room,
+        nowPlaying,
         pending,
+        homeAssistant: homeAssistantState && { entity: homeAssistantState.entity, error: homeAssistantState.error, ...homeAssistantState.report },
+        current: roomCurrent(nowPlaying, homeAssistantState?.report ?? null),
         devices: members.map((device) => publicDevice(device, at)),
       };
     }).sort((a, b) => a.room.localeCompare(b.room));
@@ -141,7 +169,8 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
     const from = normalizeRoomName(body?.from);
     const to = normalizeRoomName(body?.to);
     if (!from || !to) return context.json({ error: "from and to are required" }, 400);
-    const changed = await rooms.renameRoom(currentUserId(context), from, to);
+    const userId = currentUserId(context);
+    const changed = await rooms.renameRoom(userId, from, to) + await settings.rename(userId, from, to);
     return changed ? context.json({ room: to, devices: changed }) : context.json({ error: "not found" }, 404);
   });
 
@@ -157,4 +186,6 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
     await rooms.cancelPairing(currentUserId(context));
     return context.json({ ok: true });
   });
+
+  registerAlexaRoomControlRoutes(api, { ...dependencies.control, homeAssistant, currentUserId, rooms, settings, now });
 }

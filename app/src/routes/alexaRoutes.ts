@@ -8,6 +8,8 @@ import { describeAlexaExchange } from "../alexa/alexaLogging";
 import { decodePlaybackToken } from "../alexa/alexaPlayback";
 import { answerRoomIntent, trackDevice, type NowPlayingTracking } from "../alexa/alexaRoomIntents";
 import { createAlexaRoomStore, type AlexaRoomStore } from "../alexa/alexaRooms";
+import { createAlexaRoomSettings, type AlexaRoomSettings } from "../alexa/alexaRoomSettings";
+import type { AlexaQueueSource } from "../alexa/alexaQueue";
 import { decodeVideoToken } from "../alexa/alexaVideoSkill";
 import { createAlexaSignatureVerifier, type AlexaSignatureVerifier } from "../alexa/alexaSignature";
 import { createAlexaSkill, envelopeSkillId, type AlexaEnvelope, type AlexaSkillDependencies } from "../alexa/alexaSkill";
@@ -46,6 +48,8 @@ export interface AlexaRouteDependencies {
   vodPlaylist?: (userId: number, videoId: string, signal?: AbortSignal) => Promise<AudioVodPlaylistResult>;
   /** Devices, their rooms and what each is playing. */
   rooms?: AlexaRoomStore;
+  /** Rooms' Home Assistant entities and saved queues. */
+  roomSettings?: AlexaRoomSettings;
   describeStream?: NowPlayingTracking["describe"];
   now?: () => number;
 }
@@ -83,6 +87,15 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
     describe: dependencies.describeStream ?? describeStream,
   };
+  const roomSettings = dependencies.roomSettings ?? createAlexaRoomSettings();
+  // The music skill sees its own device ID, so the room comes from its pairing.
+  const queues: AlexaQueueSource = {
+    forDevice: async (userId, deviceId) => {
+      const room = await tracking.rooms.room(userId, "music", deviceId);
+      return { room, queue: room ? await roomSettings.queue(userId, room) : null };
+    },
+    byId: (userId, queueId) => roomSettings.queueById(userId, queueId),
+  };
   let audioDependencies: ReturnType<typeof defaultMusicAudio> | null = null;
   const audioService = dependencies.audio ?? (() => audioDependencies ??= defaultMusicAudio());
   const prepare = (userId: number, videoId: string) => {
@@ -104,6 +117,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       recordPlay: dependencies.skill?.recordPlay ?? recordMusicPlay,
       findTrack: dependencies.skill?.findTrack,
       saveTracks: dependencies.skill?.saveTracks,
+      queues: dependencies.skill?.queues ?? queues,
       findGenre: dependencies.skill?.findGenre ?? ((userId, spoken) => findGenrePlaylist({ genres: pages.genres, genre: pages.genre, searchPlaylists: client.searchPlaylists }, userId, spoken)),
     });
   };
