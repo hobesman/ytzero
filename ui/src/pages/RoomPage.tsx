@@ -126,7 +126,8 @@ export default function RoomPage() {
             { value: "books", label: t("roomTabBooks"), icon: <BookOpen /> },
           ]} className="room-page__tabs" />
           <div className="room-page__panel">
-            {tab === "music" ? <RoomMusicTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command} />
+            {tab === "music" ? <RoomMusicTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command}
+              playingKey={room?.current ? `${room.current.title ?? ""}|${room.current.artist ?? ""}` : ""} />
               : tab === "videos" ? <RoomVideoTab roomName={room?.room ?? roomName} onCommand={command} />
               : <EmptyState icon={<BookOpen />} title={t("roomBooksTitle")} description={t("roomBooksHint")} />}
           </div>

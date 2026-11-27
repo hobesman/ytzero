@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Heart, ListMusic, Play, Radio, RotateCcw, Search, Sparkles } from "lucide-react";
 import { formatSongCount, useI18n } from "../i18n";
@@ -78,9 +78,27 @@ function RoomQueueCard({ roomName, queue, onReplay }: { roomName: string; queue:
   </div>;
 }
 
-function HomeView({ music, roomName, queue, onReplay }: { music: RoomMusic; roomName: string; queue: RoomQueue | null | undefined; onReplay: () => void }) {
+/**
+ * A song played on the Echo (by Hoban Music, or by Amazon Music through Home
+ * Assistant) joins the history once the next one starts, a few seconds after
+ * the room shows the change. So Recently played reloads a little after the
+ * room's song changes, keeping the old list on screen until the new one arrives.
+ */
+const HISTORY_SETTLE_MS = 20_000;
+
+function useReloadAfterSongChange(playingKey: string, reload: () => void) {
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const timer = window.setTimeout(reload, HISTORY_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [playingKey, reload]);
+}
+
+function HomeView({ music, roomName, queue, onReplay, playingKey }: { music: RoomMusic; roomName: string; queue: RoomQueue | null | undefined; onReplay: () => void; playingKey: string }) {
   const { t } = music;
   const library = useMusicData(musicApi.library);
+  useReloadAfterSongChange(playingKey, library.retry);
   const genres = useMusicData(musicApi.genres);
   if (library.failed && library.data === null) return <MusicNote text={t("musicLoadFailed")} onRetry={library.retry} />;
   const data = library.data;
@@ -216,7 +234,7 @@ function DetailView({ music, kind, id, roomName }: { music: RoomMusic; kind: str
  * every song, album, playlist, artist and station starts there through the
  * room's queue. `path` is what follows `/room/<room>/music/`.
  */
-export function RoomMusicTab({ roomName, homeRoom, path, onCommand }: { roomName: string; homeRoom: string; path: string[]; onCommand: RoomCommand }) {
+export function RoomMusicTab({ roomName, homeRoom, path, onCommand, playingKey }: { roomName: string; homeRoom: string; path: string[]; onCommand: RoomCommand; playingKey: string }) {
   const location = useLocation();
   const [queue, setQueue] = useState<RoomQueue | null | undefined>(undefined);
   const loadQueue = useCallback(() => { roomApi.queue(roomName).then(setQueue, () => setQueue(undefined)); }, [roomName]);
@@ -239,6 +257,6 @@ export function RoomMusicTab({ roomName, homeRoom, path, onCommand }: { roomName
     {music.failure ? <Alert variant="danger" role="alert" className="room-tab__failure">{music.failure}</Alert> : null}
     {kind === "search" && query ? <SearchView music={music} query={query} roomName={roomName} />
       : kind && id && ["album", "artist", "genre", "playlist", "mine"].includes(kind) ? <DetailView music={music} kind={kind} id={decodeURIComponent(id)} roomName={roomName} />
-      : <HomeView music={music} roomName={roomName} queue={queue} onReplay={replay} />}
+      : <HomeView music={music} roomName={roomName} queue={queue} onReplay={replay} playingKey={playingKey} />}
   </div>;
 }

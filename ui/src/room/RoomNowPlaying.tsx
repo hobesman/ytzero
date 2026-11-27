@@ -99,7 +99,7 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
   const toggleBusy = control?.action === "pause" || control?.action === "resume";
 
   return <section className="room-now" aria-label={t("roomNowPlaying")} aria-live="polite">
-    <RoomArt url={item?.art} />
+    <div className="room-now__art-box"><RoomArt url={item?.art} /></div>
     <div className="room-now__copy">
       <div className="room-now__badges">
         {source ? <SourceBadge source={source} names={names} /> : null}

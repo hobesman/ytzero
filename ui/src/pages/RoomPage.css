@@ -21,7 +21,7 @@
 .room-page__room svg { color: var(--text-2); height: 28px; width: 28px; }
 .room-page__room:active { background: var(--surface-2); }
 .room-page__spacer { flex: 1; }
-.room-page__clock { color: var(--text-2); font-size: 24px; font-variant-numeric: tabular-nums; font-weight: 600; padding-inline: 8px; }
+.room-page__clock { color: var(--text-2); font-size: 24px; white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; padding-inline: 8px; }
 
 .room-page__body { display: grid; flex: 1; gap: 24px; grid-template-columns: minmax(340px, 42%) 1fr; min-height: 0; padding-top: 8px; }
 .room-page__browse { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
@@ -30,12 +30,21 @@
 .room-page__panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 24px; padding-right: 4px; }
 
 /* Now playing */
+/*
+ * The cover is what gives way: everything else keeps its size, and the cover
+ * fills whatever height is left (none on a short screen). If even that is not
+ * enough, the panel scrolls rather than cutting off the controls.
+ */
 .room-now {
-  align-content: start; background: var(--surface); border-radius: 24px; display: grid; gap: 20px; grid-template-columns: 1fr;
-  min-height: 0; overflow: hidden; padding: 28px; position: relative;
+  background: var(--surface); border-radius: 24px; display: flex; flex-direction: column; gap: 20px;
+  min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; padding: 28px; position: relative;
 }
+.room-now > * { flex: 0 0 auto; }
+.room-now__art-box { align-items: center; container-type: size; display: flex; flex: 1 1 0; justify-content: center; min-height: 0; }
 .room-now--loading { min-height: 320px; }
-.room-now__art { aspect-ratio: 1; background: var(--surface-2); border-radius: 18px; justify-self: center; max-height: 34vh; object-fit: cover; width: min(100%, 34vh); }
+.room-now__art { aspect-ratio: 1; background: var(--surface-2); border-radius: 18px; height: min(100cqh, 100cqw, 420px); object-fit: cover; width: min(100cqh, 100cqw, 420px); }
+/* A sliver of a cover looks broken; below thumbnail size it goes. */
+@container (max-height: 72px) { .room-now__art { display: none; } }
 .room-now__art--empty { align-items: center; color: var(--text-3); display: flex; justify-content: center; }
 .room-now__art--empty svg { height: 35%; stroke-width: 1.3; width: 35%; }
 .room-now__copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -99,15 +108,17 @@
 /* Portrait: now playing above, the browser below. */
 @media (orientation: portrait) {
   .room-page__body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-  .room-now { align-items: center; column-gap: 24px; grid-template-columns: minmax(140px, 30%) 1fr; padding: 22px; }
-  .room-now__art { grid-row: span 2; max-height: none; width: 100%; }
+  .room-now { align-items: center; column-gap: 24px; display: grid; grid-template-columns: minmax(140px, 30%) 1fr; padding: 22px; row-gap: 16px; }
+  /* The cover takes the height of the text and buttons beside it. */
+  .room-now__art-box { align-self: stretch; grid-row: span 2; }
+  .room-now__art { height: min(100cqh, 100cqw); width: min(100cqh, 100cqw); }
+  .room-now__failure { grid-column: 1 / -1; }
   .room-now__controls { justify-content: flex-start; }
   .room-now__volume { grid-column: 1 / -1; }
   .room-now__title { font-size: clamp(24px, 4.6vw, 36px); }
 }
 
-/* Short landscape screens (a 10" tablet at 1280×800): a smaller cover keeps the controls in view. */
+/* Short landscape screens (a 10" tablet at 1280×800): tighter spacing leaves the cover more room. */
 @media (orientation: landscape) and (max-height: 760px) {
   .room-now { gap: 14px; padding: 22px; }
-  .room-now__art { max-height: 28vh; width: min(100%, 28vh); }
 }
