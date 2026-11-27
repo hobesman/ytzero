@@ -3,7 +3,7 @@ import { Play, Shuffle, Sparkles } from "lucide-react";
 import { api, type Video } from "../api";
 import { useI18n } from "../i18n";
 import { img, videoThumbnail } from "../img";
-import { Button, EmptyState, List, ListRow, SectionHeader } from "../components/ui";
+import { Alert, Button, EmptyState, List, ListRow, SectionHeader } from "../components/ui";
 import { useMusicData } from "../music/MusicParts";
 import { roomApi, type RoomVideoRequest } from "./roomApi";
 import type { RoomCommand } from "./useRoomState";
@@ -45,7 +45,7 @@ export function RoomVideoTab({ roomName, onCommand }: { roomName: string; onComm
   const nothing = inProgress.data?.length === 0 && recent.data?.length === 0 && channels.data?.length === 0;
   return <div className="room-videos">
     <p className="room-music__hint">{t("roomVideosHint")}</p>
-    {failure ? <p className="music-error" role="alert">{failure}</p> : null}
+    {failure ? <Alert variant="danger" role="alert" className="room-tab__failure">{failure}</Alert> : null}
     {inProgress.data?.length ? <section className="music-shelf">
       <SectionHeader title={t("roomVideosContinue")} level={2} />
       <VideoRows videos={inProgress.data} roomName={roomName} onPlay={playVideo} />

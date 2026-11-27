@@ -55,6 +55,8 @@
 .room-now__volume-value { color: var(--text-2); font-size: 20px; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: end; }
 .room-now__volume--busy .ui-slider { opacity: .65; }
 .room-now__failure.ui-alert { font-size: 15px; }
+/* Stays in view over a scrolled list, so the tap that failed is answered where it was made. */
+.room-tab__failure.ui-alert { background: color-mix(in srgb, var(--ui-alert-color) 16%, var(--bg)); font-size: 17px; margin: 0 0 12px; position: sticky; top: 0; z-index: 2; }
 .room-now .ui-empty-state { padding: 40px 12px; }
 
 /* Music and Hoban Tube tabs: the music page's cards and rows, larger for touch. */
