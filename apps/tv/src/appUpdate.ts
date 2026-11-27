@@ -65,6 +65,18 @@ export function shouldDownloadInBackground(options: { auto: boolean; metered: bo
   return options.auto && !options.metered && options.idle;
 }
 
+/**
+ * How recent a check must be to act on what it found. Older than this, a tap on
+ * a found or downloaded build asks GitHub again first, so a build published
+ * since then replaces it instead of the older one installing.
+ */
+export const RECHECK_BEFORE_ACTING_MS = 60 * 1000;
+
+/** Whether a tap in this state should check for a newer build before downloading or installing. */
+export function shouldRecheckBeforeActing(status: string, checkedAt: number, now: number): boolean {
+  return (status === "available" || status === "ready") && now - checkedAt >= RECHECK_BEFORE_ACTING_MS;
+}
+
 /** The share of a download done, 0 to 1, or null while the size isn't known. */
 export function downloadFraction(progress: { downloaded: number; total: number }): number | null {
   return progress.total > 0 ? Math.min(1, Math.max(0, progress.downloaded / progress.total)) : null;
