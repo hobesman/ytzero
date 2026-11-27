@@ -7,6 +7,7 @@ import {
   advancedState, decodePlaybackToken, encodePlaybackToken, playDirective, playResponse, retriedState, silent, speak, stopDirective,
   type AlexaPlaybackState, type AlexaResponse,
 } from "./alexaPlayback";
+import { nextInQueue, startRoomQueue, type AlexaQueueSource } from "./alexaQueue";
 
 /** The parts of an Alexa request envelope the skill reads. */
 export interface AlexaEnvelope {
@@ -49,11 +50,13 @@ export interface AlexaSkillDependencies {
   saveTracks?: typeof upsertMusicTracks;
   /** The YouTube Music playlist for a spoken genre, mood or decade, such as "80s" or "the latest pop". */
   findGenre?: (userId: number, spoken: string) => Promise<MusicPlaylist | null>;
+  /** Rooms' saved queues, for "play my queue". */
+  queues?: AlexaQueueSource;
 }
 
 const MAX_FAILURES_IN_A_ROW = 3;
 const LISTEN_LIMIT = 256;
-const HELP = "You can say play a song, play songs by an artist, play an artist's radio, play the album, play eighties music, play my liked songs, or play my mix. Ask what's playing to hear the song's name.";
+const HELP = "You can say play a song, play songs by an artist, play an artist's radio, play the album, play eighties music, play my liked songs, play my mix, or play my queue. Ask what's playing to hear the song's name.";
 const ASK = "What would you like to hear?";
 const UNREACHABLE = "Sorry, I couldn't reach YouTube Music right now. Please try again in a moment.";
 
@@ -89,7 +92,15 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     return extra.speech === undefined ? silent([directive]) : playResponse(extra.speech, directive);
   }
 
-  /** The song after the current one: the album's next track, else the station's pick. */
+  /** The song after the current one and the state that plays it: the queue's or album's next track, else the station's pick. */
+  async function following(userId: number, state: AlexaPlaybackState, skippingCurrent: boolean, failed = false): Promise<{ track: StoredMusicTrack; state: AlexaPlaybackState } | null> {
+    const queued = dependencies.queues ? await nextInQueue(dependencies.queues, findTrack, userId, state) : null;
+    if (queued) return { track: queued.track, state: advancedState(state, queued.track.videoId, skippingCurrent, failed, queued.ref) };
+    const track = await nextTrack(userId, state, skippingCurrent);
+    return track ? { track, state: advancedState(state, track.videoId, skippingCurrent, failed) } : null;
+  }
+
+  /** The station's next song after the current one: the album's next track, else the station's pick. */
   async function nextTrack(userId: number, state: AlexaPlaybackState, skippingCurrent: boolean): Promise<StoredMusicTrack | null> {
     const served = [...state.served, state.videoId];
     if (state.seed.kind === "album") {
@@ -154,9 +165,9 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     if (!state) return speech ? speak(`Nothing is playing. ${ASK}`, ASK) : silent();
     const listen = token ? listens.get(token) : undefined;
     if (listen) listen.skipped = true;
-    const track = await nextTrack(userId, state, true);
-    if (!track) return speech ? speak("That's the end of this station.") : silent([stopDirective]);
-    return play(userId, advancedState(state, track.videoId, true), track, "REPLACE_ALL");
+    const next = await following(userId, state, true);
+    if (!next) return speech ? speak("That's the end of this station.") : silent([stopDirective]);
+    return play(userId, next.state, next.track, "REPLACE_ALL");
   }
 
   async function finishListen(userId: number, envelope: AlexaEnvelope, endReason: "completed" | "stopped") {
@@ -191,9 +202,9 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     if (type === "AudioPlayer.PlaybackNearlyFinished") {
       const state = decodePlaybackToken(token);
       if (!state) return silent();
-      const track = await nextTrack(userId, state, false);
-      if (!track) return silent();
-      return play(userId, advancedState(state, track.videoId, false), track, "ENQUEUE", { previousToken: token });
+      const next = await following(userId, state, false);
+      if (!next) return silent();
+      return play(userId, next.state, next.track, "ENQUEUE", { previousToken: token });
     }
     if (type === "AudioPlayer.PlaybackFailed") {
       log.warn("alexa.playback_failed", { error: envelope.request?.error?.type, message: envelope.request?.error?.message });
@@ -206,9 +217,9 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
         const offset = Math.max(0, Number(envelope.request?.currentPlaybackState?.offsetInMilliseconds ?? envelope.context?.AudioPlayer?.offsetInMilliseconds) || 0);
         if (current) return play(userId, retriedState(state), current, "REPLACE_ALL", { offset });
       }
-      const track = await nextTrack(userId, state, false);
-      if (!track) return silent([stopDirective]);
-      return play(userId, advancedState(state, track.videoId, false, true), track, "REPLACE_ALL");
+      const next = await following(userId, state, false, true);
+      if (!next) return silent([stopDirective]);
+      return play(userId, next.state, next.track, "REPLACE_ALL");
     }
     return silent();
   }
@@ -236,6 +247,13 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     return speak(track.artist ? `This is ${track.title} by ${track.artist}.` : `This is ${track.title}.`);
   }
 
+  async function playQueue(userId: number, envelope: AlexaEnvelope): Promise<AlexaResponse> {
+    if (!dependencies.queues) return speak("Queues aren't set up on this server.");
+    const started = await startRoomQueue(dependencies.queues, { findTrack, stations: dependencies.stations }, userId, envelopeDeviceId(envelope));
+    if (typeof started === "string") return speak(started);
+    return play(userId, started.state, started.track, "REPLACE_ALL", { speech: started.speech });
+  }
+
   async function intent(userId: number, envelope: AlexaEnvelope): Promise<AlexaResponse> {
     const name = envelope.request?.intent?.name ?? "";
     if (SEED_INTENTS.has(name)) {
@@ -247,6 +265,7 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     if (name === "AMAZON.StartOverIntent") return resume(userId, envelope, true);
     if (name === "AMAZON.NextIntent") return skip(userId, envelope.context?.AudioPlayer?.token, true);
     if (name === "WhatsPlayingIntent") return whatsPlaying(envelope);
+    if (name === "PlayQueueIntent") return playQueue(userId, envelope);
     if (UNSUPPORTED_INTENTS.has(name)) return speak("Sorry, YT Zero can't do that yet.");
     return speak(HELP, ASK);
   }

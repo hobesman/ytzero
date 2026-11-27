@@ -667,6 +667,26 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_pending_play (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video')), device_id TEXT NOT NULL, token TEXT NOT NULL, video_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', duration_ms BIGINT, offset_ms BIGINT NOT NULL DEFAULT 0, requested_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
     ],
   },
+  {
+    version: 124,
+    name: "alexa-rooms-queues",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+      "app/src/musicSchema.sql": "86379b2fdb5c81862b508185a471750befa03d62eed1c9e5956ff93eb31ee741",
+      "app/src/publicShareSchema.sql": "607906c8adae087f6105876c76848ef1afebf180259cabee84ff2ddf203af1ae",
+      "app/src/alexaSchema.sql": "29c0befee4e63a2a4415e10a85e9509b408fdbe34112582563a1e6ec8afea92a",
+    },
+    sqlite: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_rooms (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, room TEXT NOT NULL, ha_entity TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_queues (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, queue_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', seed TEXT, video_ids TEXT NOT NULL DEFAULT '', saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_rooms (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, room TEXT NOT NULL, ha_entity TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_queues (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, queue_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', seed TEXT, video_ids TEXT NOT NULL DEFAULT '', saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {

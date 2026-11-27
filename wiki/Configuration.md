@@ -55,6 +55,10 @@ picker is read-only until `TZ` is removed and the instance restarted.
 | `YTZERO_ALEXA_PROFILE` | _(unset)_ | The profile the Alexa skills play as, by name (case-insensitive) or numeric ID. |
 | `YTZERO_ALEXA_SECRET` | _(unset)_ | At least 32 random characters, used to sign the audio links handed to Alexa. Environment-owned; never written to the database, backups, or logs. |
 | `YTZERO_ALEXA_PUBLIC_URL` | `APP_URL` | The public `https://` address Amazon fetches Alexa audio from, when it differs from `APP_URL`. |
+| `YTZERO_ALEXA_MUSIC_INVOCATION` | _(unset)_ | The music skill's invocation name, such as `hoban music`, for the commands the [Home Assistant bridge](Alexa-Skill#home-assistant-room-controls-one-tap-pairing-and-queues) types to an Echo. |
+| `YTZERO_ALEXA_VIDEO_INVOCATION` | _(unset)_ | The video skill's invocation name, such as `hoban tube`. |
+| `YTZERO_HOME_ASSISTANT_URL` | _(unset)_ | Home Assistant's address, such as `http://192.168.0.10:8123`, for the Alexa skills' room controls through its Alexa Media Player integration. Needs `YTZERO_HOME_ASSISTANT_TOKEN`. |
+| `YTZERO_HOME_ASSISTANT_TOKEN` | _(unset)_ | A Home Assistant long-lived access token. Environment-owned; never written to the database, backups, or logs. |
 | `YTZERO_BACKGROUND_TASKS` | `1` | Set to `0` on HTTP-only replicas in a PostgreSQL cluster. Such replicas still serve requests and enqueue durable work, but do not start refresh schedulers, the download consumer, automatic yt-dlp updates, or TubeArchivist background synchronization. Exactly one replica should keep the default `1`. |
 | `YTZERO_INSTANCE_NAME` | hostname and port | Optional human-readable node name shown in **Settings → Cluster**. Nomad's `NOMAD_ALLOC_NAME` is used automatically when this variable is unset. Give each concurrently running instance a distinct name. |
 | `APP_EVENT_POLL_INTERVAL_MS` | `750` | PostgreSQL cross-replica live-event polling interval in milliseconds (`100`–`30000`). Usually there is no reason to change it. |

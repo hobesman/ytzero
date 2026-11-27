@@ -93,6 +93,20 @@
           ]
         },
         {
+          "name": "PlayQueueIntent",
+          "slots": [],
+          "samples": [
+            "play my queue",
+            "play the queue",
+            "play my queued songs",
+            "play what's queued",
+            "play what I queued",
+            "play the queue for this room",
+            "start my queue",
+            "start the queue"
+          ]
+        },
+        {
           "name": "WhatsPlayingIntent",
           "slots": [],
           "samples": [

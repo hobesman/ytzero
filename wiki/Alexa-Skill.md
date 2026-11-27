@@ -4,7 +4,8 @@ YT Zero can be the backend for two private Alexa skills. Set up either or both.
 
 **Hoban Music** plays music mode: "Alexa, ask Hoban Music to play Harvest
 Moon", "…play songs by Radiohead", "…play the album OK Computer", "…play my
-liked songs" or "…play my mix". A song or album starts a station that keeps
+liked songs", "…play my mix" or, with a queue saved for the room, "…play my
+queue". A song or album starts a station that keeps
 going after it, just as on the phone. "…play songs by Radiohead" plays only
 Radiohead, shuffled, until their songs run out, then a station like them; for a
 mix of similar artists from the start, say "…play Radiohead radio". A genre,
@@ -229,9 +230,115 @@ plays it, and the room that asked keeps what it had.
 All times are UTC (ISO 8601, ending in `Z`), for a client to show in local
 time.
 
-Only YT Zero's own skills are seen: Amazon Music or another skill on the same
-Echo doesn't show up here. A skill's audio plays only on the Echo it was asked
+The skills see only themselves: Amazon Music or another skill on the same
+Echo shows up here only through Home Assistant (below). A skill's audio plays only on the Echo it was asked
 on, not on a speaker group.
+
+## Home Assistant: room controls, one-tap pairing and queues
+
+With Home Assistant's [Alexa Media Player](https://github.com/alandtse/alexa_media_player)
+integration, YT Zero can control each room's Echo and see what Amazon's own
+sources (Amazon Music, say) play there. Home Assistant types commands to an
+Echo as if spoken ("ask hoban music to pair"), so a tablet button can pair an
+Echo, pause it, skip a song or start a queue.
+
+Set these on the container too:
+
+| Variable | Value |
+| --- | --- |
+| `YTZERO_HOME_ASSISTANT_URL` | Home Assistant's address as the server reaches it, such as `http://192.168.0.10:8123`. |
+| `YTZERO_HOME_ASSISTANT_TOKEN` | A long-lived access token: in Home Assistant, your profile → **Security** → **Long-lived access tokens** → **Create token**. It's a secret: YT Zero never logs it or returns it. |
+| `YTZERO_ALEXA_MUSIC_INVOCATION` | The music skill's invocation name, such as `hoban music`. Typed commands have to say it. |
+| `YTZERO_ALEXA_VIDEO_INVOCATION` | The video skill's, such as `hoban tube`. |
+
+The bridge is off, and its requests answer 503, until the address and token
+are both set. Then give each room its Echo's Home Assistant entity:
+`GET /api/alexa/home-assistant` lists Home Assistant's Alexa media players,
+and `PUT /api/alexa/rooms/Kitchen/entity` with
+`{"entity": "media_player.kitchen_echo"}` maps the room to one (`null` clears
+it). A room with an entity is listed in `GET /api/alexa/rooms` even before any
+Echo is paired with it.
+
+| Request | Does |
+| --- | --- |
+| `GET /api/alexa/home-assistant` | Whether the bridge is on, the invocation names, and Home Assistant's Alexa media players (`?all=1` for every media player). |
+| `PUT /api/alexa/rooms/<room>/entity` | `{"entity"}` sets or clears the room's Echo entity. Home Assistant must know the entity. |
+| `POST /api/alexa/rooms/<room>/pair` | Pairs the room's Echo with both skills in one call. |
+| `POST /api/alexa/rooms/<room>/control` | `{"action": "pause"}`, `"resume"`, `"next"`, or `"volume"` with `"volume"` from 0 to 10. |
+| `GET` / `PUT` / `DELETE /api/alexa/rooms/<room>/queue` | Reads, saves or clears the room's queue. |
+| `POST /api/alexa/rooms/<room>/queue/play` | Starts the saved queue on the room's Echo. |
+
+**One-tap pairing** sets the room waiting, as `POST /api/alexa/pairing` does,
+then types "ask hoban music to pair" to the room's Echo and waits up to 30
+seconds for the music skill to claim it, then does the same for Hoban Tube. It
+answers with `paired` (the skills that paired) and `failed` (each with a
+reason), so it takes up to a minute. The Echo answers aloud, "Paired. This is
+the Kitchen."
+
+**Controls** go the way the Echo can hear them. Home Assistant can't see a
+skill's audio (it shows the Echo as idle), so while Hoban Music or Hoban Tube
+plays in the room, or when Home Assistant sees nothing playing, the Echo gets a
+typed command: "pause", "next", or "ask hoban music to resume" (Hoban Tube's
+name if that skill played last). When Home Assistant sees something playing,
+such as Amazon Music, it's paused, resumed and skipped with Home Assistant's
+own media player services. Resume picks whichever paused last. Volume always
+sets the Echo's own volume through Home Assistant, which works whatever is
+playing; if that fails, the Echo is told "volume 5". The answer says how it was
+sent: `via` is `typed` (with the `command`) or `home-assistant` (with the
+`service`).
+
+**Play my queue** (Hoban Music only) plays what a tablet queued for the room:
+
+```json
+PUT /api/alexa/rooms/Kitchen/queue
+{ "videoIds": ["…", "…"], "title": "Dinner", "play": true }
+```
+
+Give either `videoIds` (up to 500 songs, each already in the music catalog,
+as anything the app's music pages show is) or a station `seed`: an album
+(`{"kind": "album", "browseId": "MPREb_…"}`), a playlist
+(`{"kind": "playlist", "playlistId": "…"}`), an artist
+(`{"kind": "artist", "artistId": "UC…", "radio": true}` for their radio),
+`{"kind": "liked"}` or `{"kind": "mix"}`. `"play": true` starts it at once by
+telling the room's Echo "ask hoban music to play my queue"; anyone can also
+just say "Alexa, ask Hoban Music to play my queue" to an Echo paired with the
+room. A list of songs plays in order, then carries on as a station like its
+last song, the way an album does. Saving a new queue replaces the room's last
+one; an Echo still playing the old one carries on into the station.
+
+`GET /api/alexa/rooms` then also has, for each room with an entity,
+`homeAssistant`: what Home Assistant reports (`state`, `title`, `artist`,
+`album`, `art`, `durationMs`, `positionMs`, `source` — the Echo's input, such as
+Local Speaker — `volume` from 0 to 1, and `error` if Home Assistant couldn't be
+asked), and `current`: what the room's screen should show. That is the skills'
+record while one of them plays, else what Home Assistant sees, else the skills'
+last record. Its `origin` is `music`, `video` or `home-assistant`.
+
+Home Assistant doesn't say which service is playing, only what. Its art is
+shown only when it's a public link.
+
+### Paste into the Alexa console
+
+"Play my queue" needs the music skill's newer interaction model. In the
+developer console, open the music skill → **Build → Interaction Model → JSON
+Editor**, paste the whole of
+[`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json),
+change `invocationName` back to yours, then **Save** and **Build skill**. Or,
+to add just the new intent: **Intents → Add Intent → Create custom intent**,
+name it `PlayQueueIntent`, and add these sample utterances:
+
+```text
+play my queue
+play the queue
+play my queued songs
+play what's queued
+play what I queued
+play the queue for this room
+start my queue
+start the queue
+```
+
+then **Save** and **Build skill**.
 
 ## How it works
 
@@ -276,7 +383,8 @@ on, not on a speaker group.
   the app since.
 
 The configuration is machine-bound: none of it is stored in the database,
-settings or backups. The Echo devices, their rooms and what each is playing are
+settings or backups. Each room's Home Assistant entity and queue are kept in
+the database with the devices, and left out of portable backups too. The Echo devices, their rooms and what each is playing are
 kept in the database, shared by every replica, and left out of portable
 backups.
 
