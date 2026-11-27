@@ -34,6 +34,8 @@
 .music-track:hover { background: var(--surface-2); }
 .music-track--active { background: var(--surface-2); }
 .music-track--active .music-track__title { color: var(--accent); }
+/* Heard on an Echo, with no YouTube Music track to play. */
+.music-track--unplayable { opacity: 0.5; cursor: default; }
 .music-track__number { width: 44px; text-align: center; color: var(--text-3); font-variant-numeric: tabular-nums; flex: none; }
 .music-track__copy { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .music-track__title, .music-track__detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

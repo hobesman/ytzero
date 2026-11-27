@@ -158,7 +158,8 @@ describe("music mode", () => {
     expect(result.exported.saved_albums.map((album: any) => album.browse_id)).toEqual(["MPREb_LQwx7Jq6u9H"]);
     expect(result.exported.playlists.map((playlist: any) => [playlist.title, playlist.tracks])).toEqual([["Road trip 2", [result.served[2], result.served[1]]]]);
     expect(result.exported.saved_playlists.map((playlist: any) => playlist.playlist_id)).toEqual([result.playlistStartSeed.slice("playlist:".length)]);
-    expect(result.restoredV1).toEqual({ ...result.exported, saved_albums: [], playlists: [], saved_playlists: [] });
+    expect(result.exported.echo_plays.map((play: any) => [play.song_key, play.title, play.end_reason])).toEqual([["obscure band|deep cut", "Deep Cut", "skipped"]]);
+    expect(result.restoredV1).toEqual({ ...result.exported, saved_albums: [], playlists: [], saved_playlists: [], echo_plays: [] });
     expect(result.exported.tracks.map((track: any) => track.video_id).sort()).toEqual([result.served[0], result.served[1], result.served[2]].sort());
     // The copy restored into another profile keeps everything but the playlist IDs, which are made its own.
     expect(withoutPlaylistIds(result.restoredTwice)).toEqual(withoutPlaylistIds(result.exported));
@@ -166,7 +167,16 @@ describe("music mode", () => {
     expect(result.restoredTwice.playlists[0].id).not.toBe(result.exported.playlists[0].id);
     expect(withoutPlaylistIds(result.replaced)).toEqual(withoutPlaylistIds(result.exported));
     expect(result.replaced.playlists[0].id).toBe(result.restoredTwice.playlists[0].id);
-    expect(result.malformedSkipped).toBe(6);
+    expect(result.malformedSkipped).toBe(7);
+  });
+
+  test("shows an Echo song with no YouTube Music track in Recently played, greyed out, for its own profile only", () => {
+    expect(result.echoRecentFirst).toEqual({
+      videoId: "echo:obscure band|deep cut", title: "Deep Cut", artist: "Obscure Band", artistId: null, album: "B-Sides", duration: 200,
+      thumbnail: "https://m.media-amazon.com/x.jpg", isTopic: false, rating: 0, playable: false,
+    });
+    expect(result.echoRecentLength).toBe(result.recentLengthBeforeEcho + 1);
+    expect(result.echoRecentOther).toBe(0);
   });
 
   test("keeps a profile's own playlists: create, add, reorder, remove, rename and delete", () => {

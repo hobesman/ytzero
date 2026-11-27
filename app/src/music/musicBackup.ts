@@ -8,12 +8,12 @@ import { PLAYLIST_ID } from "./youtubeMusicGenreParsers";
 /**
  * Portable backup for music mode (section `profile.music`). Ratings, plays,
  * saved albums (since schema v2), and the profile's own playlists and saved YouTube Music playlists (since
- * v3) are portable personal state. Track rows are a rebuildable cache; only those
+ * v3) and songs heard on an Echo that matched no track (since v4) are portable personal state. Track rows are a rebuildable cache; only those
  * the profile's ratings, plays and playlists point at travel with them, so a restored
  * library can still show titles before the songs are seen again.
  */
 export const MUSIC_BACKUP_SECTION = {
-  id: "profile.music", schemaVersion: 3, scope: "profile" as const, sensitivity: "personal" as const, dependencies: ["profiles.index"],
+  id: "profile.music", schemaVersion: 4, scope: "profile" as const, sensitivity: "personal" as const, dependencies: ["profiles.index"],
   category: "personal" as const, path: (uuid = "") => `profiles/${uuid}/music.json`,
 };
 
@@ -29,6 +29,8 @@ export interface MusicBackupDocument {
   /** Added in schema v3; absent from older documents. `tracks` lists video IDs in playlist order. */
   playlists?: Array<{ id: string; title: string; created_at: string; updated_at: string; tracks: string[] }>;
   saved_playlists?: Array<{ playlist_id: string; title: string; subtitle: string; thumbnail: string; saved_at: string }>;
+  /** Added in schema v4; absent from older documents. Echo songs with no YouTube Music track, keyed by song and start time. */
+  echo_plays?: Array<{ song_key: string; title: string; artist: string; album: string | null; art: string; started_at: string; listened_seconds: number; duration: number | null; end_reason: string }>;
 }
 
 export async function exportMusicBackup(userId: number): Promise<MusicBackupDocument> {
@@ -50,7 +52,9 @@ export async function exportMusicBackup(userId: number): Promise<MusicBackupDocu
   for (const row of playlistRows) playlists.push({ ...row, tracks: await playlistTrackIds(row.id) });
   const saved_playlists = await database.prepare("SELECT playlist_id, title, subtitle, thumbnail, saved_at FROM music_saved_playlists WHERE user_id = ? ORDER BY saved_at, playlist_id")
     .all<NonNullable<MusicBackupDocument["saved_playlists"]>[number]>(userId);
-  return { tracks, ratings, plays, saved_albums, playlists, saved_playlists };
+  const echo_plays = await database.prepare("SELECT song_key, title, artist, album, art, started_at, listened_seconds, duration, end_reason FROM music_echo_plays WHERE user_id = ? ORDER BY started_at, song_key")
+    .all<NonNullable<MusicBackupDocument["echo_plays"]>[number]>(userId);
+  return { tracks, ratings, plays, saved_albums, playlists, saved_playlists, echo_plays };
 }
 
 const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
@@ -74,6 +78,7 @@ export async function restoreMusicBackup(userId: number, value: unknown, strateg
     await database.prepare("DELETE FROM music_playlist_tracks WHERE playlist_id IN (SELECT id FROM music_playlists WHERE user_id = ?)").run(userId);
     await database.prepare("DELETE FROM music_playlists WHERE user_id = ?").run(userId);
     await database.prepare("DELETE FROM music_saved_playlists WHERE user_id = ?").run(userId);
+    await database.prepare("DELETE FROM music_echo_plays WHERE user_id = ?").run(userId);
   }
   for (const row of Array.isArray(doc.tracks) ? doc.tracks as any[] : []) {
     if (!VIDEO_ID.test(row?.video_id ?? "")) { skipped++; continue; }
@@ -145,6 +150,20 @@ export async function restoreMusicBackup(userId: number, value: unknown, strateg
       ON CONFLICT(user_id, playlist_id) DO NOTHING
     `).run(userId, row.playlist_id, text(row.title, 500), text(row.subtitle, 500), text(row.thumbnail, 2000),
       validTime(row.saved_at) ? row.saved_at : new Date().toISOString());
+  }
+  for (const row of Array.isArray(doc.echo_plays) ? doc.echo_plays as any[] : []) {
+    const listened = Number(row?.listened_seconds);
+    const key = typeof row?.song_key === "string" ? row.song_key.slice(0, 1000) : "";
+    if (!key.includes("|") || !validTime(row.started_at) || !Number.isFinite(listened) || listened < 0 || !END_REASONS.has(row.end_reason)) {
+      skipped++;
+      continue;
+    }
+    const duration = row.duration == null || !Number.isFinite(Number(row.duration)) ? null : Number(row.duration);
+    await database.prepare(`
+      INSERT INTO music_echo_plays (user_id, song_key, title, artist, album, art, started_at, listened_seconds, duration, end_reason)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, song_key, started_at) DO NOTHING
+    `).run(userId, key, text(row.title, 500), text(row.artist, 500), optionalText(row.album, 500), text(row.art, 2000),
+      row.started_at, listened, duration, row.end_reason);
   }
   return { skipped };
 }

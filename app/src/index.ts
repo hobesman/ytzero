@@ -23,6 +23,7 @@ import { createPublicShareRouter } from "./routes/publicShareRoutes";
 import { createAlexaRouter } from "./routes/alexaRoutes";
 import { alexaStartupStatus } from "./alexa/alexaConfig";
 import { startAlexaVideoProgress } from "./alexa/alexaVideoProgress";
+import { startAlexaEchoListening } from "./alexa/alexaEchoListening";
 import { startLocalDiscovery } from "./localDiscovery";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
@@ -125,6 +126,7 @@ if (mode.backgroundTasks) {
   startScheduler();
   await startDownloader();
   startDeviceDownloadSweep();
+  startAlexaEchoListening();
   scheduleTubeArchivistSync(true);
   void flushTubeArchivistWatched();
 } else {

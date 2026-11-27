@@ -317,6 +317,37 @@ last record. Its `origin` is `music`, `video` or `home-assistant`.
 Home Assistant doesn't say which service is playing, only what. Its art is
 shown only when it's a public link.
 
+### Listening history from other services
+
+With Home Assistant set up, YT Zero also keeps a listening history of songs the
+Echoes play through other services, such as Amazon Music. Every 15 seconds it
+reads Home Assistant's states once (only when a room has an entity), follows
+each room's Echo, and records each song heard as a play of the profile set in
+`YTZERO_ALEXA_PROFILE`, the one the wall tablet signs in as. Our own skills'
+songs are left to the skills, which record them already.
+
+- **Matching.** A song is looked up in YT Zero's own music catalogue by artist
+  and title first, then with YT Zero's YouTube Music search, the same one the
+  music pages use. A search result counts only when it's the same song by
+  artist and title, or by the same lead artist with a close title and a length
+  within 10%; never by another artist. Searches are spaced out and capped per
+  hour, and a song searched without a match isn't searched again for a day.
+- **Matched songs** are ordinary plays: they appear in Recently played and
+  shape Your Mix, stations and recommendations.
+- **Unmatched songs** still appear in Recently played, greyed out. Tapping one
+  only says that it can't play here.
+- **Not songs.** Home Assistant reports podcasts and audiobooks as music too, so
+  anything under 30 seconds or over 15 minutes, with no length (live radio), or
+  named like an Audible book ("By <author>", "Narrated by …") is ignored.
+- **How it ended.** A song that reached its end is completed; one replaced by
+  the next is skipped; one followed by nothing is stopped. One heard for under
+  10 seconds isn't recorded.
+
+The server log says what it did with each song: `alexa.echo_play_matched` (with
+the track and whether the catalogue or a search found it) or
+`alexa.echo_play_unmatched` (with why). The watcher runs only on the server that
+runs background tasks.
+
 ### Paste into the Alexa console
 
 "Play my queue" needs the music skill's newer interaction model. In the

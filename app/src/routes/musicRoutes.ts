@@ -6,6 +6,7 @@ import { log } from "../logger";
 import { createMusicPages } from "../music/musicAlbums";
 import { createMusicAudio, type MusicAudio } from "../music/musicAudio";
 import { musicTrack, musicTracks, upsertMusicTracks, type StoredMusicTrack } from "../music/musicCatalog";
+import { mergeRecentWithEcho, recentMusicEchoPlays } from "../music/musicEchoPlays";
 import { recordMusicPlay, type MusicPlayEndReason } from "../music/musicPlays";
 import { upstreamFailure, withRatings, withTimeout } from "../music/musicRouteHelpers";
 import { musicLoudness, type MusicLoudness } from "../music/musicLoudness";
@@ -187,12 +188,16 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
     const recentRows = await database.prepare(`
       SELECT video_id, MAX(started_at) AS last_played FROM music_plays WHERE user_id = ?
       GROUP BY video_id ORDER BY last_played DESC LIMIT 50
-    `).all<{ video_id: string }>(userId);
+    `).all<{ video_id: string; last_played: string }>(userId);
     const known = await musicTracks([...likedRows, ...recentRows].map((row) => row.video_id));
     const pick = (rows: { video_id: string }[]) => rows.map((row) => known.get(row.video_id)).filter((track): track is StoredMusicTrack => Boolean(track));
+    const recent = await withRatings(userId, pick(recentRows), loudness);
+    const lastPlayed = new Map(recentRows.map((row) => [row.video_id, row.last_played]));
+    // Songs an Echo played through Amazon Music that matched no track, shown greyed out.
+    const played = recent.map((track) => ({ track, lastPlayed: lastPlayed.get(track.videoId) ?? "", songKey: known.get(track.videoId)?.songKey ?? "" }));
     return context.json({
       liked: await withRatings(userId, pick(likedRows), loudness),
-      recent: await withRatings(userId, pick(recentRows), loudness),
+      recent: mergeRecentWithEcho(played, await recentMusicEchoPlays(userId)),
       albums: await savedAlbums(userId),
       playlists: await userPlaylists(userId),
       savedPlaylists: await savedPlaylists(userId),

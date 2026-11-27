@@ -8,6 +8,7 @@ const { createMusicLoudness } = await import("../src/music/musicLoudness");
 const { createYouTubeMusicClient } = await import("../src/music/youtubeMusicClient");
 const { createMusicAudio } = await import("../src/music/musicAudio");
 const { exportMusicBackup, restoreMusicBackup } = await import("../src/music/musicBackup");
+const { recordMusicEchoPlay } = await import("../src/music/musicEchoPlays");
 const { createMusicLyrics } = await import("../src/music/musicLyrics");
 const { createLrclibClient } = await import("../src/music/lrclib");
 
@@ -203,6 +204,11 @@ const playlistSavedBefore = playlistPage.saved;
 const playlistSaveStatus = (await call(`/music/playlists/${PLAYLIST}/saved`, "PUT")).status;
 const playlistSavedAfter = (await (await call(`/music/playlists/${PLAYLIST}`)).json() as any).saved;
 const playlistLibrary = await (await call("/music/library")).json() as any;
+// An Echo song that matched no track shows in Recently played, greyed out; another profile never sees it.
+await recordMusicEchoPlay(1, { songKey: "obscure band|deep cut", title: "Deep Cut", artist: "Obscure Band", album: "B-Sides", art: "https://m.media-amazon.com/x.jpg",
+  startedAt: new Date(Date.now() + 60_000), listenedSeconds: 120, duration: 200, endReason: "skipped" });
+const echoLibrary = await (await call("/music/library")).json() as any;
+const echoLibraryOther = await (await call("/music/library", "GET", undefined, secondary.id)).json() as any;
 
 const after = counts();
 
@@ -217,11 +223,12 @@ const replaced = await exportMusicBackup(secondary.id);
 const malformed = await restoreMusicBackup(secondary.id, {
   ratings: [{ video_id: "x", rating: 1 }], plays: [{ video_id: served[0], started_at: "never" }], saved_albums: [{ browse_id: "VLnope" }],
   playlists: [{ id: "nope", title: "Bad" }, { id: crypto.randomUUID(), title: "  " }], saved_playlists: [{ playlist_id: "nope" }],
+  echo_plays: [{ song_key: "no separator", started_at: new Date().toISOString(), listened_seconds: 1, end_reason: "skipped" }],
 }, "merge");
 // A schema v1 document, from before saved albums, restores into an empty profile.
 const third = db.prepare("INSERT INTO users(name,avatar_color,sort_order,portable_uuid) VALUES('Third','#111111',3,?) RETURNING id")
   .get(crypto.randomUUID()) as { id: number };
-const { saved_albums: _savedAlbums, playlists: _playlists, saved_playlists: _savedPlaylists, ...v1Document } = exported;
+const { saved_albums: _savedAlbums, playlists: _playlists, saved_playlists: _savedPlaylists, echo_plays: _echoPlays, ...v1Document } = exported;
 await restoreMusicBackup(third.id, v1Document, "merge");
 const restoredV1 = await exportMusicBackup(third.id);
 
@@ -323,6 +330,10 @@ console.log("RESULT " + JSON.stringify({
   playlistSaveStatus,
   playlistSavedAfter,
   libraryPlaylists: playlistLibrary.playlists.map((playlist: any) => playlist.title),
+  echoRecentFirst: echoLibrary.recent[0],
+  echoRecentLength: echoLibrary.recent.length,
+  recentLengthBeforeEcho: playlistLibrary.recent.length,
+  echoRecentOther: echoLibraryOther.recent.filter((track: any) => track.playable === false).length,
   librarySavedPlaylists: playlistLibrary.savedPlaylists.map((playlist: any) => `${playlist.playlistId} ${playlist.title}`),
 }));
 
