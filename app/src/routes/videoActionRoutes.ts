@@ -7,7 +7,7 @@ import { refreshDiscoveryInBackground } from "../plugins";
 import { cancelAutoDownloadIfUnwanted } from "../downloader";
 import { videoExistsStmt } from "../videoRoutesSupport";
 import { savePlaybackContext } from "./playbackRoutes";
-import { completeVideo } from "../videoCompletion";
+import { completeVideo, saveWatchProgress } from "../videoCompletion";
 import { childLocalOnly } from "../childTime";
 import { ensureOnDemandVideo, OnDemandVideoImportError } from "../onDemandVideoImport";
 import { claimTubeArchivistWatchedState, enqueueTubeArchivistWatched } from "../tubeArchivist";
@@ -159,10 +159,7 @@ api.put("/videos/:id/progress", async (c) => {
   const id = c.req.param("id");
   const { position, duration } = await c.req.json() as { position: number; duration: number };
   if (!await videoExistsStmt.get(id)) return c.json({ error: "not found" }, 404);
-  await database.prepare(
-    `INSERT INTO user_videos (user_id, video_id, watch_position, watch_duration) VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, video_id) DO UPDATE SET watch_position = excluded.watch_position, watch_duration = excluded.watch_duration`
-  ).run(uid, id, position, duration);
+  await saveWatchProgress(uid, id, position, duration);
   await recordWatchTick(uid, id);
   refreshDiscoveryInBackground(uid);
   return c.json({ ok: true });

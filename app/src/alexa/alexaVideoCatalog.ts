@@ -1,5 +1,5 @@
 import { database } from "../database";
-import { completeVideo } from "../videoCompletion";
+import { completeVideo, saveWatchProgress } from "../videoCompletion";
 import { durationSeconds } from "./alexaVideoMatch";
 
 export interface AlexaChannel {
@@ -106,11 +106,7 @@ export async function recordVideoStarted(userId: number, videoId: string): Promi
 
 /** Where listening stopped, so the app's Continue watching picks it up. */
 export async function recordVideoProgress(userId: number, videoId: string, position: number, duration: number | null): Promise<void> {
-  await database.prepare(`
-    INSERT INTO user_videos (user_id, video_id, watch_position, watch_duration) VALUES (?, ?, ?, ?)
-    ON CONFLICT(user_id, video_id) DO UPDATE SET watch_position = excluded.watch_position,
-      watch_duration = COALESCE(excluded.watch_duration, user_videos.watch_duration)
-  `).run(userId, videoId, position, duration);
+  await saveWatchProgress(userId, videoId, position, duration);
 }
 
 export async function recordVideoFinished(userId: number, videoId: string): Promise<void> {
