@@ -317,7 +317,12 @@ describe("room controls through home assistant", () => {
     const next = await send(KITCHEN, { type: "AudioPlayer.PlaybackNearlyFinished", token, offsetInMilliseconds: 190_000 });
     expect(decodePlaybackToken(next.response.directives[0].audioItem.stream.token)?.videoId).toBe(id(9));
 
-    expect((await call("POST", "/alexa/rooms/rename", { from: "Kitchen", to: "Galley" })).status).toBe(200);
+    // One device in the room: the room's settings row isn't counted as another.
+    expect(await call("POST", "/alexa/rooms/rename", { from: "Kitchen", to: "Galley" })).toEqual({ status: 200, body: { room: "Galley", devices: 1 } });
+    // A room with only settings renames too.
+    await call("PUT", "/alexa/rooms/Den/entity", { entity: ENTITY });
+    expect(await call("POST", "/alexa/rooms/rename", { from: "Den", to: "Study" })).toEqual({ status: 200, body: { room: "Study", devices: 0 } });
+    expect((await call("POST", "/alexa/rooms/rename", { from: "Nowhere", to: "Else" })).status).toBe(404);
     expect(await roomSettings.entity(1, "galley")).toBe(ENTITY);
     expect((await roomSettings.queue(1, "Galley"))?.videoIds).toEqual([id(3)]);
     expect(await roomSettings.entity(1, "Kitchen")).toBeNull();
