@@ -170,8 +170,10 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
     const to = normalizeRoomName(body?.to);
     if (!from || !to) return context.json({ error: "from and to are required" }, 400);
     const userId = currentUserId(context);
-    const changed = await rooms.renameRoom(userId, from, to) + await settings.rename(userId, from, to);
-    return changed ? context.json({ room: to, devices: changed }) : context.json({ error: "not found" }, 404);
+    const devices = await rooms.renameRoom(userId, from, to);
+    // A room may have settings (its Home Assistant entity, a queue) and no device yet.
+    const settingsMoved = await settings.rename(userId, from, to);
+    return devices || settingsMoved ? context.json({ room: to, devices }) : context.json({ error: "not found" }, 404);
   });
 
   // The room the next Echo told "pair" takes, for a couple of minutes.
