@@ -25,6 +25,7 @@ import { recordMusicPlay } from "../music/musicPlays";
 import { createMusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient } from "../music/youtubeMusicClient";
 import { defaultMusicAudio } from "./musicRoutes";
+import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 
@@ -183,9 +184,13 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     if (!await ytdlpAvailable()) return { response: context.json({ error: "yt-dlp unavailable" }, 503), reason: "yt-dlp unavailable" };
     // The music audio service is the shared audio proxy plus a prefetched start,
     // and serves a video's audio track just the same.
+    const signal = context.req.raw.signal;
     const response = context.req.method === "HEAD"
-      ? await audio.head(userId, videoId, range, context.req.raw.signal)
-      : await audio.audio(userId, videoId, range, context.req.raw.signal);
+      ? await audio.head(userId, videoId, range, signal)
+      // With no range, the Echo needs the whole file; see alexaWholeAudio.ts.
+      : range == null
+        ? await wholeAudioResponse((piece) => audio.audio(userId, videoId, piece, signal))
+        : await audio.audio(userId, videoId, range, signal);
     return response ? { response } : { response: context.json({ error: "audio unavailable" }, 502), reason: "audio unavailable from YouTube" };
   };
 
@@ -198,8 +203,8 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     const range = context.req.header("range") ?? null;
     const fields = { skill: kind, videoId, method: context.req.method, range, status: response.status, ms: now() - startedAt };
     if (!response.ok) log.warn("alexa.audio_failed", { ...fields, reason });
-    // A song streams as many range requests; the first one (and how long it took) is what matters.
-    else if (!range || /^bytes=0-/i.test(range)) log.info("alexa.audio", fields);
+    // Every request, so a seek (a range part way in) shows in the log.
+    else log.info("alexa.audio", fields);
     return response;
   };
   router.get("/audio/:id", serveAudio("music"));
