@@ -245,10 +245,15 @@ on, not on a speaker group.
   `YTZERO_ALEXA_SECRET` for one item, one profile and one kind, and is valid for
   24 hours, so a song or video paused overnight still resumes. A link grants
   nothing else: a song link can't open a video, and the reverse. A request
-  with no byte range gets the whole file (200, with its length), which the
-  Echo needs to seek and to play past the proxy's first 8 MB piece; ranged
-  requests are answered as for the app's player. Every audio request is
-  logged as `alexa.audio`, with its range.
+  with no byte range gets the whole file (200), which the Echo needs to play
+  past the proxy's first 8 MB piece; ranged requests are answered as for the
+  app's player. Every audio request is logged as `alexa.audio`, with its range.
+- An Echo plays a plain file only from its start, whatever offset it is given.
+  So a video that starts part way in (a resume, a skip) is sent as an HLS
+  playlist, `GET /alexa/video-audio/<videoId>/index.m3u8`, signed like the
+  file. It's the app's own audio playlist, with each segment a byte range of
+  the signed file, and the Echo seeks in it by segment. Audio that can't be
+  indexed falls back to the whole file (logged as `alexa.playlist_unavailable`).
 - Each station travels inside the stream token Alexa sends back with every
   event: its seed, the current song, and the last songs played and skipped.
   The server keeps no Alexa session, so a restart doesn't interrupt the queue.

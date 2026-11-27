@@ -45,7 +45,7 @@ export interface NowPlayingChange {
   stopRequested?: boolean;
 }
 
-const AUDIO_PATH = /\/(?:video-)?audio\/([A-Za-z0-9_-]{11})(?:[?#]|$)/;
+const AUDIO_PATH = /\/(?:video-)?audio\/([A-Za-z0-9_-]{11})(?:\/index\.m3u8)?(?:[?#]|$)/;
 const EVENTS: Record<string, "started" | "stopped" | "finished" | "failed"> = {
   "AudioPlayer.PlaybackStarted": "started",
   "AudioPlayer.PlaybackStopped": "stopped",

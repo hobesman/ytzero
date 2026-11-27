@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { alexaAudioLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
+import { alexaAudioLink, alexaPlaylist, alexaPlaylistLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
 import { followChannelForAlexa, searchChannelsForAlexa, unfollowChannelForAlexa } from "../alexa/alexaChannelFollow";
 import { findGenrePlaylist } from "../alexa/alexaGenreMatch";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
@@ -26,6 +26,7 @@ import { createMusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient } from "../music/youtubeMusicClient";
 import { defaultMusicAudio } from "./musicRoutes";
 import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
+import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 
@@ -41,6 +42,8 @@ export interface AlexaRouteDependencies {
   videoSkill?: Partial<AlexaVideoSkillDependencies>;
   /** Whether a video's audio may be served; the default reads the catalog. */
   videoPlayable?: (userId: number, videoId: string) => Promise<boolean>;
+  /** A video's audio as an HLS playlist over the audio route; the default is the app's own. */
+  vodPlaylist?: (userId: number, videoId: string, signal?: AbortSignal) => Promise<AudioVodPlaylistResult>;
   /** Devices, their rooms and what each is playing. */
   rooms?: AlexaRoomStore;
   describeStream?: NowPlayingTracking["describe"];
@@ -74,6 +77,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const verifier = dependencies.verifier ?? createAlexaSignatureVerifier();
   const resolveProfile = dependencies.resolveProfile ?? resolveAlexaProfile;
   const isChild = dependencies.isChild ?? isChildUser;
+  const vodPlaylist = dependencies.vodPlaylist ?? (async (userId: number, videoId: string, signal?: AbortSignal) => (await import("../downloader")).getAudioVodPlaylist(userId, videoId, signal));
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
   const tracking: NowPlayingTracking = {
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
@@ -114,7 +118,10 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       findVideo: given.findVideo ?? alexaVideo,
       search: given.search ?? (async (userId, query) => (await (await import("../youtube")).searchYouTube(query, userId)).results),
       importVideo: given.importVideo ?? (async (userId, videoId) => (await import("../onDemandVideoImport")).ensureOnDemandVideo(videoId, userId)),
-      audioLink: given.audioLink ?? ((videoId, userId) => alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "video")),
+      // Part way in, a playlist: an Echo can't seek in the plain file.
+      audioLink: given.audioLink ?? ((videoId, userId, offsetSeconds) => offsetSeconds > 0
+        ? alexaPlaylistLink(settings.publicUrl, settings.secret, videoId, userId, now())
+        : alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "video")),
       prepare: given.prepare ?? prepare,
       recordStarted: given.recordStarted ?? recordVideoStarted,
       recordProgress: given.recordProgress ?? recordVideoProgress,
@@ -170,8 +177,9 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     return context.json(response);
   });
 
-  const audioResponse = async (kind: AlexaAudioKind, context: Context, settings: AlexaConfig, videoId: string): Promise<{ response: Response; reason?: string }> => {
-    const userId = verifyAlexaAudioLink(settings.secret, videoId, new URL(context.req.url).searchParams, now(), kind);
+  const audioResponse = async (kind: AlexaAudioKind, context: Context, settings: AlexaConfig, videoId: string, playlist = false): Promise<{ response: Response; reason?: string }> => {
+    const query = new URL(context.req.url).searchParams;
+    const userId = verifyAlexaAudioLink(settings.secret, videoId, query, now(), kind);
     if (!userId) return { response: context.json({ error: "invalid link" }, 403), reason: "invalid or expired link" };
     if (await isChild(userId)) return { response: context.json({ error: "not found" }, 404), reason: "child profile" };
     const allowed = kind === "music" ? Boolean(await musicTrack(videoId)) : await videoPlayable(userId, videoId);
@@ -185,6 +193,15 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     // The music audio service is the shared audio proxy plus a prefetched start,
     // and serves a video's audio track just the same.
     const signal = context.req.raw.signal;
+    if (playlist && context.req.method === "GET") {
+      const result = await vodPlaylist(userId, videoId, signal);
+      if (result.kind === "playlist") {
+        const fileLink = `${settings.publicUrl}/alexa/video-audio/${videoId}?${query}`;
+        return { response: new Response(alexaPlaylist(result.playlist, videoId, fileLink), { headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store" } }) };
+      }
+      // Audio that can't be indexed still plays, from its start.
+      log.warn("alexa.playlist_unavailable", { videoId, result: result.kind });
+    }
     const response = context.req.method === "HEAD"
       ? await audio.head(userId, videoId, range, signal)
       // With no range, the Echo needs the whole file; see alexaWholeAudio.ts.
@@ -194,14 +211,14 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     return response ? { response } : { response: context.json({ error: "audio unavailable" }, 502), reason: "audio unavailable from YouTube" };
   };
 
-  const serveAudio = (kind: AlexaAudioKind) => async (context: Context) => {
+  const serveAudio = (kind: AlexaAudioKind, playlist = false) => async (context: Context) => {
     const settings = enabled();
     if (!settings) return context.json({ error: "not found" }, 404);
     const videoId = context.req.param("id") ?? "";
     const startedAt = now();
-    const { response, reason } = await audioResponse(kind, context, settings, videoId);
+    const { response, reason } = await audioResponse(kind, context, settings, videoId, playlist);
     const range = context.req.header("range") ?? null;
-    const fields = { skill: kind, videoId, method: context.req.method, range, status: response.status, ms: now() - startedAt };
+    const fields = { skill: kind, videoId, method: context.req.method, ...(playlist ? { playlist } : {}), range, status: response.status, ms: now() - startedAt };
     if (!response.ok) log.warn("alexa.audio_failed", { ...fields, reason });
     // Every request, so a seek (a range part way in) shows in the log.
     else log.info("alexa.audio", fields);
@@ -209,6 +226,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   };
   router.get("/audio/:id", serveAudio("music"));
   router.get("/video-audio/:id", serveAudio("video"));
+  router.get("/video-audio/:id/index.m3u8", serveAudio("video", true));
 
   return router;
 }
