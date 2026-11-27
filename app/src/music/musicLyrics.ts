@@ -2,6 +2,7 @@ import { isYouTubeRefusalError } from "../youtubeRateLimit";
 import { createLrclibClient, type LrclibClient, type LrclibLyrics, type LyricLine } from "./lrclib";
 import type { MusicTrack, YouTubeMusicClient } from "./youtubeMusicClient";
 import type { YouTubeMusicLyrics } from "./youtubeMusicLyricsParsers";
+import { songKey } from "./musicSongKey";
 
 /** A song's lyrics as the music routes return them. */
 export interface MusicLyrics {
@@ -49,26 +50,43 @@ export function createMusicLyrics({ client, lrclib = createLrclibClient(), now =
     return { ...base, synced: null, plain: null, instrumental: false, source: null };
   }
 
+  function cached(key: string, look: () => Promise<MusicLyrics>): Promise<MusicLyrics> {
+    const entry = entries.get(key);
+    if (entry && entry.expiresAt > now()) return Promise.resolve(entry.lyrics);
+    if (entry) entries.delete(key);
+    const existing = pending.get(key);
+    if (existing) return existing;
+    const request = look().then((lyrics) => {
+      const found = Boolean(lyrics.synced || lyrics.plain || lyrics.instrumental);
+      entries.set(key, { lyrics, expiresAt: now() + (found ? FOUND_TTL_MS : MISSING_TTL_MS) });
+      while (entries.size > MAX_ENTRIES) {
+        const oldest = entries.keys().next().value as string | undefined;
+        if (!oldest) break;
+        entries.delete(oldest);
+      }
+      return lyrics;
+    }).finally(() => { if (pending.get(key) === request) pending.delete(key); });
+    pending.set(key, request);
+    return request;
+  }
+
   return {
-    async get(userId: number, track: MusicTrack): Promise<MusicLyrics> {
-      const key = track.videoId;
-      const cached = entries.get(key);
-      if (cached && cached.expiresAt > now()) return cached.lyrics;
-      if (cached) entries.delete(key);
-      const existing = pending.get(key);
-      if (existing) return existing;
-      const request = look(userId, track).then((lyrics) => {
-        const found = Boolean(lyrics.synced || lyrics.plain || lyrics.instrumental);
-        entries.set(key, { lyrics, expiresAt: now() + (found ? FOUND_TTL_MS : MISSING_TTL_MS) });
-        while (entries.size > MAX_ENTRIES) {
-          const oldest = entries.keys().next().value as string | undefined;
-          if (!oldest) break;
-          entries.delete(oldest);
-        }
-        return lyrics;
-      }).finally(() => { if (pending.get(key) === request) pending.delete(key); });
-      pending.set(key, request);
-      return request;
+    get(userId: number, track: MusicTrack): Promise<MusicLyrics> {
+      return cached(track.videoId, () => look(userId, track));
+    },
+
+    /**
+     * Lyrics for a song YT Zero has no track for (one an Echo plays from
+     * Amazon Music, say): LRCLIB only, by artist, title and length. The answer
+     * has no videoId.
+     */
+    bySong(song: { artist: string; title: string; duration: number | null }): Promise<MusicLyrics> {
+      return cached(`song:${songKey(song.artist, song.title)}`, async () => {
+        const found = await lrclib.find({ artist: song.artist, title: song.title, album: null, duration: song.duration });
+        return found
+          ? { videoId: "", synced: found.synced, plain: found.plain, instrumental: found.instrumental, source: "LRCLIB" }
+          : { videoId: "", synced: null, plain: null, instrumental: false, source: null };
+      });
     },
   };
 }

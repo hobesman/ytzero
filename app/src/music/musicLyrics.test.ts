@@ -132,4 +132,17 @@ describe("music lyrics", () => {
     up = true;
     expect((await retrying.get(1, track)).plain).toBe("Back");
   });
+
+  test("finds a song by name from LRCLIB alone, without asking YouTube Music, and keeps the answer", async () => {
+    const lrclib = fakeLrclib(async () => ({ synced: [{ time: 2, text: "Hey" }], plain: "Hey", instrumental: false }));
+    const ytm = youtube("plain");
+    const lyrics = createMusicLyrics({ client: ytm.client, lrclib: lrclib.client });
+    const song = { artist: "4 Non Blondes", title: "What's Up?", duration: 296 };
+    expect(await lyrics.bySong(song)).toEqual({ videoId: "", synced: [{ time: 2, text: "Hey" }], plain: "Hey", instrumental: false, source: "LRCLIB" });
+    await lyrics.bySong({ ...song, title: "What's Up? (Official Video)" });
+    expect(lrclib.calls()).toBe(1);
+    expect(ytm.calls()).toBe(0);
+    expect(await createMusicLyrics({ client: ytm.client, lrclib: fakeLrclib(async () => null).client }).bySong(song))
+      .toEqual({ videoId: "", synced: null, plain: null, instrumental: false, source: null });
+  });
 });

@@ -96,5 +96,7 @@ export const musicApi = {
   /** Has the server fetch the start of a song ahead of playing it; answers with the song's loudness. */
   prepare: (videoId: string) => http<{ ready: boolean; loudnessDb: number | null }>(`/music/tracks/${id(videoId)}/prepare`, json({})),
   lyrics: (videoId: string) => http<MusicLyrics>(`/music/tracks/${id(videoId)}/lyrics`),
+  /** Lyrics for a song by name (one an Echo plays from Amazon Music): the catalogue's track if known, else LRCLIB. */
+  songLyrics: (song: { artist: string; title: string; duration: number | null }) => http<MusicLyrics>(`/music/lyrics?${new URLSearchParams({ artist: song.artist, title: song.title, ...(song.duration ? { duration: String(song.duration) } : {}) })}`),
   audioUrl: (videoId: string) => `/api/music/tracks/${id(videoId)}/audio`,
 };

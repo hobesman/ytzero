@@ -148,6 +148,8 @@ export function deviceTimeZone(): string | undefined {
 
 /** The room this tablet shows when none is in the address. */
 export const ROOM_STORAGE_KEY = "ytzero_room_page_room";
+/** Whether this tablet shows lyrics in place of the browser. */
+export const ROOM_LYRICS_KEY = "ytzero_room_page_lyrics";
 
 export function storedRoom(storage: Pick<Storage, "getItem"> | null): string | null {
   try {
@@ -177,4 +179,22 @@ export function roomArtSource(url: string | null | undefined): string | null {
   if (parsed.protocol !== "https:") return null;
   const host = parsed.hostname.toLowerCase();
   return PROXIED_ART_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`)) ? img(url) : url;
+}
+
+/** Which song to show lyrics for: a Hoban Music track by its video, or a song by name (Amazon Music through Home Assistant). */
+export type RoomLyricsSong =
+  | { kind: "track"; videoId: string; key: string }
+  | { kind: "song"; artist: string; title: string; duration: number | null; key: string }
+  | { kind: "video" }
+  | null;
+
+export function roomLyricsSong(room: AlexaRoom | null): RoomLyricsSong {
+  const current = room?.current;
+  if (!current?.title || current.state === "finished") return null;
+  if (current.origin === "video") return { kind: "video" };
+  const videoId = current.origin === "music" ? room?.nowPlaying?.videoId : null;
+  if (videoId) return { kind: "track", videoId, key: `track:${videoId}` };
+  if (!current.artist) return null;
+  const duration = current.durationMs ? Math.round(current.durationMs / 1000) : null;
+  return { kind: "song", artist: current.artist, title: current.title, duration, key: `song:${current.artist}|${current.title}` };
 }
