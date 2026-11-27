@@ -175,6 +175,25 @@ describe("portable backup classification and restore", () => {
     expect(archiveText).not.toContain("PUBLIC_SHARE_VISITOR_SENTINEL");
   });
 
+  test("excludes Alexa devices, rooms and now playing", async () => {
+    const at = "2030-01-01T00:00:00.000Z";
+    db.prepare("INSERT INTO alexa_devices(user_id,skill,device_id,room,paired_at,last_seen_at) VALUES(1,'music','ALEXA_DEVICE_SENTINEL','ALEXA_ROOM_SENTINEL',?,?)").run(at, at);
+    db.prepare(`INSERT INTO alexa_now_playing(user_id,skill,device_id,token,video_id,title,state,updated_at)
+      VALUES(1,'music','ALEXA_DEVICE_SENTINEL','ALEXA_TOKEN_SENTINEL','portable001','ALEXA_TITLE_SENTINEL','playing',?)`).run(at);
+    db.prepare("INSERT INTO alexa_pairing(user_id,room,expires_at) VALUES(1,'ALEXA_PAIRING_SENTINEL',?)").run(at);
+    try {
+      const zip = await backup.createPortableBackup({ preset: "full" });
+      const archiveText = [...backup.readPortableZip(zip).values()].map((bytes) => decoder.decode(bytes)).join("\n");
+      for (const sentinel of ["ALEXA_DEVICE_SENTINEL", "ALEXA_ROOM_SENTINEL", "ALEXA_TOKEN_SENTINEL", "ALEXA_TITLE_SENTINEL", "ALEXA_PAIRING_SENTINEL"]) {
+        expect(archiveText).not.toContain(sentinel);
+      }
+    } finally {
+      db.prepare("DELETE FROM alexa_now_playing WHERE user_id=1").run();
+      db.prepare("DELETE FROM alexa_devices WHERE user_id=1").run();
+      db.prepare("DELETE FROM alexa_pairing WHERE user_id=1").run();
+    }
+  });
+
   test("excludes rebuildable Shorts retry metadata", async () => {
     const zip = await backup.createPortableBackup({ preset: "full" });
     const archiveText = [...backup.readPortableZip(zip).values()].map((bytes) => decoder.decode(bytes)).join("\n");

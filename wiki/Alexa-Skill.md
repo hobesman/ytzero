@@ -187,6 +187,43 @@ list music mode shows on the phone:
 The playlist's songs play shuffled. Once they run low, the station carries on
 like any other, following the songs you kept listening to.
 
+## Rooms and now playing
+
+YT Zero remembers each Echo the skills hear from and what it is playing, so a
+screen in a room (a wall tablet, say) can show that room's Echo. Amazon gives
+each skill a different ID for the same Echo, so an Echo is paired once per
+skill, with the same room name for both.
+
+- **By voice**: "Alexa, ask Hoban Music, this is the kitchen", then the same
+  for Hoban Tube. "Alexa, ask Hoban Music which room is this?" says the room.
+- **Paired by an automation** (Home Assistant, for one): call
+  `POST /api/alexa/pairing` with `{"room": "Kitchen"}`, then, within two
+  minutes, have that one Echo hear "ask Hoban Music to pair" and "ask Hoban
+  Tube to pair". Each skill takes the waiting room once.
+
+The API needs a signed-in session as the profile in `YTZERO_ALEXA_PROFILE`,
+since the records belong to the profile the skills play as:
+
+| Request | Does |
+| --- | --- |
+| `GET /api/alexa/rooms` | Each room, what it's playing (`nowPlaying`), its devices, Echos not yet paired, and any pairing waiting. |
+| `GET /api/alexa/devices` | Every device, with its room and what it's playing. |
+| `PATCH /api/alexa/devices` | `{"skill", "deviceId", "room"}` names a device's room; `"room": null` unpairs it. |
+| `DELETE /api/alexa/devices` | `{"skill", "deviceId"}` forgets a device. |
+| `POST /api/alexa/rooms/rename` | `{"from", "to"}` renames a room on all its devices. |
+| `POST` / `DELETE /api/alexa/pairing` | Sets or cancels the room waiting for "pair". |
+
+`nowPlaying` has the video ID, title, artist (or channel), art, `durationMs`,
+`state` (`playing`, `paused`, `stopped`, `finished` or `failed`), and the
+position: `offsetMs` is what Alexa last reported, which it does only when
+something happens, and while playing `startedAt` is when position 0 was, so a
+client draws live progress as now minus `startedAt`. `positionMs` is that,
+worked out when the response was sent, beside `serverTime`.
+
+Only YT Zero's own skills are seen: Amazon Music or another skill on the same
+Echo doesn't show up here. A skill's audio plays only on the Echo it was asked
+on, not on a speaker group.
+
 ## How it works
 
 - `POST /alexa` receives both skills' requests. YT Zero checks Amazon's signing
@@ -208,7 +245,9 @@ like any other, following the songs you kept listening to.
   when it plays to the end, as in the app's player.
 
 The configuration is machine-bound: none of it is stored in the database,
-settings or backups.
+settings or backups. The Echo devices, their rooms and what each is playing are
+kept in the database, shared by every replica, and left out of portable
+backups.
 
 ## Limits
 

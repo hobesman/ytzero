@@ -627,6 +627,28 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS public_share_plays (share_id TEXT NOT NULL REFERENCES public_shares(id) ON DELETE CASCADE, visitor_key TEXT NOT NULL, video_id TEXT NOT NULL, played_at TEXT NOT NULL, PRIMARY KEY (share_id, visitor_key, video_id))" },
     ],
   },
+  {
+    version: 122,
+    name: "alexa-devices-now-playing",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+      "app/src/musicSchema.sql": "86379b2fdb5c81862b508185a471750befa03d62eed1c9e5956ff93eb31ee741",
+      "app/src/publicShareSchema.sql": "607906c8adae087f6105876c76848ef1afebf180259cabee84ff2ddf203af1ae",
+      "app/src/alexaSchema.sql": "ca502498dd4a2314a3b1568396c922ab211406f59bc2e634620d83cf1ab5160f",
+    },
+    sqlite: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_devices (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video')), device_id TEXT NOT NULL, room TEXT, paired_at TEXT, last_seen_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_now_playing (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video')), device_id TEXT NOT NULL, token TEXT NOT NULL, video_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', duration_ms INTEGER, state TEXT NOT NULL CHECK (state IN ('playing', 'paused', 'stopped', 'finished', 'failed')), offset_ms INTEGER NOT NULL DEFAULT 0, started_at TEXT, next_token TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_pairing (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, room TEXT NOT NULL, claimed TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL)" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_devices (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video')), device_id TEXT NOT NULL, room TEXT, paired_at TEXT, last_seen_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_now_playing (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video')), device_id TEXT NOT NULL, token TEXT NOT NULL, video_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', duration_ms BIGINT, state TEXT NOT NULL CHECK (state IN ('playing', 'paused', 'stopped', 'finished', 'failed')), offset_ms BIGINT NOT NULL DEFAULT 0, started_at TEXT, next_token TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_pairing (user_id BIGINT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, room TEXT NOT NULL, claimed TEXT NOT NULL DEFAULT '', expires_at TEXT NOT NULL)" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {

@@ -11,7 +11,8 @@ import {
 /** The parts of an Alexa request envelope the skill reads. */
 export interface AlexaEnvelope {
   context?: {
-    System?: { application?: { applicationId?: string } };
+    /** device.deviceId is opaque, and different for each skill on the same Echo. */
+    System?: { application?: { applicationId?: string }; device?: { deviceId?: string } };
     AudioPlayer?: { token?: string; offsetInMilliseconds?: number; playerActivity?: string };
   };
   session?: { application?: { applicationId?: string }; attributes?: Record<string, unknown> };
@@ -29,6 +30,12 @@ export interface AlexaEnvelope {
 
 export function envelopeSkillId(envelope: AlexaEnvelope): string | undefined {
   return envelope.context?.System?.application?.applicationId ?? envelope.session?.application?.applicationId;
+}
+
+/** The Echo the request came from. Alexa sends it with every request, AudioPlayer events included. */
+export function envelopeDeviceId(envelope: AlexaEnvelope): string | undefined {
+  const id = envelope.context?.System?.device?.deviceId;
+  return typeof id === "string" && id ? id.slice(0, 512) : undefined;
 }
 
 export interface AlexaSkillDependencies {

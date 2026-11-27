@@ -13,6 +13,7 @@ import { savedAlbums } from "../music/musicSavedAlbums";
 import { savedPlaylists, userPlaylists } from "../music/musicPlaylists";
 import { createMusicStations, parseStationSeed, parseVideoIdList, stationSeedKey, type MusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient, type YouTubeMusicClient } from "../music/youtubeMusicClient";
+import { registerAlexaRoomRoutes } from "./alexaRoomRoutes";
 import { registerMusicAlbumRoutes } from "./musicAlbumRoutes";
 import { registerMusicGenreRoutes } from "./musicGenreRoutes";
 import { registerMusicLyricsRoutes } from "./musicLyricsRoutes";
@@ -202,4 +203,6 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
   registerMusicGenreRoutes(api, { currentUserId, pages });
   registerMusicLyricsRoutes(api, { currentUserId, lyrics: dependencies.lyrics ?? createMusicLyrics({ client }) });
   registerMusicPlaylistRoutes(api, { currentUserId, pages });
+  // The Echo rooms the Alexa skills play in. Registered here because routes.ts is at its size limit.
+  registerAlexaRoomRoutes(api, { currentUserId });
 }

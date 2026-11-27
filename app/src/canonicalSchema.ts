@@ -9,6 +9,7 @@ export const CANONICAL_SCHEMA_FILES = [
   "app/src/tubeArchivistSchema.sql",
   "app/src/musicSchema.sql",
   "app/src/publicShareSchema.sql",
+  "app/src/alexaSchema.sql",
 ] as const;
 
 export type CanonicalSchemaFile = (typeof CANONICAL_SCHEMA_FILES)[number];
