@@ -47,6 +47,9 @@
 .ui-select-menu__options > .ui-menu { margin: 0; min-width: 0; padding: 0; }
 .ui-select-menu__options .ui-menu__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ui-select-menu__empty { color: var(--text-3); font-size: 12px; padding: 16px; text-align: center; }
+.ui-select-menu__popover--lg { min-width: 280px; }
+.ui-select-menu__popover--lg .ui-menu__item { font-size: 20px; gap: 14px; min-height: 60px; padding: 12px 16px; }
+.ui-select-menu__popover--lg .ui-menu__item svg { height: 24px; width: 24px; }
 .ui-icon-picker { display: grid; gap: 5px; grid-template-columns: repeat(var(--ui-picker-columns), minmax(0,1fr)); }
 .ui-icon-picker__option { background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--text-2); cursor: pointer; display: grid; min-height: 36px; place-items: center; }
 .ui-icon-picker__option:hover { background: var(--surface-3); color: var(--text); }

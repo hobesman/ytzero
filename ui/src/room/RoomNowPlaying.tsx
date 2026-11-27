@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Music, Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
-import { img } from "../img";
 import { useI18n } from "../i18n";
 import { Alert, Badge, IconButton, ProgressBar, Slider } from "../components/ui";
 import { roomApi, type AlexaRoom } from "./roomApi";
-import { clockDuration, livePosition, roomSource, roomVolume, type PendingControl, type RoomDisplay, type RoomSource } from "./roomState";
+import { clockDuration, livePosition, roomArtSource, roomSource, roomVolume, type PendingControl, type RoomDisplay, type RoomSource } from "./roomState";
 import { useNow, type RoomCommand } from "./useRoomState";
 
 /** The skills' names as set in YTZERO_ALEXA_*_INVOCATION, written as a name ("hoban music" is Hoban Music). */
@@ -26,8 +25,9 @@ export function SourceBadge({ source, names }: { source: RoomSource; names: Skil
 function RoomArt({ url }: { url: string | null | undefined }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [url]);
-  if (!url || failed) return <span className="room-now__art room-now__art--empty" aria-hidden="true"><Music /></span>;
-  return <img className="room-now__art" src={img(url)} alt="" onError={() => setFailed(true)} />;
+  const source = roomArtSource(url);
+  if (!source || failed) return <span className="room-now__art room-now__art--empty" aria-hidden="true"><Music /></span>;
+  return <img className="room-now__art" src={source} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
 
 function RoomProgress({ current, receivedAt }: { current: NonNullable<AlexaRoom["current"]>; receivedAt: number }) {
@@ -104,7 +104,7 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
       <div className="room-now__badges">
         {source ? <SourceBadge source={source} names={names} /> : null}
         {display.kind === "starting" || control?.action === "play" ? <Badge variant="warning" className="room-now__badge">{t("roomStarting")}</Badge> : null}
-        {display.kind === "paused" ? <Badge className="room-now__badge">{t("roomPaused")}</Badge> : null}
+        {display.kind === "paused" && control?.action !== "play" ? <Badge className="room-now__badge">{t("roomPaused")}</Badge> : null}
       </div>
       <h1 className="room-now__title">{item?.title || t("roomNothingPlaying")}</h1>
       {item?.artist ? <p className="room-now__artist">{item.artist}</p> : null}

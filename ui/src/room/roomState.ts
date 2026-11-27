@@ -1,4 +1,5 @@
 import type { AlexaRoom, AlexaRooms, RoomCurrent, RoomPendingPlay } from "./roomApi";
+import { img } from "../img";
 
 /**
  * The room page's state logic, kept free of React so it can be tested: live
@@ -39,7 +40,8 @@ export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "home-a
 
 export function roomSource(origin: RoomCurrent["origin"] | RoomPendingPlay["skill"], source: string | null = null): RoomSource {
   if (origin === "music" || origin === "video") return { kind: origin };
-  return { kind: "home-assistant", source };
+  // "Local Speaker" is the Echo's own input (Amazon Music, radio, podcasts): it names nothing a person would recognise.
+  return { kind: "home-assistant", source: source && source.trim().toLowerCase() !== "local speaker" ? source : null };
 }
 
 /** What the now-playing panel shows. */
@@ -158,4 +160,21 @@ export function storedRoom(storage: Pick<Storage, "getItem"> | null): string | n
 /** The path for a room: `/room/Living%20Room`, with an optional tab. */
 export function roomPath(name: string, tab?: string): string {
   return `/room/${encodeURIComponent(name)}${tab ? `/${tab}` : ""}`;
+}
+
+const PROXIED_ART_HOSTS = ["ytimg.com", "ggpht.com", "googleusercontent.com", "youtube.com"];
+
+/**
+ * Where to load a now-playing picture from. YT Zero's image proxy only
+ * fetches YouTube's hosts, so other services' art (Amazon Music's, from Home
+ * Assistant) loads straight from its own https address.
+ */
+export function roomArtSource(url: string | null | undefined): string | null {
+  if (!url) return null;
+  let parsed: URL;
+  try { parsed = new URL(url, "http://local.invalid"); } catch { return null; }
+  if (parsed.origin === "http://local.invalid") return url;
+  if (parsed.protocol !== "https:") return null;
+  const host = parsed.hostname.toLowerCase();
+  return PROXIED_ART_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`)) ? img(url) : url;
 }

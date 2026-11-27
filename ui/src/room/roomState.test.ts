@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { AlexaRoom, AlexaRooms, RoomCurrent } from "./roomApi";
 import {
   CONTROL_TIMEOUT_MS, IDLE_AFTER_MS, clockDuration, controlConfirmed, findRoom, isIdle, livePosition, pollDelay, roomDisplay, roomFingerprint,
-  roomPath, roomSource, roomVolume, settleControl, storedRoom, type PendingControl,
+  roomArtSource, roomPath, roomSource, roomVolume, settleControl, storedRoom, type PendingControl,
 } from "./roomState";
 
 const song: RoomCurrent = {
@@ -43,7 +43,8 @@ describe("which source to show", () => {
   test("names our skills, and Home Assistant's input for anything else", () => {
     expect(roomSource("music")).toEqual({ kind: "music" });
     expect(roomSource("video")).toEqual({ kind: "video" });
-    expect(roomSource("home-assistant", "Local Speaker")).toEqual({ kind: "home-assistant", source: "Local Speaker" });
+    expect(roomSource("home-assistant", "Spotify")).toEqual({ kind: "home-assistant", source: "Spotify" });
+    expect(roomSource("home-assistant", "Local Speaker")).toEqual({ kind: "home-assistant", source: null });
     expect(roomSource("home-assistant")).toEqual({ kind: "home-assistant", source: null });
   });
 
@@ -51,6 +52,14 @@ describe("which source to show", () => {
     expect(roomDisplay(kitchen({ pending }))).toEqual({ kind: "starting", item: pending });
     expect(roomDisplay(kitchen()).kind).toBe("playing");
     expect(roomDisplay(kitchen({ current: { ...song, state: "paused" } })).kind).toBe("paused");
+  });
+
+  test("proxies YouTube art, and loads other services' art from its own https address", () => {
+    expect(roomArtSource("https://i.ytimg.com/vi/x/hq.jpg")).toBe("/api/img?u=https%3A%2F%2Fi.ytimg.com%2Fvi%2Fx%2Fhq.jpg");
+    expect(roomArtSource("https://m.media-amazon.com/images/I/a.jpg")).toBe("https://m.media-amazon.com/images/I/a.jpg");
+    expect(roomArtSource("http://192.168.0.5:8123/api/media_player_proxy/x")).toBe(null);
+    expect(roomArtSource("/api/img?u=x")).toBe("/api/img?u=x");
+    expect(roomArtSource(null)).toBe(null);
   });
 
   test("is idle when nothing plays, keeping the last thing played", () => {
