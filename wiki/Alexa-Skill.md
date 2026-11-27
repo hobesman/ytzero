@@ -220,6 +220,15 @@ something happens, and while playing `startedAt` is when position 0 was, so a
 client draws live progress as now minus `startedAt`. `positionMs` is that,
 worked out when the response was sent, beside `serverTime`.
 
+A song or video becomes `nowPlaying` only once an Echo reports that it
+started. Until then a room shows it as `pending` (the same details, plus
+`requestedAt`), for up to two minutes. Alexa sometimes plays a request on a
+different Echo from the one asked; the song then shows in the room whose Echo
+plays it, and the room that asked keeps what it had.
+
+All times are UTC (ISO 8601, ending in `Z`), for a client to show in local
+time.
+
 Only YT Zero's own skills are seen: Amazon Music or another skill on the same
 Echo doesn't show up here. A skill's audio plays only on the Echo it was asked
 on, not on a speaker group.

@@ -35,6 +35,16 @@ function publicNowPlaying(skill: AlexaSkillKind, record: NowPlaying, now: number
   };
 }
 
+/** A play sent but not started anywhere for this long never will be. */
+export const ALEXA_PENDING_PLAY_TTL_MS = 2 * 60 * 1000;
+
+/** What the device was asked to play and hasn't started yet, while that is still likely to happen. */
+function publicPending(device: AlexaDevice, now: number) {
+  const pending = device.pending;
+  if (!pending || now - Date.parse(pending.requestedAt) > ALEXA_PENDING_PLAY_TTL_MS) return null;
+  return { skill: device.skill, videoId: pending.videoId, ...pending.item, requestedAt: pending.requestedAt };
+}
+
 const publicDevice = (device: AlexaDevice, now: number) => ({
   skill: device.skill,
   deviceId: device.deviceId,
@@ -42,6 +52,7 @@ const publicDevice = (device: AlexaDevice, now: number) => ({
   pairedAt: device.pairedAt,
   lastSeenAt: device.lastSeenAt,
   nowPlaying: device.nowPlaying ? publicNowPlaying(device.skill, device.nowPlaying, now) : null,
+  pending: publicPending(device, now),
 });
 
 /** What a room is playing: whatever is playing now, else whichever device changed last. */
@@ -80,9 +91,12 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
     }
     const list = [...byRoom.values()].map((members) => {
       const playing = roomNowPlaying(members);
+      const pending = members.map((device) => publicPending(device, at)).filter((item) => item !== null)
+        .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0] ?? null;
       return {
         room: members[0]!.room!,
         nowPlaying: playing ? publicNowPlaying(playing.skill, playing.nowPlaying!, at) : null,
+        pending,
         devices: members.map((device) => publicDevice(device, at)),
       };
     }).sort((a, b) => a.room.localeCompare(b.room));

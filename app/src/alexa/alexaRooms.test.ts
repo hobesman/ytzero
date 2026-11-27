@@ -6,7 +6,7 @@ import type { StoredMusicTrack } from "../music/musicCatalog";
 import { createAlexaRouter } from "../routes/alexaRoutes";
 import { registerAlexaRoomRoutes } from "../routes/alexaRoomRoutes";
 import type { AlexaConfig } from "./alexaConfig";
-import { applyNowPlayingChange, nowPlayingChange, nowPlayingPosition, type NowPlaying } from "./alexaNowPlaying";
+import { applyNowPlayingChange, nowPlayingChange, nowPlayingPosition, type DevicePlayback, type NowPlayingSources } from "./alexaNowPlaying";
 import { ALEXA_PAIRING_TTL_MS, createAlexaRoomStore, normalizeRoomName, type AlexaRoomStore } from "./alexaRooms";
 import type { AlexaEnvelope } from "./alexaSkill";
 
@@ -35,18 +35,25 @@ const event = (type: string, token: string, offsetInMilliseconds = 0): AlexaEnve
 const describeNothing = async () => null;
 
 describe("alexa now playing", () => {
+  const nothing: NowPlayingSources = { lookup: describeNothing, claimElsewhere: describeNothing };
+  const intent = (name: string): AlexaEnvelope => ({ request: { type: "IntentRequest", intent: { name } } });
+
   test("follows a stream from Play through pause, the queued next song, and the end", async () => {
-    let record: NowPlaying | null = null;
-    const step = async (envelope: AlexaEnvelope, response = quiet, at = NOW, lookup: Parameters<typeof applyNowPlayingChange>[3] = describeNothing) => {
+    let state: DevicePlayback = { current: null, pending: null };
+    const step = async (envelope: AlexaEnvelope, response = quiet, at = NOW, sources: NowPlayingSources = nothing) => {
       const change = nowPlayingChange(envelope, response);
-      if (change) record = await applyNowPlayingChange(record, change, { at, now: at }, lookup);
-      return record!;
+      if (change) state = await applyNowPlayingChange(state, change, { at, now: at }, sources);
+      return state.current!;
     };
 
-    const started = await step({ request: { type: "IntentRequest", intent: { name: "PlaySongIntent" } } }, play("t1", id(1)));
-    expect(started).toMatchObject({ token: "t1", videoId: id(1), title: `Song ${id(1)}`, artist: "Artist", art: "https://i.ytimg.com/x.jpg", state: "playing", offsetMs: 0 });
+    // A sent song waits until the Echo says it started.
+    await step(intent("PlaySongIntent"), play("t1", id(1)));
+    expect(state.current).toBeNull();
+    expect(state.pending).toMatchObject({ token: "t1", videoId: id(1), item: { title: `Song ${id(1)}`, artist: "Artist", art: "https://i.ytimg.com/x.jpg" } });
 
     const confirmed = await step(event("AudioPlayer.PlaybackStarted", "t1", 0), quiet, NOW + 2000);
+    expect(confirmed).toMatchObject({ token: "t1", videoId: id(1), title: `Song ${id(1)}`, state: "playing" });
+    expect(state.pending).toBeNull();
     expect(confirmed.startedAt).toBe(new Date(NOW + 2000).toISOString());
     expect(nowPlayingPosition(confirmed, NOW + 32_000)).toBe(30_000);
 
@@ -58,23 +65,43 @@ describe("alexa now playing", () => {
     expect(await step(event("AudioPlayer.PlaybackFinished", "old", 1))).toMatchObject({ token: "t1", state: "paused" });
 
     await step(event("AudioPlayer.PlaybackNearlyFinished", "t1", 190_000), play("t2", id(2), "ENQUEUE"));
-    expect(record!.nextToken).toBe("t2");
+    expect(state.current!.nextToken).toBe("t2");
     expect(await step(event("AudioPlayer.PlaybackFinished", "t1", 200_000))).toMatchObject({ state: "finished", offsetMs: 200_000 });
-    const next = await step(event("AudioPlayer.PlaybackStarted", "t2", 0), quiet, NOW, async (token) => token === "t2"
-      ? { videoId: id(2), item: { title: "Second", artist: "Band", art: "", durationMs: 180_000 } } : null);
+    const next = await step(event("AudioPlayer.PlaybackStarted", "t2", 0), quiet, NOW, { ...nothing, lookup: async (token) => token === "t2"
+      ? { videoId: id(2), item: { title: "Second", artist: "Band", art: "", durationMs: 180_000 } } : null });
     expect(next).toMatchObject({ token: "t2", videoId: id(2), title: "Second", durationMs: 180_000, state: "playing", nextToken: null });
 
-    expect(await step({ request: { type: "IntentRequest", intent: { name: "AMAZON.StopIntent" } } })).toMatchObject({ state: "stopped" });
+    expect(await step(intent("AMAZON.StopIntent"))).toMatchObject({ state: "stopped" });
     expect(await step(event("AudioPlayer.PlaybackStopped", "t2", 5000))).toMatchObject({ state: "stopped", offsetMs: 5000 });
   });
 
-  test("a failed stream is marked failed, then replaced by the skill's retry", async () => {
-    let record: NowPlaying | null = await applyNowPlayingChange(null, nowPlayingChange({}, play("t1", id(1)))!, { at: NOW, now: NOW }, describeNothing);
+  test("a failed stream is marked failed, then replaced once the skill's retry starts", async () => {
+    const times = { at: NOW, now: NOW };
+    let state = await applyNowPlayingChange({ current: null, pending: null }, nowPlayingChange({}, play("t1", id(1)))!, times, nothing);
+    state = await applyNowPlayingChange(state, nowPlayingChange(event("AudioPlayer.PlaybackStarted", "t1"), quiet)!, times, nothing);
     const failed: AlexaEnvelope = { request: { type: "AudioPlayer.PlaybackFailed", token: "t1", currentPlaybackState: { offsetInMilliseconds: 4000 } } };
-    record = await applyNowPlayingChange(record, nowPlayingChange(failed, quiet)!, { at: NOW, now: NOW }, describeNothing);
-    expect(record).toMatchObject({ state: "failed", offsetMs: 4000 });
-    record = await applyNowPlayingChange(record, nowPlayingChange(failed, play("t1r", id(1), "REPLACE_ALL", 4000))!, { at: NOW, now: NOW }, describeNothing);
-    expect(record).toMatchObject({ token: "t1r", state: "playing", offsetMs: 4000 });
+    state = await applyNowPlayingChange(state, nowPlayingChange(failed, play("t1r", id(1), "REPLACE_ALL", 4000))!, times, nothing);
+    expect(state.current).toMatchObject({ token: "t1", state: "failed", offsetMs: 4000 });
+    expect(state.pending).toMatchObject({ token: "t1r", offsetMs: 4000 });
+    state = await applyNowPlayingChange(state, nowPlayingChange(event("AudioPlayer.PlaybackStarted", "t1r", 4000), quiet)!, times, nothing);
+    expect(state.current).toMatchObject({ token: "t1r", state: "playing", offsetMs: 4000 });
+  });
+
+  test("a stream that fails before it starts, or is stopped, is no longer pending", async () => {
+    const times = { at: NOW, now: NOW };
+    const waiting = await applyNowPlayingChange({ current: null, pending: null }, nowPlayingChange({}, play("t1", id(1)))!, times, nothing);
+    const failed = await applyNowPlayingChange(waiting, nowPlayingChange({ request: { type: "AudioPlayer.PlaybackFailed", token: "t1" } }, quiet)!, times, nothing);
+    expect(failed).toEqual({ current: null, pending: null });
+    const stopped = await applyNowPlayingChange(waiting, nowPlayingChange(intent("AMAZON.StopIntent"), quiet)!, times, nothing);
+    expect(stopped.pending).toBeNull();
+  });
+
+  test("a stream another device asked for plays here with that request's details", async () => {
+    const asked = await applyNowPlayingChange({ current: null, pending: null }, nowPlayingChange({}, play("t1", id(1)))!, { at: NOW, now: NOW }, nothing);
+    const here = await applyNowPlayingChange({ current: null, pending: null }, nowPlayingChange(event("AudioPlayer.PlaybackStarted", "t1"), quiet)!, { at: NOW, now: NOW }, {
+      ...nothing, claimElsewhere: async (token) => token === "t1" ? asked.pending : null,
+    });
+    expect(here.current).toMatchObject({ token: "t1", videoId: id(1), title: `Song ${id(1)}`, state: "playing" });
   });
 
   test("room names as spoken lose the article and gain capitals", () => {
@@ -163,9 +190,10 @@ describe("alexa rooms end to end", () => {
 
     const kitchenPlay = await say(KITCHEN, "PlaySongIntent", { query: { value: "first" } });
     const kitchenToken = kitchenPlay.response.directives[0].audioItem.stream.token;
-    await say(OFFICE, "PlaySongIntent", { query: { value: "second" } });
+    const officePlay = await say(OFFICE, "PlaySongIntent", { query: { value: "second" } });
     clock += 1000;
     await send(KITCHEN, { type: "AudioPlayer.PlaybackStarted", token: kitchenToken, offsetInMilliseconds: 0 });
+    await send(OFFICE, { type: "AudioPlayer.PlaybackStarted", token: officePlay.response.directives[0].audioItem.stream.token, offsetInMilliseconds: 0 });
     clock += 60_000;
     await send(KITCHEN, { type: "AudioPlayer.PlaybackStopped", token: kitchenToken, offsetInMilliseconds: 60_000 });
     clock += 5000;
@@ -174,13 +202,37 @@ describe("alexa rooms end to end", () => {
     expect(view.rooms.map((room: any) => room.room)).toEqual(["Kitchen", "Office"]);
     const [kitchen, office] = view.rooms;
     expect(kitchen.nowPlaying).toMatchObject({ skill: "music", videoId: id(1), state: "paused", offsetMs: 60_000, positionMs: 60_000 });
-    expect(office.nowPlaying).toMatchObject({ skill: "music", videoId: id(2), state: "playing", positionMs: 66_000 });
+    expect(office.nowPlaying).toMatchObject({ skill: "music", videoId: id(2), state: "playing", positionMs: 65_000 });
     expect(kitchen.nowPlaying).not.toHaveProperty("token");
     expect(view.unpaired).toEqual([]);
   });
 
-  test("an Echo heard before pairing is listed as unpaired, and can be named and renamed", async () => {
+  test("a song asked for in one room and played by Alexa in another shows in the room that plays it", async () => {
+    await rooms.setRoom(1, "music", KITCHEN, "Kitchen", clock);
+    await rooms.setRoom(1, "music", OFFICE, "Office", clock);
+    const asked = await say(OFFICE, "PlayMixIntent");
+    const token = asked.response.directives[0].audioItem.stream.token;
+    const waiting = await roomsNow();
+    expect(waiting.rooms.find((room: any) => room.room === "Office")).toMatchObject({ nowPlaying: null, pending: { videoId: id(1), title: `Song ${id(1)}` } });
+
+    clock += 2000;
+    await send(KITCHEN, { type: "AudioPlayer.PlaybackStarted", token, offsetInMilliseconds: 0 });
+    const view = await roomsNow();
+    const [kitchen, office] = view.rooms;
+    expect(kitchen).toMatchObject({ room: "Kitchen", nowPlaying: { videoId: id(1), title: `Song ${id(1)}`, state: "playing" }, pending: null });
+    expect(office).toMatchObject({ room: "Office", nowPlaying: null, pending: null });
+  });
+
+  test("a play that never starts stops showing as pending", async () => {
     await say(KITCHEN, "PlaySongIntent", { query: { value: "first" } });
+    expect((await roomsNow()).unpaired[0].pending).toMatchObject({ videoId: id(1) });
+    clock += 3 * 60 * 1000;
+    expect((await roomsNow()).unpaired[0].pending).toBeNull();
+  });
+
+  test("an Echo heard before pairing is listed as unpaired, and can be named and renamed", async () => {
+    const asked = await say(KITCHEN, "PlaySongIntent", { query: { value: "first" } });
+    await send(KITCHEN, { type: "AudioPlayer.PlaybackStarted", token: asked.response.directives[0].audioItem.stream.token, offsetInMilliseconds: 0 });
     const before = await roomsNow();
     expect(before.rooms).toEqual([]);
     expect(before.unpaired).toMatchObject([{ skill: "music", deviceId: KITCHEN, room: null, nowPlaying: { videoId: id(1) } }]);
