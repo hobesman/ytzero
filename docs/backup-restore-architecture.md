@@ -257,7 +257,11 @@ Amazon device ID to a room name (machine-bound: the IDs belong to this
 server's skills and mean nothing elsewhere), `alexa_now_playing` is transient
 state rewritten by the next playback event, `alexa_pending_play` is a
 transient stream sent to an Echo until one reports it started, and
-`alexa_pairing` is a two-minute transient pairing request. None of them is exposed through settings
+`alexa_pairing` is a two-minute transient pairing request. `alexa_rooms` holds each
+room's Home Assistant `media_player` entity (machine-bound: the entity belongs
+to this server's Home Assistant, configured by environment variables), and
+`alexa_room_queues` is the transient queue a tablet saved for a room's
+"play my queue", replaced by the next one. None of them is exposed through settings
 or included in any portable backup section; an exact stopped-instance backup
 preserves them.
 
@@ -818,8 +822,12 @@ preserves them.
   exported, or restored
 - the Alexa skills' `YTZERO_ALEXA_SKILL_ID`, `YTZERO_ALEXA_VIDEO_SKILL_ID`,
   `YTZERO_ALEXA_PROFILE`, `YTZERO_ALEXA_PUBLIC_URL` and `YTZERO_ALEXA_SECRET`
-  environment variables; they are machine-bound runtime configuration and are
-  never persisted, exported, or restored. The skills store no state of their
+  environment variables, with `YTZERO_ALEXA_MUSIC_INVOCATION` and
+  `YTZERO_ALEXA_VIDEO_INVOCATION` and the Home Assistant bridge's
+  `YTZERO_HOME_ASSISTANT_URL` and `YTZERO_HOME_ASSISTANT_TOKEN` (a long-lived
+  access token: a secret, never logged or returned by the API); they are
+  machine-bound runtime configuration and are never persisted, exported, or
+  restored. The skills store no state of their
   own: the station or video travels in Alexa's stream token, signed audio links
   are stateless, and the in-memory maps of which streams began playing, and
   when, are transient. What they record is ordinary profile state of the

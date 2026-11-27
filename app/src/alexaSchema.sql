@@ -64,3 +64,33 @@ CREATE TABLE IF NOT EXISTS alexa_pending_play (
   requested_at TEXT NOT NULL,
   PRIMARY KEY (user_id, skill, device_id)
 );
+
+-- A room's own settings, apart from its devices: the Home Assistant
+-- media_player entity of its Echo, for typed commands and for what Home
+-- Assistant sees playing there. Instance-local, like the devices: the entity
+-- belongs to this server's Home Assistant.
+CREATE TABLE IF NOT EXISTS alexa_rooms (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- lower(room), so Kitchen and kitchen are one room.
+  room_key   TEXT NOT NULL,
+  room       TEXT NOT NULL,
+  ha_entity  TEXT,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, room_key)
+);
+
+-- What "play my queue" plays in a room: a list of songs, or a station seed
+-- such as an album. The stream token carries only queue_id and a position, so
+-- a long queue stays here. Transient: replaced by the next queue.
+CREATE TABLE IF NOT EXISTS alexa_room_queues (
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  room_key  TEXT NOT NULL,
+  queue_id  TEXT NOT NULL,
+  title     TEXT NOT NULL DEFAULT '',
+  -- A station seed as JSON, or NULL for a list of songs.
+  seed      TEXT,
+  -- The songs' 11-character video IDs, run together.
+  video_ids TEXT NOT NULL DEFAULT '',
+  saved_at  TEXT NOT NULL,
+  PRIMARY KEY (user_id, room_key)
+);

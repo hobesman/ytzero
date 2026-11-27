@@ -8,6 +8,7 @@ import { registerAlexaRoomRoutes } from "../routes/alexaRoomRoutes";
 import type { AlexaConfig } from "./alexaConfig";
 import { applyNowPlayingChange, nowPlayingChange, nowPlayingPosition, type DevicePlayback, type NowPlayingSources } from "./alexaNowPlaying";
 import { ALEXA_PAIRING_TTL_MS, createAlexaRoomStore, normalizeRoomName, type AlexaRoomStore } from "./alexaRooms";
+import { createAlexaRoomSettings, type AlexaRoomSettings } from "./alexaRoomSettings";
 import type { AlexaEnvelope } from "./alexaSkill";
 
 const NOW = Date.parse("2030-06-01T12:00:00Z");
@@ -15,12 +16,12 @@ const id = (n: number) => `vid${String(n).padStart(8, "0")}`;
 const KITCHEN = "amzn1.ask.device.KITCHEN";
 const OFFICE = "amzn1.ask.device.OFFICE";
 
-async function memoryStore(): Promise<{ db: AsyncDatabaseClient; rooms: AlexaRoomStore }> {
+async function memoryStore(): Promise<{ db: AsyncDatabaseClient; rooms: AlexaRoomStore; roomSettings: AlexaRoomSettings }> {
   const db = new AsyncDatabaseClient("sqlite", ":memory:");
   await db.exec("CREATE TABLE users (id INTEGER PRIMARY KEY)");
   await db.exec("INSERT INTO users (id) VALUES (1), (2)");
   await db.exec(readFileSync(new URL("../alexaSchema.sql", import.meta.url), "utf8"));
-  return { db, rooms: createAlexaRoomStore(db) };
+  return { db, rooms: createAlexaRoomStore(db), roomSettings: createAlexaRoomSettings(db) };
 }
 
 const play = (token: string, videoId: string, behavior = "REPLACE_ALL", offsetInMilliseconds = 0) => ({
@@ -141,12 +142,13 @@ describe("alexa rooms end to end", () => {
     thumbnail: "https://i.ytimg.com/x.jpg", isTopic: true, songKey: videoId,
   } as StoredMusicTrack);
   let rooms: AlexaRoomStore;
+  let roomSettings: AlexaRoomSettings;
   let clock = NOW;
   let alexa: Hono;
   let api: Hono<{ Variables: { userId: number } }>;
 
   beforeEach(async () => {
-    ({ rooms } = await memoryStore());
+    ({ rooms, roomSettings } = await memoryStore());
     clock = NOW;
     let counter = 1;
     alexa = createAlexaRouter({
@@ -155,6 +157,7 @@ describe("alexa rooms end to end", () => {
       resolveProfile: async () => 1,
       isChild: async () => false,
       rooms,
+      roomSettings,
       describeStream: async () => null,
       now: () => clock,
       skill: {
@@ -169,7 +172,10 @@ describe("alexa rooms end to end", () => {
     });
     api = new Hono<{ Variables: { userId: number } }>();
     api.use("*", async (context, next) => { context.set("userId", 1); await next(); });
-    registerAlexaRoomRoutes(api, { currentUserId: (context) => context.get("userId"), rooms, isChild: async () => false, now: () => clock });
+    registerAlexaRoomRoutes(api, {
+      currentUserId: (context) => context.get("userId"), rooms, roomSettings, isChild: async () => false, now: () => clock,
+      control: { homeAssistant: () => ({ disabled: "not in this test" }) },
+    });
   });
 
   const send = async (deviceId: string, request: Record<string, unknown>, skillId = settings.musicSkillId!) => {

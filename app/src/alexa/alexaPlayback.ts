@@ -16,7 +16,12 @@ export interface AlexaPlaybackState {
   failures: number;
   /** This song already failed once and was started again from where it stopped. */
   retried?: boolean;
+  /** Playing a room's saved queue: which one, kept on the server, and the song's place in it. */
+  queue?: AlexaQueueRef;
 }
+
+export interface AlexaQueueRef { id: string; index: number }
+const QUEUE_ID = /^[A-Za-z0-9_-]{8,16}$/;
 
 const TOKEN_PREFIX = "yz1.";
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -35,6 +40,8 @@ export function encodePlaybackToken(state: AlexaPlaybackState): string {
     k: packIds(state.skipped, SKIPPED_HISTORY_LIMIT),
     f: state.failures || undefined,
     r: state.retried ? 1 : undefined,
+    q: state.queue?.id,
+    i: state.queue?.index,
   };
   return TOKEN_PREFIX + Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
@@ -58,6 +65,8 @@ export function decodePlaybackToken(token: unknown): AlexaPlaybackState | null {
     skipped: unpackIds(payload.k),
     failures: Number.isSafeInteger(failures) && failures > 0 ? failures : 0,
     ...(payload.r === 1 ? { retried: true } : {}),
+    ...(typeof payload.q === "string" && QUEUE_ID.test(payload.q) && Number.isSafeInteger(payload.i) && Number(payload.i) >= 0
+      ? { queue: { id: payload.q, index: Number(payload.i) } } : {}),
   };
 }
 
@@ -66,9 +75,10 @@ export function retriedState(state: AlexaPlaybackState): AlexaPlaybackState {
   return { ...state, failures: state.failures + 1, retried: true };
 }
 
-/** The state once the current song has moved into the history. */
-export function advancedState(state: AlexaPlaybackState, nextVideoId: string, skippedCurrent: boolean, failed = false): AlexaPlaybackState {
+/** The state once the current song has moved into the history. A queue carries on only when its next place is given. */
+export function advancedState(state: AlexaPlaybackState, nextVideoId: string, skippedCurrent: boolean, failed = false, queue?: AlexaQueueRef): AlexaPlaybackState {
   return {
+    ...(queue ? { queue } : {}),
     seed: state.seed,
     videoId: nextVideoId,
     served: [...state.served, state.videoId].slice(-SERVED_HISTORY_LIMIT),
