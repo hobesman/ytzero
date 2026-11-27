@@ -244,7 +244,11 @@ on, not on a speaker group.
   `GET /alexa/video-audio/<videoId>`. Each link is signed with
   `YTZERO_ALEXA_SECRET` for one item, one profile and one kind, and is valid for
   24 hours, so a song or video paused overnight still resumes. A link grants
-  nothing else: a song link can't open a video, and the reverse.
+  nothing else: a song link can't open a video, and the reverse. A request
+  with no byte range gets the whole file (200, with its length), which the
+  Echo needs to seek and to play past the proxy's first 8 MB piece; ranged
+  requests are answered as for the app's player. Every audio request is
+  logged as `alexa.audio`, with its range.
 - Each station travels inside the stream token Alexa sends back with every
   event: its seed, the current song, and the last songs played and skipped.
   The server keeps no Alexa session, so a restart doesn't interrupt the queue.
@@ -258,7 +262,9 @@ on, not on a speaker group.
 - "Alexa, ask Hoban Tube to resume" continues the video the Echo last played.
   If the Echo has since played something else, it picks up the last video that
   Echo played, or else the profile's most recent unfinished one, where it
-  stopped.
+  stopped. Either way it goes on from the profile's latest saved place, not the
+  Echo's own, since the video may have played further on another Echo or in
+  the app since.
 
 The configuration is machine-bound: none of it is stored in the database,
 settings or backups. The Echo devices, their rooms and what each is playing are

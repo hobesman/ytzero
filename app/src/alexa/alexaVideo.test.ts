@@ -198,6 +198,14 @@ describe("alexa video skill", () => {
     expect(directive(await again.handle(7, say("AMAZON.StartOverIntent")))).toBeUndefined();
   });
 
+  test("resume on an Echo that still holds the video goes on from the profile's later saved place", async () => {
+    const { skill } = harness({ videos: { UC_oldhouse: [video(3, { resumeAt: 870, duration: 1800 })] } });
+    const player = { token: encodeVideoToken(id(3)), offsetInMilliseconds: 42_000 };
+    expect(directive(await skill.handle(7, say("AMAZON.ResumeIntent", {}, player)))?.audioItem.stream.offsetInMilliseconds).toBe(870_000);
+    // Skipping is relative to where this Echo is.
+    expect(directive(await skill.handle(7, say("SkipForwardIntent", {}, player)))?.audioItem.stream.offsetInMilliseconds).toBeLessThan(870_000);
+  });
+
   test("pause stops, resume continues, and audio events never speak", async () => {
     const { skill } = harness({ videos: { UC_oldhouse: [faucet] } });
     const token = encodeVideoToken(id(1));
