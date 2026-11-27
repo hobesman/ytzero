@@ -248,12 +248,16 @@ on, not on a speaker group.
   with no byte range gets the whole file (200), which the Echo needs to play
   past the proxy's first 8 MB piece; ranged requests are answered as for the
   app's player. Every audio request is logged as `alexa.audio`, with its range.
-- An Echo plays a plain file only from its start, whatever offset it is given.
-  So a video that starts part way in (a resume, a skip) is sent as an HLS
-  playlist, `GET /alexa/video-audio/<videoId>/index.m3u8`, signed like the
-  file. It's the app's own audio playlist, with each segment a byte range of
-  the signed file, and the Echo seeks in it by segment. Audio that can't be
-  indexed falls back to the whole file (logged as `alexa.playlist_unavailable`).
+- Every Hoban Tube video plays as an HLS playlist,
+  `GET /alexa/video-audio/<videoId>/index.m3u8`, signed like the file: the
+  app's own audio playlist (segments of about 20 seconds), each segment a byte
+  range of the signed file. An Echo plays any stream from its own start,
+  whatever offset it is given, and reports that offset plus the time played
+  as its position. So to start part way in (a resume, a skip), the link's `t`
+  starts the playlist at the segment holding that place, and the offset sent
+  is where that segment starts: a resume can go back up to 20 seconds. Audio
+  that can't be indexed is served whole, from its start (logged as
+  `alexa.playlist_unavailable`).
 - Each station travels inside the stream token Alexa sends back with every
   event: its seed, the current song, and the last songs played and skipped.
   The server keeps no Alexa session, so a restart doesn't interrupt the queue.

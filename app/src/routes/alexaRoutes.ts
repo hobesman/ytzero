@@ -26,9 +26,12 @@ import { createMusicStations } from "../music/musicStation";
 import { createYouTubeMusicClient } from "../music/youtubeMusicClient";
 import { defaultMusicAudio } from "./musicRoutes";
 import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
+import { playlistSegmentStart, trimPlaylist } from "../alexa/alexaPlaylistTrim";
 import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
+/** How long a play waits to learn where its playlist starts. */
+const STREAM_START_WAIT_MS = 4_000;
 
 type Handler = { handle: (userId: number, envelope: AlexaEnvelope) => Promise<AlexaResponse> };
 
@@ -78,6 +81,25 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const resolveProfile = dependencies.resolveProfile ?? resolveAlexaProfile;
   const isChild = dependencies.isChild ?? isChildUser;
   const vodPlaylist = dependencies.vodPlaylist ?? (async (userId: number, videoId: string, signal?: AbortSignal) => (await import("../downloader")).getAudioVodPlaylist(userId, videoId, signal));
+  /**
+   * The start of the playlist segment holding a place. Waits only so long:
+   * Alexa wants its answer within a few seconds, and a video not played lately
+   * needs its audio looked up first. Then the place as is, and the playlist
+   * still starts at the segment holding it.
+   */
+  const streamStart = async (userId: number, videoId: string, offsetSeconds: number): Promise<number> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), STREAM_START_WAIT_MS);
+    try {
+      const result = await vodPlaylist(userId, videoId, controller.signal);
+      // Audio that can't be indexed is served whole, from its start.
+      return result.kind === "playlist" ? playlistSegmentStart(result.playlist, offsetSeconds) : result.kind === "unsupported" ? 0 : offsetSeconds;
+    } catch {
+      return offsetSeconds;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
   const tracking: NowPlayingTracking = {
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
@@ -118,10 +140,9 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       findVideo: given.findVideo ?? alexaVideo,
       search: given.search ?? (async (userId, query) => (await (await import("../youtube")).searchYouTube(query, userId)).results),
       importVideo: given.importVideo ?? (async (userId, videoId) => (await import("../onDemandVideoImport")).ensureOnDemandVideo(videoId, userId)),
-      // Part way in, a playlist: an Echo can't seek in the plain file.
-      audioLink: given.audioLink ?? ((videoId, userId, offsetSeconds) => offsetSeconds > 0
-        ? alexaPlaylistLink(settings.publicUrl, settings.secret, videoId, userId, now())
-        : alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "video")),
+      // Always a playlist: see alexaPlaylistLink.
+      audioLink: given.audioLink ?? ((videoId, userId, startSeconds) => alexaPlaylistLink(settings.publicUrl, settings.secret, videoId, userId, now(), startSeconds)),
+      streamStart: given.streamStart ?? ((userId, videoId, offsetSeconds) => streamStart(userId, videoId, offsetSeconds)),
       prepare: given.prepare ?? prepare,
       recordStarted: given.recordStarted ?? recordVideoStarted,
       recordProgress: given.recordProgress ?? recordVideoProgress,
@@ -196,8 +217,11 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     if (playlist && context.req.method === "GET") {
       const result = await vodPlaylist(userId, videoId, signal);
       if (result.kind === "playlist") {
-        const fileLink = `${settings.publicUrl}/alexa/video-audio/${videoId}?${query}`;
-        return { response: new Response(alexaPlaylist(result.playlist, videoId, fileLink), { headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store" } }) };
+        const fileQuery = new URLSearchParams(query);
+        fileQuery.delete("t");
+        const fileLink = `${settings.publicUrl}/alexa/video-audio/${videoId}?${fileQuery}`;
+        const playlistText = trimPlaylist(result.playlist, Number(query.get("t")) || 0);
+        return { response: new Response(alexaPlaylist(playlistText, videoId, fileLink), { headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store" } }) };
       }
       // Audio that can't be indexed still plays, from its start.
       log.warn("alexa.playlist_unavailable", { videoId, result: result.kind });
