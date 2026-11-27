@@ -1,6 +1,6 @@
 import { database } from "../database";
 import type { AsyncDatabaseClient } from "../databaseClient";
-import type { AlexaSkillKind, NowPlaying, NowPlayingState } from "./alexaNowPlaying";
+import type { AlexaSkillKind, NowPlaying, NowPlayingState, PendingPlay } from "./alexaNowPlaying";
 
 /** How long a room set by the API waits for "pair" to be spoken to an Echo. */
 export const ALEXA_PAIRING_TTL_MS = 2 * 60 * 1000;
@@ -13,7 +13,18 @@ export interface AlexaDevice {
   pairedAt: string | null;
   lastSeenAt: string;
   nowPlaying: NowPlaying | null;
+  pending: PendingPlay | null;
 }
+
+interface PendingRow {
+  skill: AlexaSkillKind; device_id: string; token: string; video_id: string; title: string; artist: string; art: string;
+  duration_ms: number | null; offset_ms: number; requested_at: string;
+}
+
+const fromPendingRow = (row: PendingRow): PendingPlay => ({
+  token: row.token, videoId: row.video_id, offsetMs: Number(row.offset_ms), requestedAt: row.requested_at,
+  item: { title: row.title, artist: row.artist, art: row.art, durationMs: row.duration_ms == null ? null : Number(row.duration_ms) },
+});
 
 interface DeviceRow {
   skill: AlexaSkillKind; device_id: string; room: string | null; paired_at: string | null; last_seen_at: string;
@@ -94,6 +105,7 @@ export function createAlexaRoomStore(db: AsyncDatabaseClient = database) {
 
     async forget(userId: number, skill: AlexaSkillKind, deviceId: string): Promise<boolean> {
       await db.prepare("DELETE FROM alexa_now_playing WHERE user_id = ? AND skill = ? AND device_id = ?").run(userId, skill, deviceId);
+      await db.prepare("DELETE FROM alexa_pending_play WHERE user_id = ? AND skill = ? AND device_id = ?").run(userId, skill, deviceId);
       const result = await db.prepare("DELETE FROM alexa_devices WHERE user_id = ? AND skill = ? AND device_id = ?").run(userId, skill, deviceId);
       return result.changes > 0;
     },
@@ -102,11 +114,47 @@ export function createAlexaRoomStore(db: AsyncDatabaseClient = database) {
       const devices = await db.prepare("SELECT skill, device_id, room, paired_at, last_seen_at FROM alexa_devices WHERE user_id = ? ORDER BY last_seen_at DESC")
         .all<DeviceRow>(userId);
       const playing = await db.prepare("SELECT * FROM alexa_now_playing WHERE user_id = ?").all<NowPlayingRow>(userId);
-      const byDevice = new Map(playing.map((row) => [`${row.skill}\n${row.device_id}`, fromNowPlayingRow(row)]));
+      const waiting = await db.prepare("SELECT * FROM alexa_pending_play WHERE user_id = ?").all<PendingRow>(userId);
+      const key = (row: { skill: string; device_id: string }) => `${row.skill}\n${row.device_id}`;
+      const byDevice = new Map(playing.map((row) => [key(row), fromNowPlayingRow(row)]));
+      const pendingByDevice = new Map(waiting.map((row) => [key(row), fromPendingRow(row)]));
       return devices.map((row) => ({
         skill: row.skill, deviceId: row.device_id, room: row.room, pairedAt: row.paired_at, lastSeenAt: row.last_seen_at,
-        nowPlaying: byDevice.get(`${row.skill}\n${row.device_id}`) ?? null,
+        nowPlaying: byDevice.get(key(row)) ?? null,
+        pending: pendingByDevice.get(key(row)) ?? null,
       }));
+    },
+
+    async pending(userId: number, skill: AlexaSkillKind, deviceId: string): Promise<PendingPlay | null> {
+      const row = await db.prepare("SELECT * FROM alexa_pending_play WHERE user_id = ? AND skill = ? AND device_id = ?")
+        .get<PendingRow>(userId, skill, deviceId);
+      return row ? fromPendingRow(row) : null;
+    },
+
+    /** Stores the device's pending play, or clears it with null. */
+    async savePending(userId: number, skill: AlexaSkillKind, deviceId: string, pending: PendingPlay | null): Promise<void> {
+      if (!pending) {
+        await db.prepare("DELETE FROM alexa_pending_play WHERE user_id = ? AND skill = ? AND device_id = ?").run(userId, skill, deviceId);
+        return;
+      }
+      await db.prepare(`INSERT INTO alexa_pending_play
+        (user_id, skill, device_id, token, video_id, title, artist, art, duration_ms, offset_ms, requested_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (user_id, skill, device_id) DO UPDATE SET
+          token = excluded.token, video_id = excluded.video_id, title = excluded.title, artist = excluded.artist, art = excluded.art,
+          duration_ms = excluded.duration_ms, offset_ms = excluded.offset_ms, requested_at = excluded.requested_at`)
+        .run(userId, skill, deviceId, pending.token, pending.videoId, pending.item.title, pending.item.artist, pending.item.art,
+          pending.item.durationMs, Math.floor(pending.offsetMs), pending.requestedAt);
+    },
+
+    /** Takes the latest pending play of a stream from any other device: Alexa started it on this one instead. */
+    async claimPending(userId: number, skill: AlexaSkillKind, token: string, exceptDeviceId: string): Promise<PendingPlay | null> {
+      const row = await db.prepare(`SELECT * FROM alexa_pending_play WHERE user_id = ? AND skill = ? AND token = ? AND device_id <> ?
+        ORDER BY requested_at DESC LIMIT 1`).get<PendingRow>(userId, skill, token, exceptDeviceId);
+      if (!row) return null;
+      await db.prepare("DELETE FROM alexa_pending_play WHERE user_id = ? AND skill = ? AND device_id = ? AND token = ?")
+        .run(userId, skill, row.device_id, token);
+      return fromPendingRow(row);
     },
 
     async nowPlaying(userId: number, skill: AlexaSkillKind, deviceId: string): Promise<NowPlaying | null> {

@@ -65,10 +65,17 @@ export async function trackDevice(tracking: NowPlayingTracking, userId: number, 
     await tracking.rooms.seen(userId, skill, deviceId, now);
     const change = nowPlayingChange(envelope, response);
     if (!change) return;
-    const current = await tracking.rooms.nowPlaying(userId, skill, deviceId);
+    const before = {
+      current: await tracking.rooms.nowPlaying(userId, skill, deviceId),
+      pending: await tracking.rooms.pending(userId, skill, deviceId),
+    };
     const at = Date.parse(envelope.request?.timestamp ?? "");
-    const next = await applyNowPlayingChange(current, change, { at: Number.isFinite(at) ? at : now, now }, (token) => tracking.describe(skill, userId, token));
-    if (next) await tracking.rooms.saveNowPlaying(userId, skill, deviceId, next);
+    const after = await applyNowPlayingChange(before, change, { at: Number.isFinite(at) ? at : now, now }, {
+      lookup: (token) => tracking.describe(skill, userId, token),
+      claimElsewhere: (token) => tracking.rooms.claimPending(userId, skill, token, deviceId),
+    });
+    if (after.current) await tracking.rooms.saveNowPlaying(userId, skill, deviceId, after.current);
+    if (after.pending !== before.pending) await tracking.rooms.savePending(userId, skill, deviceId, after.pending);
   } catch (error) {
     log.warn("alexa.now_playing_failed", { skill, error: error instanceof Error ? error.message : String(error) });
   }

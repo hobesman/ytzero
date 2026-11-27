@@ -46,3 +46,21 @@ CREATE TABLE IF NOT EXISTS alexa_pairing (
   claimed    TEXT NOT NULL DEFAULT '',
   expires_at TEXT NOT NULL
 );
+
+-- A stream the skill sent in answer to a device, until an Echo reports it
+-- started. Alexa may play it on another Echo, which then takes it over.
+-- Transient.
+CREATE TABLE IF NOT EXISTS alexa_pending_play (
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video')),
+  device_id    TEXT NOT NULL,
+  token        TEXT NOT NULL,
+  video_id     TEXT NOT NULL,
+  title        TEXT NOT NULL DEFAULT '',
+  artist       TEXT NOT NULL DEFAULT '',
+  art          TEXT NOT NULL DEFAULT '',
+  duration_ms  INTEGER,
+  offset_ms    INTEGER NOT NULL DEFAULT 0,
+  requested_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, skill, device_id)
+);

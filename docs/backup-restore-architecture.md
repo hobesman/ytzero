@@ -255,8 +255,9 @@ The Alexa skills' Echo devices are instance-local, like the skills'
 environment-variable configuration. `alexa_devices` maps each skill's opaque
 Amazon device ID to a room name (machine-bound: the IDs belong to this
 server's skills and mean nothing elsewhere), `alexa_now_playing` is transient
-state rewritten by the next playback event, and `alexa_pairing` is a
-two-minute transient pairing request. None of them is exposed through settings
+state rewritten by the next playback event, `alexa_pending_play` is a
+transient stream sent to an Echo until one reports it started, and
+`alexa_pairing` is a two-minute transient pairing request. None of them is exposed through settings
 or included in any portable backup section; an exact stopped-instance backup
 preserves them.
 

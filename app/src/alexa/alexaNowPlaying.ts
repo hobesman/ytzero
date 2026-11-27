@@ -97,25 +97,53 @@ export function nowPlayingChange(envelope: AlexaEnvelope, response: AlexaRespons
 }
 
 /**
+ * A stream the skill sent in answer to this device, not yet reported started.
+ * Alexa may play it on another Echo (one the device sends its audio to), so it
+ * becomes now playing only on the Echo that reports PlaybackStarted.
+ */
+export interface PendingPlay {
+  token: string;
+  videoId: string;
+  item: NowPlayingItem;
+  offsetMs: number;
+  requestedAt: string;
+}
+
+/** A device's record and the play it is waiting on. */
+export interface DevicePlayback {
+  current: NowPlaying | null;
+  pending: PendingPlay | null;
+}
+
+export interface NowPlayingSources {
+  /** Describes a stream that started with no Play directive seen for it, such as a queued one. */
+  lookup: (token: string) => Promise<{ videoId: string; item: NowPlayingItem } | null>;
+  /** Takes another device's pending play of this stream, which Alexa started here instead. */
+  claimElsewhere: (token: string) => Promise<PendingPlay | null>;
+}
+
+/**
  * The device's record after a change. `at` is when the event happened (Alexa's
- * timestamp) and `now` when the server saw it. `lookup` describes a stream
- * that started without this server having seen its Play directive, such as a
- * queued one; it gives the video ID and catalog details, or null.
+ * timestamp) and `now` when the server saw it.
  */
 export async function applyNowPlayingChange(
-  current: NowPlaying | null,
+  state: DevicePlayback,
   change: NowPlayingChange,
   times: { at: number; now: number },
-  lookup: (token: string) => Promise<{ videoId: string; item: NowPlayingItem } | null>,
-): Promise<NowPlaying | null> {
+  sources: NowPlayingSources,
+): Promise<DevicePlayback> {
   const iso = (ms: number) => new Date(ms).toISOString();
-  let record = current ? { ...current } : null;
+  let record = state.current ? { ...state.current } : null;
+  let pending = state.pending;
   const { event } = change;
 
   if (event) {
     if (event.kind === "started") {
+      // The play this started, sent to this device or redirected here from another.
+      const claimed = pending?.token === event.token ? pending : await sources.claimElsewhere(event.token);
+      if (pending?.token === event.token) pending = null;
       if (!record || record.token !== event.token) {
-        const found = await lookup(event.token);
+        const found = claimed ? { videoId: claimed.videoId, item: claimed.item } : await sources.lookup(event.token);
         record = found ? {
           token: event.token, videoId: found.videoId, ...found.item,
           state: "playing", offsetMs: 0, startedAt: null, nextToken: null, updatedAt: iso(times.now),
@@ -133,36 +161,40 @@ export async function applyNowPlayingChange(
       record.startedAt = null;
       record.state = event.kind === "stopped" ? (record.state === "stopped" ? "stopped" : "paused") : event.kind;
     }
+    // A stream that failed before it ever started isn't waiting to play any more.
+    if (event.kind === "failed" && pending?.token === event.token) pending = null;
   }
 
-  if (change.stopRequested && record && (record.state === "playing" || record.state === "paused")) {
-    record.state = "stopped";
-    record.startedAt = null;
+  if (change.stopRequested) {
+    pending = null;
+    if (record && (record.state === "playing" || record.state === "paused")) {
+      record.state = "stopped";
+      record.startedAt = null;
+    }
   }
 
   if (change.play) {
+    // Held until an Echo reports it started: what this device plays stays as it is meanwhile.
     const { play } = change;
-    const same = record?.videoId === play.videoId;
-    const looked = play.item.durationMs == null ? await lookup(play.token) : null;
-    const item = { ...play.item, durationMs: looked?.item.durationMs ?? play.item.durationMs };
-    record = {
-      token: play.token, videoId: play.videoId,
-      title: item.title || (same ? record!.title : looked?.item.title ?? ""),
-      artist: item.artist || (same ? record!.artist : looked?.item.artist ?? ""),
-      art: item.art || (same ? record!.art : looked?.item.art ?? ""),
-      durationMs: item.durationMs ?? (same ? record!.durationMs : null),
-      // Until the Echo reports PlaybackStarted, assume it starts now from the given place.
-      state: "playing",
+    const same = record?.videoId === play.videoId ? record : null;
+    const looked = play.item.durationMs == null ? await sources.lookup(play.token) : null;
+    pending = {
+      token: play.token,
+      videoId: play.videoId,
+      item: {
+        title: play.item.title || same?.title || looked?.item.title || "",
+        artist: play.item.artist || same?.artist || looked?.item.artist || "",
+        art: play.item.art || same?.art || looked?.item.art || "",
+        durationMs: looked?.item.durationMs ?? play.item.durationMs ?? same?.durationMs ?? null,
+      },
       offsetMs: play.offsetMs,
-      startedAt: iso(times.now - play.offsetMs),
-      nextToken: null,
-      updatedAt: iso(times.now),
+      requestedAt: iso(times.now),
     };
   }
 
   if (change.enqueue && record) record.nextToken = change.enqueue.token;
   if (record) record.updatedAt = iso(times.now);
-  return record;
+  return { current: record, pending };
 }
 
 /** Where playback has got to at `now`: the reported position, plus the time since, while playing. */
