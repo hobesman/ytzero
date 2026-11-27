@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Music, Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
+import { MicVocal, Music, Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Alert, Badge, IconButton, ProgressBar, Slider } from "../components/ui";
 import { roomApi, type AlexaRoom } from "./roomApi";
@@ -67,7 +67,7 @@ function RoomVolume({ room, control, onVolume }: { room: AlexaRoom | null; contr
   </div>;
 }
 
-export function RoomNowPlaying({ roomName, room, display, control, receivedAt, names, onCommand }: {
+export function RoomNowPlaying({ roomName, room, display, control, receivedAt, names, onCommand, lyrics, onLyrics }: {
   roomName: string;
   room: AlexaRoom | null;
   display: RoomDisplay;
@@ -75,6 +75,9 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
   receivedAt: number;
   names: SkillNames;
   onCommand: RoomCommand;
+  /** Whether lyrics mode is on, and how to switch it. */
+  lyrics: boolean;
+  onLyrics: (on: boolean) => void;
 }) {
   const { t } = useI18n();
   const [failure, setFailure] = useState<string | null>(null);
@@ -115,6 +118,7 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
         label={playing ? t("roomPause") : t("roomResume")} icon={playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         onClick={() => send(playing ? "pause" : "resume")} />
       <IconButton size="xl" variant="secondary" busy={control?.action === "next"} label={t("roomNext")} icon={<SkipForward />} onClick={() => send("next")} />
+      <IconButton size="xl" variant={lyrics ? "primary" : "ghost"} aria-pressed={lyrics} label={t("musicLyrics")} icon={<MicVocal />} onClick={() => onLyrics(!lyrics)} />
     </div>
     <RoomVolume room={room} control={control} onVolume={(volume) => send("volume", volume)} />
     {failure ? <Alert variant="danger" role="alert" className="room-now__failure">{failure}</Alert> : null}

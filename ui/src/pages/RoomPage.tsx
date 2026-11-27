@@ -5,12 +5,13 @@ import { useI18n } from "../i18n";
 import { Badge, Button, EmptyState, IconButton, SelectMenu, Tabs } from "../components/ui";
 import { roomApi } from "../room/roomApi";
 import { RoomIdle } from "../room/RoomIdle";
+import { RoomLyrics } from "../room/RoomLyrics";
 import { RoomMusicTab } from "../room/RoomMusicTab";
 import { RoomNowPlaying, skillName, type SkillNames } from "../room/RoomNowPlaying";
 import { RoomSetup } from "../room/RoomSetup";
 import { RoomVideoTab } from "../room/RoomVideoTab";
 import {
-  ROOM_STORAGE_KEY, deviceTimeZone, findRoom, isIdle, lastPlayedAt, roomDisplay, roomPath, storedRoom,
+  ROOM_LYRICS_KEY, ROOM_STORAGE_KEY, deviceTimeZone, findRoom, isIdle, lastPlayedAt, roomDisplay, roomPath, storedRoom,
 } from "../room/roomState";
 import { useLongPress, useNow, useRooms, useScreenWakeLock, useSessionRenewal } from "../room/useRoomState";
 import "./RoomPage.css";
@@ -48,6 +49,12 @@ export default function RoomPage() {
   const [viewing, setViewing] = useState<string | null>(null);
   const roomName = viewing ?? homeRoom ?? "";
   const [setupOpen, setSetupOpen] = useState(false);
+  // Lyrics mode is the tablet's own choice, so it survives a reload or a night on the idle screen.
+  const [lyrics, setLyricsState] = useState(() => { try { return safeStorage()?.getItem(ROOM_LYRICS_KEY) === "1"; } catch { return false; } });
+  const setLyrics = (on: boolean) => {
+    setLyricsState(on);
+    try { safeStorage()?.setItem(ROOM_LYRICS_KEY, on ? "1" : "0"); } catch { /* storage blocked: it lasts until the page reloads */ }
+  };
   const [lastTouch, setLastTouch] = useState(() => Date.now());
   const lastTouchRef = useRef(lastTouch);
   const now = useNow(5_000);
@@ -118,8 +125,8 @@ export default function RoomPage() {
         {!snapshot ? <div className="room-now room-now--loading" /> : !room
           ? <section className="room-now"><EmptyState icon={<Home />} title={t("roomUnknown", { room: roomName })} description={t("roomUnknownHint")}
             action={<Button size="lg" onClick={() => setSetupOpen(true)}>{t("roomSetupTitle")}</Button>} /></section>
-          : <RoomNowPlaying roomName={room.room} room={room} display={display} control={control} receivedAt={snapshot.receivedAt} names={names} onCommand={command} />}
-        <section className="room-page__browse">
+          : <RoomNowPlaying roomName={room.room} room={room} display={display} control={control} receivedAt={snapshot.receivedAt} names={names} onCommand={command} lyrics={lyrics} onLyrics={setLyrics} />}
+        {lyrics ? <section className="room-page__browse room-page__browse--lyrics"><RoomLyrics room={room} receivedAt={snapshot?.receivedAt ?? 0} /></section> : <section className="room-page__browse">
           <Tabs label={t("roomTabs")} value={tab} onChange={(next) => navigate(roomPath(homeRoom, next === "music" ? undefined : next))} options={[
             { value: "music", label: names.music ?? t("roomSourceMusic"), icon: <Music /> },
             { value: "videos", label: names.video ?? t("roomSourceVideo"), icon: <Tv /> },
@@ -131,7 +138,7 @@ export default function RoomPage() {
               : tab === "videos" ? <RoomVideoTab roomName={room?.room ?? roomName} onCommand={command} />
               : <EmptyState icon={<BookOpen />} title={t("roomBooksTitle")} description={t("roomBooksHint")} />}
           </div>
-        </section>
+        </section>}
       </div>
     </>}
     {setup}

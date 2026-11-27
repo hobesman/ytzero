@@ -87,7 +87,7 @@ describe("HTTP route manifest", () => {
     for (const route of nativePlaybackRoutes) expect(routes).toContain(route);
     expect(routes).toContain("PUT /channel-playlists/:id/sort");
     const musicRoutes = [
-      "GET /music/search", "POST /music/station", "GET /music/tracks/:id/audio", "POST /music/tracks/:id/prepare", "GET /music/tracks/:id/lyrics",
+      "GET /music/search", "POST /music/station", "GET /music/tracks/:id/audio", "POST /music/tracks/:id/prepare", "GET /music/tracks/:id/lyrics", "GET /music/lyrics",
       "POST /music/plays", "PUT /music/tracks/:id/rating", "GET /music/library",
       "GET /music/albums/:id", "GET /music/artists/:id", "PUT /music/albums/:id/saved", "DELETE /music/albums/:id/saved",
       "GET /music/genres", "GET /music/genres/:id", "GET /music/playlists/:id",
@@ -104,7 +104,7 @@ describe("HTTP route manifest", () => {
       "POST /alexa/rooms/:room/video",
     ];
     for (const route of alexaRoomRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(324);
+    expect(routes).toHaveLength(325);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);

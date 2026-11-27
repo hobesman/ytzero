@@ -92,6 +92,23 @@
 .room-videos__thumb { aspect-ratio: 16 / 9; border-radius: 10px; object-fit: cover; width: 128px; }
 .room-videos__avatar { border-radius: 50%; height: 56px; object-fit: cover; width: 56px; }
 
+/* Lyrics mode: the song's words in place of the browser, readable across the room. */
+.room-page__browse--lyrics { background: var(--surface); border-radius: 24px; overflow: hidden; }
+.room-page__browse--lyrics > .ui-empty-state { margin: auto; padding: 40px 24px; }
+.room-lyrics { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.room-lyrics__loading { align-items: center; display: flex; flex: 1; justify-content: center; }
+.room-lyrics__scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 28px 32px; position: relative; }
+/* Synced lyrics scroll themselves; room above and below lets the first and last lines reach the middle. */
+.room-lyrics__scroll--synced { scrollbar-width: none; }
+.room-lyrics__scroll--synced::-webkit-scrollbar { display: none; }
+.room-lyrics__lines { display: flex; flex-direction: column; gap: 18px; list-style: none; margin: 0; padding: 40vh 0; }
+.room-lyrics__line { color: var(--text-3); font-size: clamp(24px, 2.6vw, 34px); font-weight: 650; line-height: 1.25; transition: color .35s ease, transform .35s ease; transform-origin: left center; }
+.room-lyrics__line[data-past] { color: color-mix(in srgb, var(--text-3) 70%, transparent); }
+.room-lyrics__line[aria-current="true"] { color: var(--text); transform: scale(1.12); }
+.room-lyrics__plain { font-size: clamp(22px, 2.2vw, 30px); line-height: 1.5; margin: 0; white-space: pre-line; }
+.room-lyrics__source { color: var(--text-3); font-size: 14px; margin: 0; padding: 10px 32px 16px; }
+@media (prefers-reduced-motion: reduce) { .room-lyrics__line { transition: none; } }
+
 /* The idle screen: dim, and kind to a screen lit all day. */
 .room-idle { align-items: center; color: #8a8a8a; display: flex; height: 100%; justify-content: center; outline: none; width: 100%; }
 .room-idle__content { align-items: center; display: flex; flex-direction: column; gap: 6px; text-align: center; transition: transform 2s ease; }

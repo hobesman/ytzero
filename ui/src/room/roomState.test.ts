@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { AlexaRoom, AlexaRooms, RoomCurrent } from "./roomApi";
 import {
   CONTROL_TIMEOUT_MS, IDLE_AFTER_MS, clockDuration, controlConfirmed, findRoom, isIdle, livePosition, pollDelay, roomDisplay, roomFingerprint,
-  roomArtSource, roomPath, roomSource, roomVolume, settleControl, storedRoom, type PendingControl,
+  roomArtSource, roomLyricsSong, roomPath, roomSource, roomVolume, settleControl, storedRoom, type PendingControl,
 } from "./roomState";
 
 const song: RoomCurrent = {
@@ -130,6 +130,23 @@ describe("idle screen and polling", () => {
     expect(pollDelay({ visible: true, idle: false, waiting: false })).toBe(2_500);
     expect(pollDelay({ visible: true, idle: true, waiting: false })).toBe(15_000);
     expect(pollDelay({ visible: false, idle: false, waiting: true })).toBe(null);
+  });
+});
+
+describe("lyrics", () => {
+  test("uses the Hoban Music track when the room plays one, and the song by name otherwise", () => {
+    const playing = { skill: "music" as const, videoId: "abcdefghijk", title: "Harvest Moon", artist: "Neil Young", art: "", durationMs: 300_000,
+      state: "playing", offsetMs: 0, startedAt: null, positionMs: 0, updatedAt: "" };
+    expect(roomLyricsSong(kitchen({ nowPlaying: playing }))).toEqual({ kind: "track", videoId: "abcdefghijk", key: "track:abcdefghijk" });
+    const amazon = kitchen({ current: { ...song, origin: "home-assistant", title: "What's Up?", artist: "4 Non Blondes", durationMs: 296_400 } });
+    expect(roomLyricsSong(amazon)).toEqual({ kind: "song", artist: "4 Non Blondes", title: "What's Up?", duration: 296, key: "song:4 Non Blondes|What's Up?" });
+  });
+
+  test("has none for videos, finished songs, nothing playing, or a song with no artist", () => {
+    expect(roomLyricsSong(kitchen({ current: { ...song, origin: "video" } }))).toEqual({ kind: "video" });
+    expect(roomLyricsSong(kitchen({ current: { ...song, state: "finished" } }))).toBe(null);
+    expect(roomLyricsSong(kitchen({ current: null }))).toBe(null);
+    expect(roomLyricsSong(kitchen({ current: { ...song, origin: "home-assistant", artist: null } }))).toBe(null);
   });
 });
 
