@@ -44,8 +44,10 @@ export function MusicNote({ text, onRetry }: { text: string; onRetry?: () => voi
 }
 
 /** One song in a list: artwork (or its number on an album), title, artist and length, and its ⋮ menu. */
-export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number, hideArtist, onPlay }: {
+export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number, hideArtist, onPlay, menu = true }: {
   track: MusicTrack; active: boolean; number?: number; hideArtist?: boolean; onPlay: (track: MusicTrack) => void;
+  /** The ⋮ menu acts on this browser's own player; a page that plays elsewhere (a room's Echo) leaves it out. */
+  menu?: boolean;
 }) {
   const detail = [hideArtist ? null : track.artist, number == null ? track.album : null].filter(Boolean).join(" · ");
   return <div className="music-track-row"><button type="button" className={`music-track${active ? " music-track--active" : ""}`} onClick={() => onPlay(track)}>
@@ -56,14 +58,14 @@ export const MusicTrackRow = memo(function MusicTrackRow({ track, active, number
     </span>
     {track.rating === 1 ? <Heart className="music-track__liked" aria-hidden="true" /> : null}
     <span className="music-track__time">{durationLabel(track.duration)}</span>
-  </button><MusicTrackMenu track={track} /></div>;
+  </button>{menu ? <MusicTrackMenu track={track} /> : null}</div>;
 });
 
-export function MusicTrackList({ tracks, playingId, numbered, albumArtist, onPlay }: {
-  tracks: MusicTrack[]; playingId: string | null; numbered?: boolean; albumArtist?: string; onPlay: (track: MusicTrack, index: number) => void;
+export function MusicTrackList({ tracks, playingId, numbered, albumArtist, onPlay, menu }: {
+  tracks: MusicTrack[]; playingId: string | null; numbered?: boolean; albumArtist?: string; onPlay: (track: MusicTrack, index: number) => void; menu?: boolean;
 }) {
   return <div className="music-tracks">
-    {tracks.map((track, index) => <MusicTrackRow key={track.videoId} track={track} active={track.videoId === playingId}
+    {tracks.map((track, index) => <MusicTrackRow key={track.videoId} track={track} active={track.videoId === playingId} menu={menu}
       number={numbered ? index + 1 : undefined} hideArtist={albumArtist != null && track.artist === albumArtist} onPlay={() => onPlay(track, index)} />)}
   </div>;
 }

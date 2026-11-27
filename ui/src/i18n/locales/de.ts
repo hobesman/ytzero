@@ -6,6 +6,7 @@ import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { feedBuilderMessages } from "./feedBuilder";
 import { tvPairingMessages } from "./tvPairing";
+import { roomMessages } from "./room";
 import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 export const de: Locale = {
@@ -13,7 +14,7 @@ export const de: Locale = {
     ...surfaceMessages.de,
     ...clusterMessages.de,
     ...notificationMessages.de,
-    ...tvPairingMessages.de, ...musicMessages.de, ...playbackSpeedMemoryMessages.de,
+    ...tvPairingMessages.de, ...roomMessages.de, ...musicMessages.de, ...playbackSpeedMemoryMessages.de,
     ...feedBuilderMessages.de,
     navToday: "Start",
     navSocial: "Social",

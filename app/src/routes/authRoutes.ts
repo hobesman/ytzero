@@ -31,6 +31,7 @@ import { externalRoleMappingConfig, type ExternalRoleMappingConfig } from "../ex
 import { registerAuthStatusRoute } from "./authStatusRoute";
 import { registerDeviceAuthRoutes } from "./deviceAuthRoutes";
 import { registerPasswordLoginRoutes } from "./passwordLoginRoutes";
+import { registerSessionRenewRoute } from "./sessionRenewRoute";
 
 type ApiEnvironment = { Variables: { userId: number; sessionAdmin?: boolean; profileAdmin?: boolean } };
 type Api = Hono<ApiEnvironment>;
@@ -79,6 +80,7 @@ registerDeviceAuthRoutes(api, { canSwitchProfiles, currentUserId });
 registerAuthStatusRoute(api, { canDelegateProfileAdmins, canSwitchProfiles, hideOtherProfilesInPicker, isAdmin, isPrimaryUser, sessionToken });
 
 registerPasswordLoginRoutes(api, profileCookie);
+registerSessionRenewRoute(api, { sessionToken });
 
 api.post("/auth/passkey/login/options", async (c) => {
   const method = authMethod();

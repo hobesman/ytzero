@@ -4,7 +4,8 @@ import { cx } from "./utils";
 import "./Button.css";
 
 export type ButtonVariant = "default" | "primary" | "secondary" | "danger" | "ghost";
-export type ButtonSize = "sm" | "md";
+/** `lg` and `xl` are touch sizes, for screens used from a distance such as a wall tablet. */
+export type ButtonSize = "sm" | "md" | "lg" | "xl";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -12,6 +13,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   iconOnly?: boolean;
   leadingIcon?: ReactNode;
   trailingIcon?: ReactNode;
+  /** The action was sent and its effect hasn't shown yet: the button pulses and reports itself busy. */
+  busy?: boolean;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button({
@@ -23,10 +26,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   className,
   children,
   type = "button",
+  busy = false,
   ...props
 }, ref) {
   return (
-    <button ref={ref} type={type} className={cx("ui-button", `ui-button--${variant}`, `ui-button--${size}`, iconOnly && "ui-button--icon", className)} {...props}>
+    <button ref={ref} type={type} aria-busy={busy || undefined} className={cx("ui-button", `ui-button--${variant}`, `ui-button--${size}`, iconOnly && "ui-button--icon", busy && "ui-button--busy", className)} {...props}>
       {leadingIcon && <span className="ui-button__icon">{leadingIcon}</span>}
       {children}
       {trailingIcon && <span className="ui-button__icon">{trailingIcon}</span>}
