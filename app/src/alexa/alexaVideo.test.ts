@@ -64,7 +64,7 @@ describe("matching what Alexa heard", () => {
   });
 });
 
-function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: SearchResult[] } = {}) {
+function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: SearchResult[]; resume?: string[] } = {}) {
   const catalog = new Map<string, AlexaVideo>();
   for (const list of Object.values(options.videos ?? {})) for (const item of list) catalog.set(item.videoId, item);
   const calls = { searches: [] as string[], imported: [] as string[], started: [] as string[], progress: [] as [string, number, number | null][], finished: [] as string[] };
@@ -83,6 +83,7 @@ function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: Sear
     recordStarted: async (_userId, videoId) => { calls.started.push(videoId); },
     recordProgress: async (_userId, videoId, position, duration) => { calls.progress.push([videoId, position, duration]); },
     recordFinished: async (_userId, videoId) => { calls.finished.push(videoId); },
+    resumeCandidates: async () => options.resume ?? [],
   });
   return { skill, calls };
 }
@@ -170,6 +171,31 @@ describe("alexa video skill", () => {
     expect(calls.started).toEqual([id(1)]);
     expect(calls.progress).toEqual([[id(1), 90, 600]]);
     expect(calls.finished).toEqual([id(1)]);
+  });
+
+  test("a stream that ends well before the video does keeps its place instead of counting as watched", async () => {
+    const { skill, calls } = harness({ videos: { UC_oldhouse: [faucet] } });
+    const token = encodeVideoToken(id(1));
+    await skill.handle(7, event("AudioPlayer.PlaybackFinished", token, 518_000));
+    expect(calls.finished).toEqual([]);
+    expect(calls.progress).toEqual([[id(1), 518, 600]]);
+    await skill.handle(7, event("AudioPlayer.PlaybackFinished", token, 580_000));
+    expect(calls.finished).toEqual([id(1)]);
+  });
+
+  test("resume with nothing on the Echo picks up the last unfinished video where it stopped", async () => {
+    const watched = video(2, { watched: true, resumeAt: null });
+    const partway = video(3, { resumeAt: 870 });
+    const { skill } = harness({ videos: { UC_oldhouse: [watched, partway] }, resume: [id(2), id(3)] });
+    const resumed = await skill.handle(7, say("AMAZON.ResumeIntent"));
+    expect(speech(resumed)).toBe("Resuming Video 3 from This Old House, where you left off.");
+    expect(directive(resumed)?.audioItem.stream).toMatchObject({ token: encodeVideoToken(id(3)), offsetInMilliseconds: 870_000 });
+
+    const { skill: empty } = harness({ videos: { UC_oldhouse: [watched] }, resume: [id(2)] });
+    expect(speech(await empty.handle(7, say("AMAZON.ResumeIntent")))).toBe("Nothing is playing. Which video would you like to hear?");
+    // Start over still needs a video on the Echo.
+    const { skill: again } = harness({ videos: { UC_oldhouse: [partway] }, resume: [id(3)] });
+    expect(directive(await again.handle(7, say("AMAZON.StartOverIntent")))).toBeUndefined();
   });
 
   test("pause stops, resume continues, and audio events never speak", async () => {

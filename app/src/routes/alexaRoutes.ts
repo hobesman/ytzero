@@ -12,7 +12,7 @@ import { decodeVideoToken } from "../alexa/alexaVideoSkill";
 import { createAlexaSignatureVerifier, type AlexaSignatureVerifier } from "../alexa/alexaSignature";
 import { createAlexaSkill, envelopeSkillId, type AlexaEnvelope, type AlexaSkillDependencies } from "../alexa/alexaSkill";
 import {
-  alexaVideo, channelVideos, followedChannels, recordVideoFinished, recordVideoProgress, recordVideoStarted,
+  alexaVideo, channelVideos, followedChannels, lastUnfinishedVideo, recordVideoFinished, recordVideoProgress, recordVideoStarted,
 } from "../alexa/alexaVideoCatalog";
 import { createAlexaVideoSkill, type AlexaVideoSkillDependencies } from "../alexa/alexaVideoSkill";
 import { parseAudioRange } from "../audioRange";
@@ -118,6 +118,11 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       recordStarted: given.recordStarted ?? recordVideoStarted,
       recordProgress: given.recordProgress ?? recordVideoProgress,
       recordFinished: given.recordFinished ?? recordVideoFinished,
+      resumeCandidates: given.resumeCandidates ?? (async (userId, deviceId) => {
+        const onDevice = deviceId ? (await tracking.rooms.nowPlaying(userId, "video", deviceId))?.videoId : null;
+        const latest = await lastUnfinishedVideo(userId);
+        return [...new Set([onDevice, latest].filter((id): id is string => Boolean(id)))];
+      }),
       channels: given.channels ?? { searchChannels: searchChannelsForAlexa, followedChannels, follow: followChannelForAlexa, unfollow: unfollowChannelForAlexa },
     });
   };

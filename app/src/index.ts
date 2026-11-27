@@ -22,6 +22,7 @@ import { startClusterHeartbeat } from "./clusterRuntime";
 import { createPublicShareRouter } from "./routes/publicShareRoutes";
 import { createAlexaRouter } from "./routes/alexaRoutes";
 import { alexaStartupStatus } from "./alexa/alexaConfig";
+import { startAlexaVideoProgress } from "./alexa/alexaVideoProgress";
 import { startLocalDiscovery } from "./localDiscovery";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
@@ -60,8 +61,10 @@ app.route("/share", createPublicShareRouter(uiDir));
 // signature and its audio links their own HMAC, never a session cookie.
 app.route("/alexa", createAlexaRouter());
 const alexaStatus = alexaStartupStatus();
-if (alexaStatus?.event === "alexa.enabled") log.info(alexaStatus.event, alexaStatus.fields);
-else if (alexaStatus) log.warn(alexaStatus.event, alexaStatus.fields);
+if (alexaStatus?.event === "alexa.enabled") {
+  log.info(alexaStatus.event, alexaStatus.fields);
+  startAlexaVideoProgress();
+} else if (alexaStatus) log.warn(alexaStatus.event, alexaStatus.fields);
 
 app.route("/api", api);
 

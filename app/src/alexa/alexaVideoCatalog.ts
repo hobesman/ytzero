@@ -88,6 +88,17 @@ export async function alexaVideo(userId: number, videoId: string): Promise<Alexa
   return row ? toVideo(row) : null;
 }
 
+/** The video the profile most recently started and left part-way through, if any. */
+export async function lastUnfinishedVideo(userId: number): Promise<string | null> {
+  const row = await database.prepare(`
+    SELECT h.video_id FROM history h
+    JOIN user_videos uv ON uv.user_id = h.user_id AND uv.video_id = h.video_id
+    WHERE h.user_id = ? AND COALESCE(uv.watched, 0) <> 1 AND uv.watch_position > ?
+    ORDER BY h.id DESC LIMIT 1
+  `).get<{ video_id: string }>(userId, RESUME_MARGIN_SECONDS);
+  return row?.video_id ?? null;
+}
+
 /** As the app's player does: a history entry when a video starts. */
 export async function recordVideoStarted(userId: number, videoId: string): Promise<void> {
   await database.prepare("INSERT INTO history (video_id, user_id) VALUES (?, ?)").run(videoId, userId);
