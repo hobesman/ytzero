@@ -34,3 +34,17 @@ export function verifyAlexaAudioLink(secret: string, videoId: string, query: URL
   const expected = Buffer.from(signature(secret, kind, videoId, userId, expires));
   return given.length === expected.length && timingSafeEqual(given, expected) ? userId : null;
 }
+
+/**
+ * A video's audio as an HLS playlist, for starting part way in. An Echo plays
+ * the plain file only from its start, whatever offset it is given, but seeks
+ * in a playlist by segment. Signed like the file, which its segments point at.
+ */
+export function alexaPlaylistLink(publicUrl: string, secret: string, videoId: string, userId: number, now = Date.now()): string {
+  return alexaAudioLink(publicUrl, secret, videoId, userId, now, "video").replace("?", "/index.m3u8?");
+}
+
+/** The app's playlist over its own audio route, pointed at the signed Alexa file link instead. */
+export function alexaPlaylist(playlist: string, videoId: string, fileLink: string): string {
+  return playlist.split(`/api/videos/${encodeURIComponent(videoId)}/audio`).join(fileLink);
+}

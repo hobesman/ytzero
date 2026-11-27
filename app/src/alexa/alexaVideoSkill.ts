@@ -23,7 +23,8 @@ export interface AlexaVideoSkillDependencies {
   search: (userId: number, query: string) => Promise<SearchResult[]>;
   /** Adds a searched-for video to the catalog, so it can be served and recorded. */
   importVideo: (userId: number, videoId: string) => Promise<void>;
-  audioLink: (videoId: string, userId: number) => string;
+  /** The stream for a video, starting `offsetSeconds` in (a playlist, when that isn't 0). */
+  audioLink: (videoId: string, userId: number, offsetSeconds: number) => string;
   prepare: (userId: number, videoId: string) => void;
   recordStarted: (userId: number, videoId: string) => Promise<void>;
   recordProgress: (userId: number, videoId: string, position: number, duration: number | null) => Promise<void>;
@@ -150,7 +151,7 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     dependencies.prepare(userId, video.videoId);
     const directive = playDirective({
       track: { videoId: video.videoId, title: video.title, artist: video.channelTitle, thumbnail: video.thumbnail },
-      url: dependencies.audioLink(video.videoId, userId),
+      url: dependencies.audioLink(video.videoId, userId, offsetSeconds),
       token: queue.token ?? encodeVideoToken(video.videoId),
       behavior: queue.previousToken ? "ENQUEUE" : "REPLACE_ALL",
       offsetInMilliseconds: offsetSeconds * 1000,
