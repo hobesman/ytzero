@@ -64,7 +64,7 @@ describe("matching what Alexa heard", () => {
   });
 });
 
-function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: SearchResult[]; resume?: string[] } = {}) {
+function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: SearchResult[]; resume?: string[]; segment?: number } = {}) {
   const catalog = new Map<string, AlexaVideo>();
   for (const list of Object.values(options.videos ?? {})) for (const item of list) catalog.set(item.videoId, item);
   const calls = { searches: [] as string[], imported: [] as string[], started: [] as string[], progress: [] as [string, number, number | null][], finished: [] as string[] };
@@ -84,6 +84,7 @@ function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: Sear
     recordProgress: async (_userId, videoId, position, duration) => { calls.progress.push([videoId, position, duration]); },
     recordFinished: async (_userId, videoId) => { calls.finished.push(videoId); },
     resumeCandidates: async () => options.resume ?? [],
+    ...(options.segment ? { streamStart: async (_userId: number, _videoId: string, offset: number) => Math.floor(offset / options.segment!) * options.segment! } : {}),
   });
   return { skill, calls };
 }
@@ -196,6 +197,12 @@ describe("alexa video skill", () => {
     // Start over still needs a video on the Echo.
     const { skill: again } = harness({ videos: { UC_oldhouse: [partway] }, resume: [id(3)] });
     expect(directive(await again.handle(7, say("AMAZON.StartOverIntent")))).toBeUndefined();
+  });
+
+  test("a play part way in starts at the stream's segment and says so in its offset", async () => {
+    const { skill } = harness({ videos: { UC_oldhouse: [video(3, { resumeAt: 870, duration: 1800 })] }, resume: [id(3)], segment: 20 });
+    const stream = directive(await skill.handle(7, say("AMAZON.ResumeIntent")))?.audioItem.stream;
+    expect(stream?.offsetInMilliseconds).toBe(860_000);
   });
 
   test("resume on an Echo that still holds the video goes on from the profile's later saved place", async () => {

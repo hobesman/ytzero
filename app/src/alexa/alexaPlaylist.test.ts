@@ -5,6 +5,7 @@ import { alexaAudioLink, alexaPlaylist, alexaPlaylistLink } from "./alexaAudioLi
 import type { AlexaConfig } from "./alexaConfig";
 import { nowPlayingChange } from "./alexaNowPlaying";
 import { playDirective, playResponse } from "./alexaPlayback";
+import { playlistSegmentStart, trimPlaylist } from "./alexaPlaylistTrim";
 
 const SECRET = "a-test-secret-that-is-long-enough-123456";
 const VIDEO = "abcdefghijk";
@@ -65,6 +66,36 @@ describe("alexa playlists", () => {
     expect(new Uint8Array(await fallback.arrayBuffer())).toEqual(FILE);
 
     expect((await router("playlist").request(`/video-audio/${VIDEO}/index.m3u8?u=1&e=9999999999&s=forged`)).status).toBe(403);
+  });
+
+  test("starts a playlist at the segment holding a place", () => {
+    const three = [
+      "#EXTM3U", "#EXT-X-MAP:URI=\"f\",BYTERANGE=\"723@0\"",
+      "#EXTINF:19.969160997732,", "#EXT-X-BYTERANGE:100@723", "f",
+      "#EXTINF:19.969160997732,", "#EXT-X-BYTERANGE:100@823", "f",
+      "#EXTINF:10.5,", "#EXT-X-BYTERANGE:50@923", "f",
+      "#EXT-X-ENDLIST", "",
+    ].join("\n");
+    expect(playlistSegmentStart(three, 0)).toBe(0);
+    expect(playlistSegmentStart(three, 25)).toBeCloseTo(19.969, 3);
+    expect(playlistSegmentStart(three, 999)).toBeCloseTo(39.938, 3);
+    expect(trimPlaylist(three, 0)).toBe(three);
+    const trimmed = trimPlaylist(three, 25);
+    expect(trimmed.match(/#EXTINF/g)).toHaveLength(2);
+    expect(trimmed).toContain("#EXT-X-MAP:URI=\"f\"");
+    expect(trimmed).not.toContain("@723");
+    expect(trimmed.endsWith("#EXT-X-ENDLIST\n")).toBe(true);
+    // A start sent back as rounded is still that segment, not the one before.
+    expect(trimPlaylist(three, 19.969).match(/#EXTINF/g)).toHaveLength(2);
+  });
+
+  test("a start in the link trims the served playlist; the file link leaves it out", async () => {
+    const link = new URL(alexaPlaylistLink(settings.publicUrl, SECRET, VIDEO, 1, Date.now(), 19.96916));
+    expect(link.searchParams.get("t")).toBe("19.969");
+    const served = await (await router("playlist").request(`/video-audio/${VIDEO}/index.m3u8${link.search}`)).text();
+    // The one-segment test playlist keeps its only segment, pointed at the file without `t`.
+    expect(served).toContain("#EXT-X-BYTERANGE:161875@3167");
+    expect(served).not.toContain("t=19");
   });
 
   test("now playing reads the video from a playlist link", () => {

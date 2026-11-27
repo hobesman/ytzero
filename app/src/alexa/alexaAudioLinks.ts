@@ -36,12 +36,15 @@ export function verifyAlexaAudioLink(secret: string, videoId: string, query: URL
 }
 
 /**
- * A video's audio as an HLS playlist, for starting part way in. An Echo plays
- * the plain file only from its start, whatever offset it is given, but seeks
- * in a playlist by segment. Signed like the file, which its segments point at.
+ * A video's audio as an HLS playlist, which every Hoban Tube play uses: the
+ * Echo fetches it a small segment at a time, and a playlist can start part way
+ * in (`t`, seconds; see alexaPlaylistTrim.ts), which the Echo can't do in the
+ * plain file. Signed like the file, which its segments point at; `t` is left
+ * out of the signature, since any start within the video is allowed.
  */
-export function alexaPlaylistLink(publicUrl: string, secret: string, videoId: string, userId: number, now = Date.now()): string {
-  return alexaAudioLink(publicUrl, secret, videoId, userId, now, "video").replace("?", "/index.m3u8?");
+export function alexaPlaylistLink(publicUrl: string, secret: string, videoId: string, userId: number, now = Date.now(), startSeconds = 0): string {
+  const link = alexaAudioLink(publicUrl, secret, videoId, userId, now, "video").replace("?", "/index.m3u8?");
+  return startSeconds > 0 ? `${link}&t=${Math.round(startSeconds * 1000) / 1000}` : link;
 }
 
 /** The app's playlist over its own audio route, pointed at the signed Alexa file link instead. */

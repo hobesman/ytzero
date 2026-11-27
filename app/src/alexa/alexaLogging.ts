@@ -30,7 +30,7 @@ export function describeAlexaExchange(skill: "music" | "video", envelope: AlexaE
   if (directive?.type === "AudioPlayer.Stop") fields.action = "stop";
   if (directive?.type === "AudioPlayer.Play") {
     fields.action = directive.playBehavior === "ENQUEUE" ? "queue" : "play";
-    fields.videoId = directive.audioItem?.stream?.url ? new URL(directive.audioItem.stream.url).pathname.split("/").pop() : undefined;
+    fields.videoId = directive.audioItem?.stream?.url?.match(/\/(?:video-)?audio\/([A-Za-z0-9_-]{11})/)?.[1];
     fields.title = directive.audioItem?.metadata?.title?.slice(0, 200);
     fields.by = directive.audioItem?.metadata?.subtitle?.slice(0, 100);
     const offset = Math.round((directive.audioItem?.stream?.offsetInMilliseconds ?? 0) / 1000);

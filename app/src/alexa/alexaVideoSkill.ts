@@ -23,8 +23,15 @@ export interface AlexaVideoSkillDependencies {
   search: (userId: number, query: string) => Promise<SearchResult[]>;
   /** Adds a searched-for video to the catalog, so it can be served and recorded. */
   importVideo: (userId: number, videoId: string) => Promise<void>;
-  /** The stream for a video, starting `offsetSeconds` in (a playlist, when that isn't 0). */
+  /** The stream for a video, starting `offsetSeconds` in. */
   audioLink: (videoId: string, userId: number, offsetSeconds: number) => string;
+  /**
+   * Where a stream asked to start at `offsetSeconds` really starts. An Echo
+   * plays a stream from its own start whatever offset it is given, and reports
+   * that offset back plus the time played, so the stream starts at a segment
+   * boundary and the offset sent is that boundary. Without it, the offset as is.
+   */
+  streamStart?: (userId: number, videoId: string, offsetSeconds: number) => Promise<number>;
   prepare: (userId: number, videoId: string) => void;
   recordStarted: (userId: number, videoId: string) => Promise<void>;
   recordProgress: (userId: number, videoId: string, position: number, duration: number | null) => Promise<void>;
@@ -147,14 +154,15 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     return video ? { video } : { message: `I couldn't find a recent video from ${channel.title}.` };
   }
 
-  function play(userId: number, video: AlexaVideo, offsetSeconds: number, speech?: string | null, queue: { token?: string; previousToken?: string } = {}): AlexaResponse {
+  async function play(userId: number, video: AlexaVideo, offsetSeconds: number, speech?: string | null, queue: { token?: string; previousToken?: string } = {}): Promise<AlexaResponse> {
     dependencies.prepare(userId, video.videoId);
+    const start = offsetSeconds > 0 && dependencies.streamStart ? await dependencies.streamStart(userId, video.videoId, offsetSeconds) : offsetSeconds;
     const directive = playDirective({
       track: { videoId: video.videoId, title: video.title, artist: video.channelTitle, thumbnail: video.thumbnail },
-      url: dependencies.audioLink(video.videoId, userId, offsetSeconds),
+      url: dependencies.audioLink(video.videoId, userId, start),
       token: queue.token ?? encodeVideoToken(video.videoId),
       behavior: queue.previousToken ? "ENQUEUE" : "REPLACE_ALL",
-      offsetInMilliseconds: offsetSeconds * 1000,
+      offsetInMilliseconds: start * 1000,
       expectedPreviousToken: queue.previousToken,
     });
     return speech === undefined ? silent([directive]) : playResponse(speech, directive);
