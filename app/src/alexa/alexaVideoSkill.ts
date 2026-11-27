@@ -212,7 +212,9 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
       if (resumed) return resumed;
     }
     if (!playing) return speech ? speak(`Nothing is playing. ${ASK}`, ASK) : silent();
-    const target = change === "start" ? 0 : change === "same" ? playing.offset : playing.offset + change;
+    // Resuming goes on from the profile's latest saved place, not the Echo's:
+    // the video may have played further on another Echo or in the app since.
+    const target = change === "start" ? 0 : change === "same" ? playing.video.resumeAt ?? playing.offset : playing.offset + change;
     const limit = playing.video.duration ? Math.max(0, playing.video.duration - 1) : Number.POSITIVE_INFINITY;
     return play(userId, playing.video, Math.min(Math.max(0, target), limit), undefined, { token: playing.token });
   }

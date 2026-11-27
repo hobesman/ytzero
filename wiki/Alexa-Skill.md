@@ -258,7 +258,9 @@ on, not on a speaker group.
 - "Alexa, ask Hoban Tube to resume" continues the video the Echo last played.
   If the Echo has since played something else, it picks up the last video that
   Echo played, or else the profile's most recent unfinished one, where it
-  stopped.
+  stopped. Either way it goes on from the profile's latest saved place, not the
+  Echo's own, since the video may have played further on another Echo or in
+  the app since.
 
 The configuration is machine-bound: none of it is stored in the database,
 settings or backups. The Echo devices, their rooms and what each is playing are
