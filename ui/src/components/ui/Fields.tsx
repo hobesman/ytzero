@@ -3,11 +3,12 @@ import { cx } from "./utils";
 import "./Fields.css";
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
-  size?: "sm" | "md";
+  /** `lg` matches Button's touch size. */
+  size?: "sm" | "md" | "lg";
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({ className, size = "md", ...props }, ref) {
-  return <input ref={ref} className={cx("ui-input", size === "sm" && "ui-input--sm", className)} {...props} />;
+  return <input ref={ref} className={cx("ui-input", size !== "md" && `ui-input--${size}`, className)} {...props} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {

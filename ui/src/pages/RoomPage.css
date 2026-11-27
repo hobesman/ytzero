@@ -1,0 +1,113 @@
+/* The room page fills a wall tablet's screen: now playing on the left (on top in portrait), the browser on the right. */
+.room-page {
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  inset: 0;
+  overflow: hidden;
+  padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 20px);
+  position: fixed;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.room-page--idle { background: #000; cursor: none; padding: 0; }
+
+.room-page__bar { align-items: center; display: flex; flex: 0 0 auto; gap: 12px; min-height: 64px; }
+.room-page__room {
+  align-items: center; background: none; border: 0; border-radius: 12px; color: var(--text); cursor: pointer; display: inline-flex;
+  font: inherit; font-size: 26px; font-weight: 700; gap: 12px; letter-spacing: -.01em; padding: 8px 10px; touch-action: manipulation;
+}
+.room-page__room svg { color: var(--text-2); height: 28px; width: 28px; }
+.room-page__room:active { background: var(--surface-2); }
+.room-page__spacer { flex: 1; }
+.room-page__clock { color: var(--text-2); font-size: 24px; font-variant-numeric: tabular-nums; font-weight: 600; padding-inline: 8px; }
+
+.room-page__body { display: grid; flex: 1; gap: 24px; grid-template-columns: minmax(340px, 42%) 1fr; min-height: 0; padding-top: 8px; }
+.room-page__browse { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
+.room-page__tabs .ui-tabs__tab { align-items: center; display: inline-flex; font-size: 17px; gap: 8px; min-height: 48px; padding-inline: 20px; }
+.room-page__tabs .ui-tabs__tab svg { height: 20px; width: 20px; }
+.room-page__panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 24px; padding-right: 4px; }
+
+/* Now playing */
+.room-now {
+  align-content: start; background: var(--surface); border-radius: 24px; display: grid; gap: 20px; grid-template-columns: 1fr;
+  min-height: 0; overflow: hidden; padding: 28px; position: relative;
+}
+.room-now--loading { min-height: 320px; }
+.room-now__art { aspect-ratio: 1; background: var(--surface-2); border-radius: 18px; justify-self: center; max-height: 34vh; object-fit: cover; width: min(100%, 34vh); }
+.room-now__art--empty { align-items: center; color: var(--text-3); display: flex; justify-content: center; }
+.room-now__art--empty svg { height: 35%; stroke-width: 1.3; width: 35%; }
+.room-now__copy { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.room-now__badges { display: flex; flex-wrap: wrap; gap: 8px; min-height: 28px; }
+.room-now__badge.ui-badge { font-size: 15px; min-height: 28px; padding: 2px 12px; }
+.room-now__title { -webkit-box-orient: vertical; display: -webkit-box; font-size: clamp(26px, 3.4vw, 40px); font-weight: 750; -webkit-line-clamp: 2; letter-spacing: -.02em; line-height: 1.12; margin: 0; overflow: hidden; }
+.room-now__artist { color: var(--text-2); font-size: clamp(19px, 2.2vw, 26px); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-now__progress { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.room-now__progress .ui-progress { height: 8px; }
+.room-now__times { color: var(--text-2); display: flex; font-size: 17px; font-variant-numeric: tabular-nums; justify-content: space-between; }
+.room-now__controls { align-items: center; display: flex; gap: 20px; justify-content: center; }
+.room-now__volume { align-items: center; display: flex; gap: 16px; padding-inline: 4px; }
+.room-now__volume svg { color: var(--text-2); flex: 0 0 auto; height: 30px; width: 30px; }
+.room-now__volume .ui-slider { flex: 1; height: 10px; }
+.room-now__volume .ui-slider::-webkit-slider-thumb { height: 34px; width: 34px; }
+.room-now__volume .ui-slider::-moz-range-thumb { height: 34px; width: 34px; }
+.room-now__volume-value { color: var(--text-2); font-size: 20px; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: end; }
+.room-now__volume--busy .ui-slider { opacity: .65; }
+.room-now__failure.ui-alert { font-size: 15px; }
+/* Stays in view over a scrolled list, so the tap that failed is answered where it was made. */
+.room-tab__failure.ui-alert { background: color-mix(in srgb, var(--ui-alert-color) 16%, var(--bg)); font-size: 17px; margin: 0 0 12px; position: sticky; top: 0; z-index: 2; }
+.room-now .ui-empty-state { padding: 40px 12px; }
+
+/* Music and Hoban Tube tabs: the music page's cards and rows, larger for touch. */
+.room-music, .room-videos { display: flex; flex-direction: column; gap: 22px; }
+.room-music__search { display: flex; gap: 10px; }
+.room-music__search .ui-input { flex: 1; }
+.room-music__hint { color: var(--text-2); font-size: 15px; margin: 0; }
+.room-music__station { min-height: 88px; }
+.room-page .music-track { min-height: 64px; }
+.room-page .music-track__title { font-size: 17px; }
+.room-page .music-track__detail { font-size: 14px; }
+.room-page .music-card__title { font-size: 16px; }
+.room-page .music-genre { font-size: 16px; min-height: 56px; }
+.room-music__queue { align-items: center; background: var(--surface); border-radius: 16px; display: flex; gap: 16px; padding: 16px 18px; }
+.room-music__queue > svg { color: var(--accent); flex: 0 0 auto; height: 30px; width: 30px; }
+.room-music__queue--empty { color: var(--text-2); font-size: 15px; margin: 0; padding: 14px 18px; }
+.room-music__queue-copy { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.room-music__queue-label { color: var(--text-2); font-size: 13px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; }
+.room-music__queue-title { font-size: 19px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-music__queue-detail { color: var(--text-2); font-size: 14px; }
+.room-videos__row { gap: 14px; min-height: 84px; }
+.room-videos__row .ui-list-row__title { -webkit-box-orient: vertical; display: -webkit-box; font-size: 17px; -webkit-line-clamp: 2; overflow: hidden; }
+.room-videos__row .ui-list-row__description { font-size: 14px; }
+.room-videos__thumb { aspect-ratio: 16 / 9; border-radius: 10px; object-fit: cover; width: 128px; }
+.room-videos__avatar { border-radius: 50%; height: 56px; object-fit: cover; width: 56px; }
+
+/* The idle screen: dim, and kind to a screen lit all day. */
+.room-idle { align-items: center; color: #8a8a8a; display: flex; height: 100%; justify-content: center; outline: none; width: 100%; }
+.room-idle__content { align-items: center; display: flex; flex-direction: column; gap: 6px; text-align: center; transition: transform 2s ease; }
+.room-idle__room { font-size: 22px; font-weight: 600; letter-spacing: .08em; opacity: .7; text-transform: uppercase; }
+.room-idle__clock { color: #b5b5b5; font-size: clamp(96px, 16vw, 200px); font-variant-numeric: tabular-nums; font-weight: 250; letter-spacing: -.03em; line-height: 1; }
+.room-idle__date { font-size: clamp(22px, 2.6vw, 32px); }
+.room-idle__last { display: flex; flex-direction: column; gap: 4px; margin-top: 36px; max-width: 80vw; }
+.room-idle__last-label { font-size: 15px; letter-spacing: .06em; opacity: .7; text-transform: uppercase; }
+.room-idle__last-title { font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.room-setup__rooms { margin-top: 10px; }
+.room-setup__rooms .ui-chip { font-size: 15px; min-height: 40px; padding-inline: 16px; }
+
+/* Portrait: now playing above, the browser below. */
+@media (orientation: portrait) {
+  .room-page__body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .room-now { align-items: center; column-gap: 24px; grid-template-columns: minmax(140px, 30%) 1fr; padding: 22px; }
+  .room-now__art { grid-row: span 2; max-height: none; width: 100%; }
+  .room-now__controls { justify-content: flex-start; }
+  .room-now__volume { grid-column: 1 / -1; }
+  .room-now__title { font-size: clamp(24px, 4.6vw, 36px); }
+}
+
+/* Short landscape screens (a 10" tablet at 1280×800): a smaller cover keeps the controls in view. */
+@media (orientation: landscape) and (max-height: 760px) {
+  .room-now { gap: 14px; padding: 22px; }
+  .room-now__art { max-height: 28vh; width: min(100%, 28vh); }
+}

@@ -1,5 +1,6 @@
 .ui-input { background: var(--bg); border: 1px solid var(--surface-3); border-radius: 8px; color: var(--text); font: inherit; font-size: 13.5px; height: 36px; min-width: 0; padding: 0 11px; }
 .ui-input--sm { border-radius: 7px; font-size: 12px; height: 30px; padding-inline: 9px; }
+.ui-input--lg { border-radius: 12px; font-size: 18px; height: 56px; padding-inline: 18px; }
 .ui-input::placeholder { color: var(--text-3); }
 .ui-input:disabled { cursor: default; opacity: .55; }
 .ui-textarea { height: auto; line-height: 1.45; min-height: 92px; padding-block: 9px; resize: vertical; }

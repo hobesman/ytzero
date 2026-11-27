@@ -25,8 +25,8 @@ export function SelectMenu<T extends string | number>({ value, options, onChange
     </ScrollArea>
   </>;
   return floating
-    ? <FloatingPopover open={open} onOpenChange={onOpenChange} align={align} className="ui-select-menu__popover" trigger={trigger}>{content}</FloatingPopover>
-    : <Popover open={open} onOpenChange={onOpenChange} align={align} className="ui-select-menu__popover" trigger={trigger}>{content}</Popover>;
+    ? <FloatingPopover open={open} onOpenChange={onOpenChange} align={align} className={cx("ui-select-menu__popover", (size === "lg" || size === "xl") && "ui-select-menu__popover--lg")} trigger={trigger}>{content}</FloatingPopover>
+    : <Popover open={open} onOpenChange={onOpenChange} align={align} className={cx("ui-select-menu__popover", (size === "lg" || size === "xl") && "ui-select-menu__popover--lg")} trigger={trigger}>{content}</Popover>;
 }
 
 /** Like SelectMenu, but for choosing any number of options at once (checkmarks instead of a single active row). */

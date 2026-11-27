@@ -267,6 +267,7 @@ Echo is paired with it.
 | `POST /api/alexa/rooms/<room>/control` | `{"action": "pause"}`, `"resume"`, `"next"`, or `"volume"` with `"volume"` from 0 to 10. |
 | `GET` / `PUT` / `DELETE /api/alexa/rooms/<room>/queue` | Reads, saves or clears the room's queue. |
 | `POST /api/alexa/rooms/<room>/queue/play` | Starts the saved queue on the room's Echo. |
+| `POST /api/alexa/rooms/<room>/video` | Starts a video, a channel's latest or a channel shuffle with the video skill (below). |
 
 **One-tap pairing** sets the room waiting, as `POST /api/alexa/pairing` does,
 then types "ask hoban music to pair" to the room's Echo and waits up to 30
@@ -316,6 +317,24 @@ last record. Its `origin` is `music`, `video` or `home-assistant`.
 
 Home Assistant doesn't say which service is playing, only what. Its art is
 shown only when it's a public link.
+
+**Play a video** (Hoban Tube) starts a video, a channel's newest video or a
+channel shuffle on the room's Echo:
+
+```json
+POST /api/alexa/rooms/Kitchen/video
+{ "kind": "video", "videoId": "…" }
+{ "kind": "latest", "channelId": "UC…" }
+{ "kind": "shuffle", "channelId": "UC…" }
+```
+
+The video skill has no queue, so YT Zero types the Echo what someone would
+say: "ask hoban tube to play the video *title* from *channel*", "…to play the
+latest from *channel*" or "…to shuffle *channel*". The skill finds the video
+by its title among that channel's videos, so a video from a channel the
+profile follows plays reliably and resumes where the profile left off. One
+from a channel it doesn't follow goes to a YouTube search, as when spoken.
+`latest` and `shuffle` need a followed channel.
 
 ### Listening history from other services
 
@@ -370,6 +389,39 @@ start the queue
 ```
 
 then **Save** and **Build skill**.
+
+## Tablet setup
+
+A tablet beside an Echo can be the room's screen: YT Zero's room page shows
+what the Echo is playing, with pause, next and volume, and starts music or
+Hoban Tube there. The page is `/room/<Room>`, for example `/room/Kitchen`.
+Long-press the room's name (or tap the settings button) to choose the
+tablet's room, link the room's Echo in Home Assistant and pair it. The
+switcher at the top shows another room for a while; the tablet goes back to
+its own after a minute untouched.
+
+**Browser.** Use a kiosk browser such as Fully Kiosk Browser:
+
+- Start URL: `https://<your YT Zero address>/room/Kitchen`.
+- Turn on **Keep Screen On** and **Start on Boot**.
+- Leave the screen saver off; the page dims itself to a clock when nothing
+  plays.
+
+The ytzero Android app is a native TV app and can't show this page. Any
+browser that keeps the screen on works. The page also asks the browser to
+keep the screen awake while it's showing.
+
+**Signing in.** Open the page once and sign in as the profile in
+`YTZERO_ALEXA_PROFILE`, so the tablet sees the same queue and history as the
+skills. The page renews its session every day (`POST /api/auth/session/renew`),
+so it stays signed in as long as it's opened at least once every 30 days.
+Behind proxy-header login, the proxy's own session decides. The TV code
+pairing is for the TV app only: a browser page can't use its token.
+
+**Times** show in the tablet's own time zone, so set it in Android's settings.
+
+**Hoban Tube** has no queue, so the tablet tells the Echo what to say (see
+*Play a video* above). It works best with channels the profile follows.
 
 ## How it works
 

@@ -4,6 +4,7 @@ import { feedBuilderMessages } from "./feedBuilder";
 import { clusterMessages } from "./cluster";
 import { notificationMessages } from "./notifications";
 import { tvPairingMessages } from "./tvPairing";
+import { roomMessages } from "./room";
 import { musicMessages } from "./music";
 import { playbackSpeedMemoryMessages } from "./playbackSpeedMemory";
 import type { Locale } from "../types";
@@ -14,7 +15,7 @@ export const es: Locale = {
     ...feedBuilderMessages.es,
     ...clusterMessages.es,
     ...notificationMessages.es,
-    ...tvPairingMessages.es, ...musicMessages.es, ...playbackSpeedMemoryMessages.es,
+    ...tvPairingMessages.es, ...roomMessages.es, ...musicMessages.es, ...playbackSpeedMemoryMessages.es,
     navToday: "Inicio",
     navSocial: "Social",
     navDiscovery: "Descubrir",

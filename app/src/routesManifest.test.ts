@@ -75,6 +75,7 @@ describe("HTTP route manifest", () => {
       "POST /auth/device/authorize",
       "POST /auth/device/token",
       "POST /auth/device/password",
+      "POST /auth/session/renew",
     ];
     const childDownloadRequestRoutes = [
       "POST /child/download-request",
@@ -100,9 +101,10 @@ describe("HTTP route manifest", () => {
       "POST /alexa/rooms/rename", "POST /alexa/pairing", "DELETE /alexa/pairing",
       "GET /alexa/home-assistant", "PUT /alexa/rooms/:room/entity", "POST /alexa/rooms/:room/control", "POST /alexa/rooms/:room/pair",
       "GET /alexa/rooms/:room/queue", "PUT /alexa/rooms/:room/queue", "DELETE /alexa/rooms/:room/queue", "POST /alexa/rooms/:room/queue/play",
+      "POST /alexa/rooms/:room/video",
     ];
     for (const route of alexaRoomRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(322);
+    expect(routes).toHaveLength(324);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);
