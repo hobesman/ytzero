@@ -14,6 +14,7 @@ import { roomVideoPicks, type RoomVideoPicks } from "./alexaRoomVideoPicks";
  * and channel the screen showed. The skill doesn't know that channel either.
  * The words are only the skill's way to it when the screen's note of the exact
  * video is gone (see alexaRoomVideoPicks): with it, the skill plays that video.
+ * Latest and shuffle note the exact channel the same way.
  */
 export type RoomVideoRequest =
   | { kind: "video"; videoId: string; title?: string; channel?: string }
@@ -90,6 +91,7 @@ export async function playRoomVideo(
   const command = await roomVideoCommand(invocation, request, lookup);
   // Noted before typing: the Echo can ask the skill before Home Assistant answers.
   if (request.kind === "video") picks.note(userId, room, request.videoId, command.replace(/^.*? to play the video /, ""));
+  else picks.note(userId, room, request.channelId, command.replace(/^.*? to (play the latest from|shuffle) /, ""), request.kind);
   try {
     await dependencies.homeAssistant.typeCommand(entity, command);
   } catch (error) {

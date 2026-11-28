@@ -2,6 +2,7 @@ import { log } from "../logger";
 import type { SearchResult } from "../youtube";
 import { createChannelDialog, type ChannelDialogDependencies } from "./alexaChannelDialog";
 import { playDirective, playResponse, silent, speak, stopDirective, type AlexaResponse } from "./alexaPlayback";
+import type { RoomVideoPickKind } from "./alexaRoomVideoPicks";
 import { envelopeDeviceId, type AlexaEnvelope } from "./alexaSkill";
 import type { AlexaChannel, AlexaVideo } from "./alexaVideoCatalog";
 import {
@@ -48,7 +49,7 @@ export interface AlexaVideoSkillDependencies {
    * The exact video a room screen just asked this Echo for, when the words
    * Alexa heard are the ones it typed; used once. See alexaRoomVideoPicks.
    */
-  roomPick?: (userId: number, deviceId: string, heard: string) => Promise<string | null>;
+  roomPick?: (userId: number, deviceId: string, heard: string, kind: RoomVideoPickKind) => Promise<string | null>;
 }
 
 const TOKEN_PREFIX = "yv1.";
@@ -122,7 +123,7 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
   /** The video the room's screen asked for, added to the catalog if it's new: no search, no guessing the channel. */
   async function pickedVideo(userId: number, envelope: AlexaEnvelope, query: string): Promise<Found | null> {
     const deviceId = envelopeDeviceId(envelope);
-    const videoId = deviceId ? await dependencies.roomPick?.(userId, deviceId, query) : null;
+    const videoId = deviceId ? await dependencies.roomPick?.(userId, deviceId, query, "video") : null;
     if (!videoId) return null;
     try {
       await dependencies.importVideo(userId, videoId);
@@ -132,6 +133,13 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     }
     const video = await dependencies.findVideo(userId, videoId);
     return video ? { video } : null;
+  }
+
+  /** The followed channel the room's screen asked for the latest from or a shuffle of, rather than the one whose name sounds closest. */
+  async function pickedChannel(userId: number, envelope: AlexaEnvelope, query: string, kind: "latest" | "shuffle"): Promise<AlexaChannel | null> {
+    const deviceId = envelopeDeviceId(envelope);
+    const channelId = deviceId ? await dependencies.roomPick?.(userId, deviceId, channelPhrase(query), kind) : null;
+    return channelId ? (await dependencies.followedChannels(userId)).find((channel) => channel.channelId === channelId) ?? null : null;
   }
 
   async function findVideo(userId: number, query: string): Promise<Found> {
@@ -152,9 +160,9 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     return video ? { video } : { message: `I couldn't find a video called ${query}.` };
   }
 
-  async function randomFrom(userId: number, spoken: string, shuffle: boolean): Promise<Found> {
+  async function randomFrom(userId: number, spoken: string, shuffle: boolean, picked: AlexaChannel | null = null): Promise<Found> {
     const name = channelPhrase(spoken);
-    const channel = await matchedChannel(userId, name);
+    const channel = picked ?? await matchedChannel(userId, name);
     if (!channel) return { message: `You don't follow a channel called ${name}.` };
     const video = pickRandomVideo(await dependencies.channelVideos(userId, channel.channelId), []);
     if (!video) return { message: `I couldn't find a video from ${channel.title}.` };
@@ -168,9 +176,9 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     return video ? { video, state: shuffleAfter(state, video.videoId) } : null;
   }
 
-  async function latestFrom(userId: number, said: string): Promise<Found> {
+  async function latestFrom(userId: number, said: string, picked: AlexaChannel | null = null): Promise<Found> {
     const spoken = channelPhrase(said);
-    const channel = await matchedChannel(userId, spoken);
+    const channel = picked ?? await matchedChannel(userId, spoken);
     if (!channel) return { message: `You don't follow a channel called ${spoken}.` };
     const video = (await dependencies.channelVideos(userId, channel.channelId)).find((item) => item.playable && !item.isShort);
     return video ? { video } : { message: `I couldn't find a recent video from ${channel.title}.` };
@@ -309,9 +317,13 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
       if (!query) return speak(ASK, HELP);
       return start(userId, await pickedVideo(userId, envelope, query) ?? await findVideo(userId, query));
     }
-    if (name === "PlayLatestIntent") return query ? start(userId, await latestFrom(userId, query)) : speak("Which channel?", ASK);
+    if (name === "PlayLatestIntent") {
+      return query ? start(userId, await latestFrom(userId, query, await pickedChannel(userId, envelope, query, "latest"))) : speak("Which channel?", ASK);
+    }
     if (name === "ShuffleChannelIntent" || name === "RandomVideoIntent") {
-      return query ? start(userId, await randomFrom(userId, query, name === "ShuffleChannelIntent")) : speak("Which channel?", ASK);
+      const shuffle = name === "ShuffleChannelIntent";
+      const picked = shuffle && query ? await pickedChannel(userId, envelope, query, "shuffle") : null;
+      return query ? start(userId, await randomFrom(userId, query, shuffle, picked)) : speak("Which channel?", ASK);
     }
     const channelAnswer = await channelIntent(userId, envelope, name, query);
     if (channelAnswer) return channelAnswer;

@@ -109,6 +109,13 @@ describe("POST /alexa/rooms/:room/video", () => {
     expect(roomVideoPicks.take(1, "kitchen", "cats vs cucumbers from pet lab")).toBeNull();
   });
 
+  test("notes the exact channel for latest and shuffle", async () => {
+    await settings.setEntity(1, "Kitchen", ENTITY, NOW);
+    expect((await post({ kind: "shuffle", channelId: CHANNEL })).status).toBe(200);
+    expect(roomVideoPicks.take(1, "kitchen", "marques brownlee and friends", "latest")).toBeNull();
+    expect(roomVideoPicks.take(1, "kitchen", "marques brownlee and friends", "shuffle")).toBe(CHANNEL);
+  });
+
   test("refuses a bad request, a room without an Echo, and an unknown video", async () => {
     expect((await post({ kind: "video" })).status).toBe(400);
     expect((await post({ kind: "video", videoId: "abcdefghijk" })).status).toBe(409);

@@ -211,9 +211,9 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
         return [...new Set([onDevice, latest].filter((id): id is string => Boolean(id)))];
       }),
       channels: given.channels ?? { searchChannels: searchChannelsForAlexa, followedChannels, follow: followChannelForAlexa, unfollow: unfollowChannelForAlexa },
-      roomPick: given.roomPick ?? (async (userId, deviceId, heard) => {
+      roomPick: given.roomPick ?? (async (userId, deviceId, heard, kind) => {
         const room = await tracking.rooms.room(userId, "video", deviceId);
-        return room ? roomVideoPicks.take(userId, room, heard) : null;
+        return room ? roomVideoPicks.take(userId, room, heard, kind) : null;
       }),
     });
   };

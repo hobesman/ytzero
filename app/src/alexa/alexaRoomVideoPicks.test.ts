@@ -22,4 +22,13 @@ describe("room video picks", () => {
     clock += 91_000;
     expect(picks.take(1, "Kitchen", "leaky faucet from this old house")).toBeNull();
   });
+
+  test("a channel noted for its latest video goes only to a request for the latest", () => {
+    const picks = createRoomVideoPicks(() => 0);
+    picks.note(1, "Kitchen", "UC_teded", "ted ed", "latest");
+    expect(picks.take(1, "Kitchen", "ted ed")).toBeNull();
+    expect(picks.take(1, "Kitchen", "ted ed", "shuffle")).toBeNull();
+    expect(picks.take(1, "Kitchen", "ted ed", "latest")).toBe("UC_teded");
+    expect(picks.take(1, "Kitchen", "leaky faucet from this old house")).toBeNull();
+  });
 });
