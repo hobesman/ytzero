@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { verifyAlexaAudioLink } from "./alexaAudioLinks";
-import { alexaInternalAudioLink, alexaProcessedAudioLink, cutsFrom, processedFilter, processedStreamArgs } from "./alexaProcessedAudio";
+import { alexaProcessedAudioLink, cutsFrom, processedFilter, processedStreamArgs } from "./alexaProcessedAudio";
 
 const SECRET = "s".repeat(40);
 const NOW = Date.parse("2026-11-27T12:00:00Z");
@@ -14,14 +14,6 @@ describe("processed audio", () => {
     expect(verifyAlexaAudioLink(SECRET, "aaaaaaaaaaa", link.searchParams, NOW, "video")).toBe(7);
     expect(verifyAlexaAudioLink(SECRET, "aaaaaaaaaaa", link.searchParams, NOW, "music")).toBe(null);
     expect(new URL(alexaProcessedAudioLink("https://yt.example.com", SECRET, "aaaaaaaaaaa", 7, NOW, 0, "music")).searchParams.has("t")).toBe(false);
-  });
-
-  test("ffmpeg reads the plain file from this server, asking for whole ranges", () => {
-    const link = new URL(alexaInternalAudioLink("http://127.0.0.1:3001", SECRET, "aaaaaaaaaaa", 7, NOW, "music"));
-    expect(link.origin).toBe("http://127.0.0.1:3001");
-    expect(link.pathname).toBe("/alexa/audio/aaaaaaaaaaa");
-    expect(link.searchParams.get("whole")).toBe("1");
-    expect(verifyAlexaAudioLink(SECRET, "aaaaaaaaaaa", link.searchParams, NOW, "music")).toBe(7);
   });
 
   test("cuts are measured from the start; ones behind it are gone", () => {

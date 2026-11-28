@@ -14,13 +14,6 @@ export function alexaProcessedAudioLink(publicUrl: string, secret: string, video
   return link.href;
 }
 
-/** The plain file's link on this server's own port, for ffmpeg to read; `whole` has each range answered to the file's end. */
-export function alexaInternalAudioLink(origin: string, secret: string, videoId: string, userId: number, now: number, kind: AlexaAudioKind): string {
-  const link = new URL(alexaAudioLink(origin, secret, videoId, userId, now, kind));
-  link.searchParams.set("whole", "1");
-  return link.href;
-}
-
 /** The cuts after `start`, measured from it, as ffmpeg sees time once it has seeked there. */
 export function cutsFrom(cuts: readonly AudioCut[], start: number): AudioCut[] {
   return cuts.filter((cut) => cut.end > start).map((cut) => ({ start: Math.max(0, cut.start - start), end: cut.end - start }));
