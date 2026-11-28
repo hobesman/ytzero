@@ -2,7 +2,8 @@ import type { Context, Hono } from "hono";
 import {
   alexaBookAudioLink, alexaBookCoverLink, bookStreamResponse, verifyAlexaBookAudioLink, verifyAlexaBookCoverLink, type SpawnFfmpeg,
 } from "../alexa/alexaBookAudio";
-import { createAlexaBookSkill, decodeBookToken, type AlexaBookSkill, type BookApi } from "../alexa/alexaBookSkill";
+import { createBookProgressSync, type BookProgressSync } from "../alexa/alexaBookProgressSync";
+import { createAlexaBookSkill, decodeBookToken, encodeBookToken, type AlexaBookSkill, type BookApi } from "../alexa/alexaBookSkill";
 import type { AlexaConfig } from "../alexa/alexaConfig";
 import type { NowPlayingItem } from "../alexa/alexaNowPlaying";
 import type { AlexaRoomStore } from "../alexa/alexaRooms";
@@ -15,6 +16,8 @@ export interface AlexaBookRouteDependencies {
   audiobookshelf?: () => (BookApi & Pick<AudiobookshelfClient, "cover" | "fileSource">) | { disabled: string };
   roomBooks?: AlexaRoomBooks;
   spawn?: SpawnFfmpeg;
+  /** Saves playing books' places and notices dropped streams; see alexaBookProgressSync.ts. */
+  sync?: BookProgressSync;
 }
 
 /**
@@ -31,6 +34,22 @@ export function createAlexaBookRoutes(dependencies: AlexaBookRouteDependencies &
   const audiobookshelf = dependencies.audiobookshelf ?? defaultAudiobookshelf;
   const roomBooks = dependencies.roomBooks ?? createAlexaRoomBooks();
   let skill: AlexaBookSkill | null = null;
+  const { rooms } = dependencies;
+  const sync = dependencies.sync ?? createBookProgressSync({
+    playing: () => rooms.playingEverywhere("books"),
+    nowPlaying: (userId, deviceId) => rooms.nowPlaying(userId, "books", deviceId),
+    saveNowPlaying: (userId, deviceId, record) => rooms.saveNowPlaying(userId, "books", deviceId, record),
+    book: async (bookId) => {
+      const settings = dependencies.enabled();
+      return settings ? skillFor(settings).book(bookId) : null;
+    },
+    saveProgress: async (bookId, update) => {
+      const client = audiobookshelf();
+      if ("disabled" in client) throw new Error(client.disabled);
+      await client.saveProgress(bookId, update);
+    },
+    now: dependencies.now,
+  });
 
   const skillFor = (settings: AlexaConfig): AlexaBookSkill => skill ??= createAlexaBookSkill({
     books: audiobookshelf,
@@ -74,7 +93,14 @@ export function createAlexaBookRoutes(dependencies: AlexaBookRouteDependencies &
       if (!book || !track) return fail(404, "book or file not in Audiobookshelf");
       if (context.req.method === "HEAD") return new Response(null, { headers: { "Content-Type": "audio/mp4", "Cache-Control": "no-store" } });
       const start = Math.min(Math.max(0, Number(query.get("t")) || 0), Math.max(0, track.duration - 1));
-      const { response, error } = await bookStreamResponse(client.fileSource(bookId, track.ino), track.codec, start, context.req.raw.signal, dependencies.spawn);
+      const token = encodeBookToken(bookId, fileIndex);
+      sync.start();
+      sync.opened(userId, token);
+      const onClose = ({ ended, bytes }: { ended: boolean; bytes: number }) => {
+        log.info("alexa.audio_closed", { skill: "books", bookId, fileIndex, ended, bytes, seconds: Math.round((dependencies.now() - startedAt) / 1000) });
+        if (!ended) void sync.dropped(userId, token);
+      };
+      const { response, error } = await bookStreamResponse(client.fileSource(bookId, track.ino), track.codec, start, context.req.raw.signal, dependencies.spawn, onClose);
       const fields = { skill: "books", bookId, fileIndex, codec: track.codec, start, range: context.req.header("range") ?? null, status: response.status, ms: dependencies.now() - startedAt };
       if (error) log.warn("alexa.audio_failed", { ...fields, reason: error });
       else log.info("alexa.audio", fields);
@@ -95,5 +121,5 @@ export function createAlexaBookRoutes(dependencies: AlexaBookRouteDependencies &
     });
   }
 
-  return { skillFor, describe, register };
+  return { skillFor, describe, register, sync };
 }

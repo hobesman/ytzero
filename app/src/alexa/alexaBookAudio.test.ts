@@ -60,6 +60,38 @@ describe("the stream", () => {
     expect(await response.text()).toBe("ftypmoof");
   });
 
+  test("says the stream ended when the whole file went out", async () => {
+    const closes: { ended: boolean; bytes: number }[] = [];
+    const { response } = await bookStreamResponse(source, "aac", 10, undefined, fake(["ftyp", "moof"]), (outcome) => closes.push(outcome));
+    await response.text();
+    expect(closes).toEqual([{ ended: true, bytes: 8 }]);
+  });
+
+  test("says the stream was dropped when the listener lets go first, once", async () => {
+    const closes: { ended: boolean; bytes: number }[] = [];
+    const spawn = fake(["ftyp", "moof", "mdat"]);
+    const { response } = await bookStreamResponse(source, "aac", 10, undefined, spawn, (outcome) => closes.push(outcome));
+    const reader = response.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    expect(spawn.killed).toBe(true);
+    expect(closes).toEqual([{ ended: false, bytes: 4 }]);
+  });
+
+  test("an aborted request is a drop", async () => {
+    const closes: { ended: boolean }[] = [];
+    const controller = new AbortController();
+    await bookStreamResponse(source, "aac", 10, controller.signal, fake(["ftyp", "moof"]), (outcome) => closes.push(outcome));
+    controller.abort();
+    expect(closes.map((item) => item.ended)).toEqual([false]);
+  });
+
+  test("a stream that never started reports no close", async () => {
+    const closes: unknown[] = [];
+    await bookStreamResponse(source, "aac", 10, undefined, fake([]), (outcome) => closes.push(outcome));
+    expect(closes).toEqual([]);
+  });
+
   test("answers 502 with ffmpeg's first complaint when it produces nothing", async () => {
     const { response, error } = await bookStreamResponse(source, "aac", 10, undefined, fake([], "Server returned 401 Unauthorized\nmore"));
     expect(response.status).toBe(502);
