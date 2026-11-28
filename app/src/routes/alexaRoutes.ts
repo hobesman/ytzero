@@ -38,6 +38,7 @@ import { envelopeInVideoTime, responseInEchoTime } from "../alexa/alexaAudioTime
 import { alexaInternalAudioLink, alexaProcessedAudioLink, processedStreamArgs } from "../alexa/alexaProcessedAudio";
 import { ffmpegStreamResponse, type SpawnFfmpeg } from "../alexa/alexaBookAudio";
 import { createMusicAlbumArt, type MusicAlbumArt } from "../music/musicAlbumArt";
+import { roomVideoPicks } from "../alexa/alexaRoomVideoPicks";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 /** How long a play waits to learn where its playlist starts. */
@@ -205,6 +206,10 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
         return [...new Set([onDevice, latest].filter((id): id is string => Boolean(id)))];
       }),
       channels: given.channels ?? { searchChannels: searchChannelsForAlexa, followedChannels, follow: followChannelForAlexa, unfollow: unfollowChannelForAlexa },
+      roomPick: given.roomPick ?? (async (userId, deviceId, heard) => {
+        const room = await tracking.rooms.room(userId, "video", deviceId);
+        return room ? roomVideoPicks.take(userId, room, heard) : null;
+      }),
     });
   };
 

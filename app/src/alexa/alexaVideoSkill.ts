@@ -44,6 +44,11 @@ export interface AlexaVideoSkillDependencies {
   resumeCandidates?: (userId: number, deviceId: string | undefined) => Promise<string[]>;
   /** Following and unfollowing by voice; left out, those intents say they aren't available. */
   channels?: ChannelDialogDependencies;
+  /**
+   * The exact video a room screen just asked this Echo for, when the words
+   * Alexa heard are the ones it typed; used once. See alexaRoomVideoPicks.
+   */
+  roomPick?: (userId: number, deviceId: string, heard: string) => Promise<string | null>;
 }
 
 const TOKEN_PREFIX = "yv1.";
@@ -112,6 +117,21 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
 
   async function matchedChannel(userId: number, spoken: string): Promise<AlexaChannel | null> {
     return bestMatch(spoken, await dependencies.followedChannels(userId), (channel) => channel.title, channelScore, CHANNEL_MATCH_MIN)?.item ?? null;
+  }
+
+  /** The video the room's screen asked for, added to the catalog if it's new: no search, no guessing the channel. */
+  async function pickedVideo(userId: number, envelope: AlexaEnvelope, query: string): Promise<Found | null> {
+    const deviceId = envelopeDeviceId(envelope);
+    const videoId = deviceId ? await dependencies.roomPick?.(userId, deviceId, query) : null;
+    if (!videoId) return null;
+    try {
+      await dependencies.importVideo(userId, videoId);
+    } catch (error) {
+      log.warn("alexa.room_pick_import_failed", { videoId, error: error instanceof Error ? error.message : String(error) });
+      return null;
+    }
+    const video = await dependencies.findVideo(userId, videoId);
+    return video ? { video } : null;
   }
 
   async function findVideo(userId: number, query: string): Promise<Found> {
@@ -285,7 +305,10 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
   async function intent(userId: number, envelope: AlexaEnvelope): Promise<AlexaResponse> {
     const name = envelope.request?.intent?.name ?? "";
     const query = envelope.request?.intent?.slots?.query?.value?.trim().slice(0, 200) ?? "";
-    if (name === "PlayVideoIntent") return query ? start(userId, await findVideo(userId, query)) : speak(ASK, HELP);
+    if (name === "PlayVideoIntent") {
+      if (!query) return speak(ASK, HELP);
+      return start(userId, await pickedVideo(userId, envelope, query) ?? await findVideo(userId, query));
+    }
     if (name === "PlayLatestIntent") return query ? start(userId, await latestFrom(userId, query)) : speak("Which channel?", ASK);
     if (name === "ShuffleChannelIntent" || name === "RandomVideoIntent") {
       return query ? start(userId, await randomFrom(userId, query, name === "ShuffleChannelIntent")) : speak("Which channel?", ASK);

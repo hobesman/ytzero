@@ -506,7 +506,10 @@ catalog or with a YouTube Music search. Tap the cover to open the song's
 album on the music tab, or the book's page on the Books tab.
 
 **Hoban Tube** has no queue, so the tablet tells the Echo what to say (see
-*Play a video* above). It works best with channels the profile follows.
+*Play a video* above), and notes the exact video for its room as it does.
+When the room's Echo asks for it within a minute and a half, the skill plays
+that video, from any channel, followed or not, adding it to YT Zero if it's
+new. Without the note (a voice request), it finds the video by its words.
 
 **Moving within what plays.** Drag the progress bar and let go to jump there:
 the page types "ask <skill> to jump to 3 minutes 20 seconds" to the Echo,

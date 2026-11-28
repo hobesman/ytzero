@@ -1,6 +1,7 @@
 import { log } from "../logger";
 import type { AlexaChannel, AlexaVideo } from "./alexaVideoCatalog";
 import { RoomControlError, roomSpelling, type RoomControlDependencies, type RoomControlResult } from "./alexaRoomControl";
+import { roomVideoPicks, type RoomVideoPicks } from "./alexaRoomVideoPicks";
 
 /**
  * Starts a video on a room's Echo from a screen. The video skill has no queue,
@@ -10,8 +11,9 @@ import { RoomControlError, roomSpelling, type RoomControlDependencies, type Room
  * the screen showed (and resumes it where the profile left off).
  *
  * A video YT Zero doesn't have (a YouTube search result) comes with the title
- * and channel the screen showed. The skill doesn't know that channel either,
- * so it searches YouTube for "<title> from <channel>", which finds the video.
+ * and channel the screen showed. The skill doesn't know that channel either.
+ * The words are only the skill's way to it when the screen's note of the exact
+ * video is gone (see alexaRoomVideoPicks): with it, the skill plays that video.
  */
 export type RoomVideoRequest =
   | { kind: "video"; videoId: string; title?: string; channel?: string }
@@ -76,6 +78,7 @@ export async function roomVideoCommand(invocation: string, request: RoomVideoReq
 
 export async function playRoomVideo(
   dependencies: RoomControlDependencies, lookup: RoomVideoLookup, userId: number, roomName: string, request: RoomVideoRequest,
+  picks: RoomVideoPicks = roomVideoPicks,
 ): Promise<RoomControlResult> {
   if (!dependencies.skills.video) throw new RoomControlError("The video skill isn't configured.");
   const invocation = dependencies.invocations.video;
@@ -85,6 +88,8 @@ export async function playRoomVideo(
   const entity = await dependencies.settings.entity(userId, room);
   if (!entity) throw new RoomControlError(`The ${room} has no Home Assistant Echo yet.`);
   const command = await roomVideoCommand(invocation, request, lookup);
+  // Noted before typing: the Echo can ask the skill before Home Assistant answers.
+  if (request.kind === "video") picks.note(userId, room, request.videoId, command.replace(/^.*? to play the video /, ""));
   try {
     await dependencies.homeAssistant.typeCommand(entity, command);
   } catch (error) {
