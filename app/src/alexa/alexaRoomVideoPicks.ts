@@ -8,9 +8,15 @@
  *
  * So the screen notes the exact video for its room as it types, and when that
  * room's Echo asks for a video in words like the ones typed, the skill plays
- * the noted one. A note lasts a minute and a half and is used once. It is
- * transient process state: never stored or backed up.
+ * the noted one. "Latest" and "Shuffle" on a channel are noted the same way,
+ * with the channel: the skill plays from that channel rather than the followed
+ * channel whose name sounds closest. A note lasts a minute and a half and is
+ * used once, only by the same kind of request. It is transient process state:
+ * never stored or backed up.
  */
+
+/** What the screen asked for: one video, or a channel's latest video or a shuffle of it. */
+export type RoomVideoPickKind = "video" | "latest" | "shuffle";
 
 const PICK_MS = 90_000;
 /** The share of the typed words Alexa's version must keep; it drops and changes a few ("I'm" heard as "IM"). */
@@ -31,21 +37,21 @@ export function typedWordsKept(typed: string, heard: string): number {
 }
 
 export function createRoomVideoPicks(now: () => number = Date.now) {
-  const picks = new Map<string, { videoId: string; words: string; at: number }>();
+  const picks = new Map<string, { kind: RoomVideoPickKind; id: string; words: string; at: number }>();
   const keyOf = (userId: number, room: string) => `${userId}\n${room.trim().toLowerCase()}`;
   return {
-    /** The screen typed `words` to the room's Echo for this video. */
-    note(userId: number, room: string, videoId: string, typed: string): void {
+    /** The screen typed `words` to the room's Echo for this video (or, for latest and shuffle, this channel). */
+    note(userId: number, room: string, id: string, typed: string, kind: RoomVideoPickKind = "video"): void {
       for (const [key, pick] of picks) if (now() - pick.at > PICK_MS) picks.delete(key);
-      picks.set(keyOf(userId, room), { videoId, words: typed, at: now() });
+      picks.set(keyOf(userId, room), { kind, id, words: typed, at: now() });
     },
-    /** The noted video, if the room's Echo asked for it just now; used up once taken. */
-    take(userId: number, room: string, heard: string): string | null {
+    /** The noted video or channel, if the room's Echo asked for it just now in this kind of request; used up once taken. */
+    take(userId: number, room: string, heard: string, kind: RoomVideoPickKind = "video"): string | null {
       const key = keyOf(userId, room);
       const pick = picks.get(key);
-      if (!pick || now() - pick.at > PICK_MS || typedWordsKept(pick.words, heard) < MIN_OVERLAP) return null;
+      if (!pick || pick.kind !== kind || now() - pick.at > PICK_MS || typedWordsKept(pick.words, heard) < MIN_OVERLAP) return null;
       picks.delete(key);
-      return pick.videoId;
+      return pick.id;
     },
   };
 }

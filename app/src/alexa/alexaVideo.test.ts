@@ -64,7 +64,7 @@ describe("matching what Alexa heard", () => {
   });
 });
 
-function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: SearchResult[]; resume?: string[]; segment?: number; pick?: string } = {}) {
+function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: SearchResult[]; resume?: string[]; segment?: number; pick?: string; pickKind?: string } = {}) {
   const catalog = new Map<string, AlexaVideo>();
   for (const list of Object.values(options.videos ?? {})) for (const item of list) catalog.set(item.videoId, item);
   const calls = { searches: [] as string[], imported: [] as string[], started: [] as string[], progress: [] as [string, number, number | null][], finished: [] as string[], picks: [] as [string, string][] };
@@ -84,7 +84,7 @@ function harness(options: { videos?: Record<string, AlexaVideo[]>; search?: Sear
     recordProgress: async (_userId, videoId, position, duration) => { calls.progress.push([videoId, position, duration]); },
     recordFinished: async (_userId, videoId) => { calls.finished.push(videoId); },
     resumeCandidates: async () => options.resume ?? [],
-    roomPick: async (_userId, deviceId, heard) => { calls.picks.push([deviceId, heard]); return options.pick ?? null; },
+    roomPick: async (_userId, deviceId, heard, kind) => { calls.picks.push([deviceId, heard]); return kind === (options.pickKind ?? "video") ? options.pick ?? null : null; },
     ...(options.segment ? { streamStart: async (_userId: number, _videoId: string, offset: number) => Math.floor(offset / options.segment!) * options.segment! } : {}),
   });
   return { skill, calls };
@@ -160,6 +160,20 @@ describe("alexa video skill", () => {
     const noDevice = harness({ videos: { UC_oldhouse: [faucet] }, pick: id(42) });
     await noDevice.skill.handle(7, say("PlayVideoIntent", { query: "leaky faucet from this old house" }));
     expect(noDevice.calls.picks).toEqual([]);
+  });
+
+  test("plays the latest from, or shuffles, the exact channel a room screen asked for", async () => {
+    // Typed "ted ed"; Alexa heard only "ted", which by name is TED, not TED-Ed.
+    const videos = { UC_ted: [video(6, { title: "A TED talk", channelId: "UC_ted", channelTitle: "TED" })], UC_teded: [video(7, { title: "A TED-Ed lesson", channelId: "UC_teded", channelTitle: "TED-Ed" })] };
+    const at = (envelope: AlexaEnvelope) => ({ ...envelope, context: { System: { device: { deviceId: "echo-1" } } } }) as AlexaEnvelope;
+    const latest = harness({ videos, pick: "UC_teded", pickKind: "latest" });
+    expect(speech(await latest.skill.handle(7, at(say("PlayLatestIntent", { query: "the channel ted" }))))).toBe("Playing A TED-Ed lesson from TED-Ed.");
+    expect(latest.calls.picks).toEqual([["echo-1", "ted"]]);
+    const shuffled = harness({ videos, pick: "UC_teded", pickKind: "shuffle" });
+    expect(speech(await shuffled.skill.handle(7, at(say("ShuffleChannelIntent", { query: "ted" }))))).toBe("Shuffling TED-Ed, starting with A TED-Ed lesson.");
+    // A note for a video, or none, leaves the channel to its name.
+    const other = harness({ videos, pick: "UC_teded" });
+    expect(speech(await other.skill.handle(7, at(say("PlayLatestIntent", { query: "ted" }))))).toBe("Playing A TED talk from TED.");
   });
 
   test("says so when nothing matches", async () => {

@@ -506,7 +506,9 @@ latest from *channel*" or "…to shuffle *channel*". The skill finds the video
 by its title among that channel's videos, so a video from a channel the
 profile follows plays reliably and resumes where the profile left off. One
 from a channel it doesn't follow goes to a YouTube search, as when spoken.
-`latest` and `shuffle` need a followed channel.
+`latest` and `shuffle` need a followed channel. Each request also notes the
+exact video or channel for the room, which the skill uses in place of the
+words when the room's Echo asks within a minute and a half.
 
 ### Listening history from other services
 
@@ -601,7 +603,10 @@ album on the music tab, or the book's page on the Books tab.
 *Play a video* above), and notes the exact video for its room as it does.
 When the room's Echo asks for it within a minute and a half, the skill plays
 that video, from any channel, followed or not, adding it to YT Zero if it's
-new. Without the note (a voice request), it finds the video by its words.
+new. **Latest** and **Shuffle** on a channel note the exact channel the same
+way, so the skill plays from that channel even when Alexa mishears its name
+or another followed channel sounds alike (TED and TED-Ed). Without the note
+(a voice request), it finds the video or channel by its words.
 
 **Moving within what plays.** Drag the progress bar and let go to jump there:
 the page types "ask <skill> to jump to 3 minutes 20 seconds" to the Echo,
