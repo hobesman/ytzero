@@ -6,6 +6,7 @@ import { registerAlexaRoomRoutes } from "../routes/alexaRoomRoutes";
 import { createAlexaRoomStore } from "./alexaRooms";
 import { createAlexaRoomSettings, type AlexaRoomSettings } from "./alexaRoomSettings";
 import { parseRoomVideoRequest, roomVideoCommand, spokenWords, type RoomVideoLookup } from "./alexaRoomVideo";
+import { roomVideoPicks } from "./alexaRoomVideoPicks";
 import type { AlexaVideo } from "./alexaVideoCatalog";
 import { createHomeAssistantClient } from "./homeAssistant";
 
@@ -99,6 +100,13 @@ describe("POST /alexa/rooms/:room/video", () => {
       status: 200, body: { room: "Kitchen", entity: ENTITY, via: "typed", command: "ask hoban tube to play the latest from marques brownlee and friends" },
     });
     expect(typed).toEqual(["ask hoban tube to play the latest from marques brownlee and friends"]);
+  });
+
+  test("notes the exact video for the room's Echo to take", async () => {
+    await settings.setEntity(1, "Kitchen", ENTITY, NOW);
+    expect((await post({ kind: "video", videoId: "missingvid1", title: "Cats vs. Cucumbers", channel: "Pet Lab" })).status).toBe(200);
+    expect(roomVideoPicks.take(1, "kitchen", "cats vs cucumbers from pet lab")).toBe("missingvid1");
+    expect(roomVideoPicks.take(1, "kitchen", "cats vs cucumbers from pet lab")).toBeNull();
   });
 
   test("refuses a bad request, a room without an Echo, and an unknown video", async () => {
