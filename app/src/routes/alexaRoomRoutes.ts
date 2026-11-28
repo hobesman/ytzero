@@ -1,6 +1,8 @@
 import type { Context, Hono } from "hono";
 import type { AlexaSkillKind, NowPlaying } from "../alexa/alexaNowPlaying";
 import { nowPlayingPosition } from "../alexa/alexaNowPlaying";
+import { alexaAudioPlans, type AlexaAudioPlans, type AudioPlan } from "../alexa/alexaAudioPlan";
+import { livePosition } from "../alexa/alexaAudioTimeline";
 import { createAlexaRoomStore, normalizeRoomName, type AlexaDevice, type AlexaRoomStore } from "../alexa/alexaRooms";
 import { createAlexaRoomSettings, type AlexaRoomSettings } from "../alexa/alexaRoomSettings";
 import { homeAssistantSeesMedia, type HomeAssistantReport } from "../alexa/homeAssistant";
@@ -19,6 +21,8 @@ export interface AlexaRoomRouteDependencies {
   isChild?: (userId: number) => Promise<boolean>;
   now?: () => number;
   roomSettings?: AlexaRoomSettings;
+  /** What is cut from each stream, for its live position. */
+  audioPlans?: Pick<AlexaAudioPlans, "peek">;
   /** Home Assistant, invocation names and the rest of the room controls' wiring. */
   control?: Partial<Omit<AlexaRoomControlDependencies, "currentUserId" | "rooms" | "settings" | "now">>;
 }
@@ -27,8 +31,16 @@ const SKILLS = new Set<AlexaSkillKind>(["music", "video", "books"]);
 const parseSkill = (value: unknown): AlexaSkillKind | null => SKILLS.has(value as AlexaSkillKind) ? value as AlexaSkillKind : null;
 const parseDeviceId = (value: unknown): string | null => typeof value === "string" && value && value.length <= 512 ? value : null;
 
+/** The live position, allowing for any cut the stream has passed since it last reported (see alexaAudioTimeline.ts). */
+function livePositionMs(record: NowPlaying, now: number, plan: AudioPlan | null): number {
+  if (!plan?.cuts.length || record.state !== "playing" || !record.startedAt) return nowPlayingPosition(record, now);
+  const elapsed = Math.max(0, now - Date.parse(record.startedAt) - record.offsetMs);
+  const position = livePosition(plan, record.offsetMs, elapsed);
+  return record.durationMs ? Math.min(position, record.durationMs) : position;
+}
+
 /** Now playing as a client shows it: the token stays on the server, and the position is live. */
-function publicNowPlaying(skill: AlexaSkillKind, record: NowPlaying, now: number) {
+function publicNowPlaying(skill: AlexaSkillKind, record: NowPlaying, now: number, plan: AudioPlan | null = null) {
   return {
     skill,
     videoId: record.videoId,
@@ -39,7 +51,7 @@ function publicNowPlaying(skill: AlexaSkillKind, record: NowPlaying, now: number
     state: record.state,
     offsetMs: record.offsetMs,
     startedAt: record.startedAt,
-    positionMs: nowPlayingPosition(record, now),
+    positionMs: livePositionMs(record, now, plan),
     updatedAt: record.updatedAt,
   };
 }
@@ -84,7 +96,7 @@ function roomCurrent(ours: (ReturnType<typeof publicNowPlaying> & { book?: BookN
   // A book shows its chapter's progress, and the whole book's beside it.
   const book = ours?.book ?? null;
   const progress = book?.chapterDurationMs != null ? { durationMs: book.chapterDurationMs, positionMs: book.chapterPositionMs } : { durationMs: ours?.durationMs ?? null, positionMs: ours?.positionMs ?? null };
-  const fromOurs = ours && { origin: ours.skill, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, ...progress, source: null, ...(book ? { book } : {}) };
+  const fromOurs = ours && { origin: ours.skill, videoId: ours.videoId, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, ...progress, source: null, ...(book ? { book } : {}) };
   if (ours?.state === "playing") return fromOurs;
   const stale = ours && seen?.changedAt && Date.parse(seen.changedAt) < Date.parse(ours.updatedAt);
   if (seen && homeAssistantSeesMedia(seen) && !stale) {
@@ -113,6 +125,8 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
   const now = dependencies.now ?? Date.now;
   const settings = dependencies.roomSettings ?? createAlexaRoomSettings();
   const homeAssistant = dependencies.control?.homeAssistant ?? defaultHomeAssistant;
+  const audioPlans = dependencies.audioPlans ?? alexaAudioPlans;
+  const planOf = (userId: number, skill: AlexaSkillKind, record: NowPlaying) => skill === "books" ? null : audioPlans.peek(userId, skill, record.videoId);
 
   api.use("/alexa/*", async (context, next) => {
     if (await isChild(currentUserId(context))) return context.json({ error: "not allowed" }, 403);
@@ -137,7 +151,7 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
       const playing = roomNowPlaying(members);
       const pending = members.map((device) => publicPending(device, at)).filter((item) => item !== null)
         .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0] ?? null;
-      const nowPlaying = playing ? await withBook(publicNowPlaying(playing.skill, playing.nowPlaying!, at), playing.nowPlaying!, loadBook) : null;
+      const nowPlaying = playing ? await withBook(publicNowPlaying(playing.skill, playing.nowPlaying!, at, planOf(userId, playing.skill, playing.nowPlaying!)), playing.nowPlaying!, loadBook) : null;
       const homeAssistantState = seen.get(key) ?? null;
       return {
         room: members[0]?.room ?? entities.get(key)!.room,

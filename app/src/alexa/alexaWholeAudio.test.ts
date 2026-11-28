@@ -38,6 +38,16 @@ describe("alexa whole audio", () => {
     expect(await wholeAudioResponse(async () => null)).toBeNull();
   });
 
+  test("from part way in, answers 206 with the rest of the file", async () => {
+    const requested: string[] = [];
+    const response = (await wholeAudioResponse(proxy(10, requested), 7))!;
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-range")).toBe("bytes 7-24/25");
+    expect(response.headers.get("content-length")).toBe("18");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(FILE.slice(7));
+    expect(requested).toEqual(["bytes=7-", "bytes=17-"]);
+  });
+
   test("a later piece that fails ends the stream with an error", async () => {
     const response = (await wholeAudioResponse(proxy(10, [], 10)))!;
     expect(response.status).toBe(200);

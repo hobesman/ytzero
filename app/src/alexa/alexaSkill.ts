@@ -56,6 +56,8 @@ export interface AlexaSkillDependencies {
   findGenre?: (userId: number, spoken: string) => Promise<MusicPlaylist | null>;
   /** Rooms' saved queues, for "play my queue". */
   queues?: AlexaQueueSource;
+  /** The song's album cover for the Echo's screen and the tablet, rather than a music video's frame; see musicAlbumArt.ts. */
+  albumArt?: (userId: number, track: StoredMusicTrack) => Promise<string>;
 }
 
 const MAX_FAILURES_IN_A_ROW = 3;
@@ -90,8 +92,9 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     const start = extra.seekTo && extra.seekTo > 0
       ? dependencies.streamStart ? await dependencies.streamStart(userId, track.videoId, extra.seekTo) : extra.seekTo
       : 0;
+    const cover = dependencies.albumArt ? await dependencies.albumArt(userId, track) : track.thumbnail;
     const directive = playDirective({
-      track,
+      track: { ...track, thumbnail: cover },
       url: start > 0 ? dependencies.audioLink(track.videoId, userId, start) : dependencies.audioLink(track.videoId, userId),
       token: encodePlaybackToken(state),
       behavior,

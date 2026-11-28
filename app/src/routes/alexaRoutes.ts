@@ -32,6 +32,11 @@ import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
 import { playlistSegmentStart, trimPlaylist } from "../alexa/alexaPlaylistTrim";
 import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
 import { createAlexaBookRoutes, type AlexaBookRouteDependencies } from "./alexaBookRoutes";
+import { UNCHANGED, type AlexaAudioPlans } from "../alexa/alexaAudioPlan";
+import { envelopeInVideoTime, responseInEchoTime } from "../alexa/alexaAudioTimeline";
+import { alexaInternalAudioLink, alexaProcessedAudioLink, processedStreamArgs } from "../alexa/alexaProcessedAudio";
+import { ffmpegStreamResponse, type SpawnFfmpeg } from "../alexa/alexaBookAudio";
+import { createMusicAlbumArt, type MusicAlbumArt } from "../music/musicAlbumArt";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 /** How long a play waits to learn where its playlist starts. */
@@ -60,17 +65,29 @@ export interface AlexaRouteDependencies {
   roomHistory?: AlexaRoomHistory;
   /** Hoban Books: Audiobookshelf, the rooms' queued books and ffmpeg. */
   books?: AlexaBookRouteDependencies;
+  /**
+   * SponsorBlock cuts and music levelling for each stream (see
+   * alexaAudioPlan.ts). Without it nothing is processed: the server passes the
+   * app's own plans.
+   */
+  audioPlans?: Pick<AlexaAudioPlans, "get" | "peek">;
+  /** This server on its own port, where ffmpeg reads the audio it processes. */
+  internalOrigin?: string;
+  spawn?: SpawnFfmpeg;
   now?: () => number;
 }
 
+const NO_PLANS: Pick<AlexaAudioPlans, "get" | "peek"> = { get: async () => UNCHANGED, peek: () => UNCHANGED };
+
 const seconds = (value: number | null | undefined) => value ? value * 1000 : null;
 
-/** The video behind a stream token, with what the catalog says about it. */
-const describeStream: NowPlayingTracking["describe"] = async (skill, userId, token) => {
+/** The video behind a stream token, with what the catalog says about it; a song with its album cover. */
+const describeStream = (albumArt: MusicAlbumArt | null): NowPlayingTracking["describe"] => async (skill, userId, token) => {
   if (skill === "music") {
     const videoId = decodePlaybackToken(token)?.videoId;
     const track = videoId ? await musicTrack(videoId) : null;
-    return track && { videoId: track.videoId, item: { title: track.title, artist: track.artist, art: track.thumbnail, durationMs: seconds(track.duration) } };
+    const art = track && albumArt ? await albumArt(userId, track) : track?.thumbnail ?? "";
+    return track && { videoId: track.videoId, item: { title: track.title, artist: track.artist, art, durationMs: seconds(track.duration) } };
   }
   const videoId = decodeVideoToken(token);
   const video = videoId ? await alexaVideo(userId, videoId) : null;
@@ -88,6 +105,8 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const config = dependencies.config ?? (() => alexaConfig());
   const now = dependencies.now ?? Date.now;
   const verifier = dependencies.verifier ?? createAlexaSignatureVerifier();
+  const plans = dependencies.audioPlans ?? NO_PLANS;
+  const internalOrigin = dependencies.internalOrigin ?? `http://127.0.0.1:${Number(process.env.PORT ?? 3001)}`;
   const resolveProfile = dependencies.resolveProfile ?? resolveAlexaProfile;
   const isChild = dependencies.isChild ?? isChildUser;
   const vodPlaylist = dependencies.vodPlaylist ?? (async (userId: number, videoId: string, signal?: AbortSignal) => (await import("../downloader")).getAudioVodPlaylist(userId, videoId, signal));
@@ -111,11 +130,14 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     }
   };
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
+  let musicClient: ReturnType<typeof createYouTubeMusicClient> | null = null;
+  const musicClientFor = () => musicClient ??= dependencies.skill?.client as ReturnType<typeof createYouTubeMusicClient> | undefined ?? createYouTubeMusicClient();
+  const albumArt: MusicAlbumArt = dependencies.skill?.albumArt ?? createMusicAlbumArt({ search: (userId, query) => musicClientFor().searchSongs(userId, query) });
   const tracking: NowPlayingTracking = {
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
     history: dependencies.roomHistory ?? createAlexaRoomHistory(),
     describe: dependencies.describeStream ?? (async (skill, userId, token) => {
-      if (skill !== "books") return describeStream(skill, userId, token);
+      if (skill !== "books") return describeStream(albumArt)(skill, userId, token);
       const settings = enabled();
       return settings ? books.describe(settings, token) : null;
     }),
@@ -140,7 +162,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   let musicSkill: Handler | null = null;
   const musicSkillFor = (settings: AlexaConfig): Handler => {
     if (musicSkill) return musicSkill;
-    const client = dependencies.skill?.client as ReturnType<typeof createYouTubeMusicClient> | undefined ?? createYouTubeMusicClient();
+    const client = musicClientFor();
     const pages = createMusicPages(client);
     return musicSkill = createAlexaSkill({
       client,
@@ -154,6 +176,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       findTrack: dependencies.skill?.findTrack,
       saveTracks: dependencies.skill?.saveTracks,
       queues: dependencies.skill?.queues ?? queues,
+      albumArt,
       findGenre: dependencies.skill?.findGenre ?? ((userId, spoken) => findGenrePlaylist({ genres: pages.genres, genre: pages.genre, searchPlaylists: client.searchPlaylists }, userId, spoken)),
     });
   };
@@ -221,10 +244,16 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
     const skill = kind === "music" ? musicSkillFor(settings) : kind === "video" ? videoSkillFor(settings) : books.skillFor(settings);
-    const response = await answerRoomIntent(tracking.rooms, userId, kind, envelope, now()) ?? await skill.handle(userId, envelope);
-    await trackDevice(tracking, userId, kind, envelope, response, now());
-    log.info("alexa.request", describeAlexaExchange(kind, envelope, response));
-    return context.json(response);
+    // The skills work in video time; the Echo, in the timeline of what it was sent (see alexaAudioTimeline.ts).
+    const seen = kind === "books" ? envelope : envelopeInVideoTime(envelope, userId, kind, plans, kind === "music"
+      ? (token) => decodePlaybackToken(token)?.videoId ?? null
+      : (token) => decodeVideoToken(token));
+    const response = await answerRoomIntent(tracking.rooms, userId, kind, seen, now()) ?? await skill.handle(userId, seen);
+    await trackDevice(tracking, userId, kind, seen, response, now());
+    const sent = kind === "books" ? response : await responseInEchoTime(response, userId, kind, plans,
+      (videoId, startSeconds) => alexaProcessedAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), startSeconds, kind));
+    log.info("alexa.request", describeAlexaExchange(kind, seen, sent));
+    return context.json(sent);
   });
 
   const audioResponse = async (kind: AlexaAudioKind, context: Context, settings: AlexaConfig, videoId: string, playlist = false): Promise<{ response: Response; reason?: string }> => {
@@ -255,8 +284,12 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       // Audio that can't be indexed still plays, from its start.
       log.warn("alexa.playlist_unavailable", { videoId, result: result.kind });
     }
+    // ffmpeg reading for a processed stream: each range answered to the file's end.
+    const from = query.get("whole") === "1" ? range?.match(/^bytes=(\d+)-$/)?.[1] : undefined;
     const response = context.req.method === "HEAD"
       ? await audio.head(userId, videoId, range, signal)
+      : from !== undefined
+        ? await wholeAudioResponse((piece) => audio.audio(userId, videoId, piece, signal), Number(from))
       // With no range, the Echo needs the whole file; see alexaWholeAudio.ts.
       : range == null
         ? await wholeAudioResponse((piece) => audio.audio(userId, videoId, piece, signal))
@@ -277,6 +310,35 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     else log.info("alexa.audio", fields);
     return response;
   };
+  /** A stream with its plan applied: cut and levelled by ffmpeg, from `t` video seconds (see alexaProcessedAudio.ts). */
+  const serveProcessed = (kind: AlexaAudioKind) => async (context: Context) => {
+    const settings = enabled();
+    if (!settings) return context.json({ error: "not found" }, 404);
+    const videoId = context.req.param("id") ?? "";
+    const startedAt = now();
+    const query = new URL(context.req.url).searchParams;
+    const fields = { skill: kind, videoId, method: context.req.method, processed: true };
+    const fail = (status: 403 | 404 | 502, reason: string) => {
+      log.warn("alexa.audio_failed", { ...fields, status, reason });
+      return context.json({ error: status === 403 ? "invalid link" : "not found" }, status);
+    };
+    const userId = verifyAlexaAudioLink(settings.secret, videoId, query, now(), kind);
+    if (!userId) return fail(403, "invalid or expired link");
+    if (await isChild(userId)) return fail(404, "child profile");
+    const allowed = kind === "music" ? Boolean(await musicTrack(videoId)) : await videoPlayable(userId, videoId);
+    if (!allowed) return fail(404, kind === "music" ? "song not in the catalog" : "video not playable");
+    if (context.req.method === "HEAD") return new Response(null, { headers: { "Content-Type": "audio/mp4", "Cache-Control": "no-store" } });
+    const plan = await plans.get(userId, kind, videoId);
+    const start = Math.max(0, Number(query.get("t")) || 0);
+    const input = alexaInternalAudioLink(internalOrigin, settings.secret, videoId, userId, now(), kind);
+    const { response, error } = await ffmpegStreamResponse(processedStreamArgs(input, start, plan), context.req.raw.signal, dependencies.spawn);
+    const done = { ...fields, start, cuts: plan.cuts.length, volumeDb: plan.volumeDb, status: response.status, ms: now() - startedAt };
+    if (error) log.warn("alexa.audio_failed", { ...done, reason: error });
+    else log.info("alexa.audio", done);
+    return response;
+  };
+  router.get("/audio/:id/processed", serveProcessed("music"));
+  router.get("/video-audio/:id/processed", serveProcessed("video"));
   router.get("/audio/:id", serveAudio("music"));
   // A song started part way in (a seek from the tablet), the way Hoban Tube starts every video.
   router.get("/audio/:id/index.m3u8", serveAudio("music", true));
