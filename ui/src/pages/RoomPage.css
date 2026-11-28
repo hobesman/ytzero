@@ -100,10 +100,14 @@
 .room-lyrics__scroll--synced { scrollbar-width: none; }
 .room-lyrics__scroll--synced::-webkit-scrollbar { display: none; }
 .room-lyrics__lines { display: flex; flex-direction: column; gap: 18px; list-style: none; margin: 0; padding: 40vh 0; }
-/* The line being sung grows by font size, not a transform, so a long line wraps inside the panel instead of running off it. */
-.room-lyrics__line { color: var(--text-3); font-size: clamp(24px, 2.6vw, 34px); font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; transition: color .35s ease, font-size .25s ease; }
+/*
+ * Every line wraps short of the edge (89%), so the line being sung can zoom
+ * by 12% and still fit: nothing re-wraps when a line becomes current, so the
+ * text doesn't jump.
+ */
+.room-lyrics__line { color: var(--text-3); font-size: clamp(24px, 2.6vw, 34px); font-weight: 650; line-height: 1.25; max-width: 89%; overflow-wrap: anywhere; transform-origin: left center; transition: color .35s ease, transform .35s ease; }
 .room-lyrics__line[data-past] { color: color-mix(in srgb, var(--text-3) 70%, transparent); }
-.room-lyrics__line[aria-current="true"] { color: var(--text); font-size: clamp(27px, 2.9vw, 38px); }
+.room-lyrics__line[aria-current="true"] { color: var(--text); transform: scale(1.12); }
 .room-lyrics__plain { font-size: clamp(22px, 2.2vw, 30px); line-height: 1.5; margin: 0; white-space: pre-line; }
 .room-lyrics__source { color: var(--text-3); font-size: 14px; margin: 0; padding: 10px 32px 16px; }
 @media (prefers-reduced-motion: reduce) { .room-lyrics__line { transition: none; } }
