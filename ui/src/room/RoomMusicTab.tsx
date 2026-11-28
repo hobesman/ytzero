@@ -231,7 +231,10 @@ function DetailView({ music, kind, id, roomName }: { music: RoomMusic; kind: str
       const playlist = loaded.page;
       return <>
         <MusicDetailHeader art={playlist.thumbnail} title={playlist.title} detail={playlist.subtitle}>
-          <PlayInRoom roomName={roomName} onClick={() => music.play({ title: playlist.title, seed: { kind: "playlist", playlistId: playlist.playlistId } })} />
+          {/* Its songs as the room's queue, in order, so the queue shows what comes next; a station like it follows. */}
+          <PlayInRoom roomName={roomName} onClick={() => playlist.tracks.length
+            ? music.playTracks(playlist.tracks, 0, playlist.title)
+            : music.play({ title: playlist.title, seed: { kind: "playlist", playlistId: playlist.playlistId } })} />
         </MusicDetailHeader>
         {tap(playlist.tracks, playlist.title)}
       </>;
