@@ -71,7 +71,8 @@ export type RoomSeed = Exclude<MusicSeed, { kind: "track" }>;
 
 export type RoomQueue = { queueId: string; room: string; title: string; seed: RoomSeed | null; videoIds: string[]; savedAt: string };
 
-export type RoomVideoRequest = { kind: "video"; videoId: string } | { kind: "latest" | "shuffle"; channelId: string };
+/** A video by id; one YT Zero doesn't have (a search result) also carries the title and channel to ask the Echo for. */
+export type RoomVideoRequest = { kind: "video"; videoId: string; title?: string; channel?: string } | { kind: "latest" | "shuffle"; channelId: string };
 
 export type HomeAssistantPlayers = {
   enabled: boolean;

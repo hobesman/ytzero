@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MicVocal, Music, Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Alert, Badge, IconButton, ProgressBar, Slider } from "../components/ui";
@@ -67,6 +67,39 @@ function RoomVolume({ room, control, onVolume }: { room: AlexaRoom | null; contr
   </div>;
 }
 
+/** Below this, a cover above the title is too small to make out: it moves beside the title instead. */
+const COVER_MIN_PX = 110;
+
+/**
+ * Whether the cover goes beside the title. In landscape the cover takes the
+ * height the text and controls leave, which a long title or an alert can
+ * shrink to nothing; then it moves beside the title, as tall as the title
+ * block. Measured again when the song, the panel's size or what it shows changes.
+ */
+function useCoverBeside(layoutKey: string) {
+  const panel = useRef<HTMLElement>(null);
+  const [beside, setBeside] = useState(false);
+  const [resized, setResized] = useState(0);
+  useEffect(() => {
+    const element = panel.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    let last = "";
+    const observer = new ResizeObserver(([entry]) => {
+      const size = `${Math.round(entry.contentRect.width)}x${Math.round(entry.contentRect.height)}`;
+      if (size !== last) { last = size; setResized((count) => count + 1); }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => { setBeside(false); }, [layoutKey, resized]);
+  useLayoutEffect(() => {
+    if (beside) return;
+    const box = panel.current?.querySelector<HTMLElement>(".room-now__art-box");
+    if (box && window.matchMedia("(orientation: landscape)").matches && box.clientHeight < COVER_MIN_PX) setBeside(true);
+  });
+  return { panel, beside };
+}
+
 export function RoomNowPlaying({ roomName, room, display, control, receivedAt, names, onCommand, lyrics, onLyrics }: {
   roomName: string;
   room: AlexaRoom | null;
@@ -100,8 +133,9 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
     : display.kind === "idle" ? null : roomSource(display.current.origin, display.current.source);
   const playing = display.kind === "playing" || display.kind === "starting";
   const toggleBusy = control?.action === "pause" || control?.action === "resume";
+  const { panel, beside } = useCoverBeside([item?.title, item?.artist, display.kind, control?.action === "play", failure].join(""));
 
-  return <section className="room-now" aria-label={t("roomNowPlaying")} aria-live="polite">
+  return <section ref={panel} className={`room-now${beside ? " room-now--cover-beside" : ""}`} aria-label={t("roomNowPlaying")} aria-live="polite">
     <div className="room-now__art-box"><RoomArt url={item?.art} /></div>
     <div className="room-now__copy">
       <div className="room-now__badges">

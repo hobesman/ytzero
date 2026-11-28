@@ -8,9 +8,13 @@ import { RoomControlError, roomSpelling, type RoomControlDependencies, type Room
  * video <title> from <channel>". The skill matches that against the channel's
  * videos in YT Zero, where a whole title scores highest, so it finds the video
  * the screen showed (and resumes it where the profile left off).
+ *
+ * A video YT Zero doesn't have (a YouTube search result) comes with the title
+ * and channel the screen showed. The skill doesn't know that channel either,
+ * so it searches YouTube for "<title> from <channel>", which finds the video.
  */
 export type RoomVideoRequest =
-  | { kind: "video"; videoId: string }
+  | { kind: "video"; videoId: string; title?: string; channel?: string }
   | { kind: "latest"; channelId: string }
   | { kind: "shuffle"; channelId: string };
 
@@ -20,7 +24,12 @@ const CHANNEL_ID = /^UC[\w-]{22}$/;
 const MAX_TITLE_WORDS = 14;
 
 export function parseRoomVideoRequest(body: Record<string, unknown> | null): RoomVideoRequest | null {
-  if (body?.kind === "video" && typeof body.videoId === "string" && VIDEO_ID.test(body.videoId)) return { kind: "video", videoId: body.videoId };
+  if (body?.kind === "video" && typeof body.videoId === "string" && VIDEO_ID.test(body.videoId)) {
+    const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim().slice(0, 300) : undefined;
+    const title = text(body.title);
+    const channel = text(body.channel);
+    return { kind: "video", videoId: body.videoId, ...(title && channel ? { title, channel } : {}) };
+  }
   if ((body?.kind === "latest" || body?.kind === "shuffle") && typeof body.channelId === "string" && CHANNEL_ID.test(body.channelId)) {
     return { kind: body.kind, channelId: body.channelId };
   }
@@ -51,10 +60,10 @@ export interface RoomVideoLookup {
 export async function roomVideoCommand(invocation: string, request: RoomVideoRequest, lookup: RoomVideoLookup): Promise<string> {
   if (request.kind === "video") {
     const video = await lookup.video(request.videoId);
-    if (!video) throw new RoomControlError("YT Zero doesn't know that video.", 404);
-    if (!video.playable) throw new RoomControlError("That video can't be played on an Echo.", 400);
-    const title = spokenWords(video.title);
-    const channel = spokenWords(video.channelTitle);
+    if (!video && !(request.title && request.channel)) throw new RoomControlError("YT Zero doesn't know that video.", 404);
+    if (video && !video.playable) throw new RoomControlError("That video can't be played on an Echo.", 400);
+    const title = spokenWords(video?.title ?? request.title ?? "");
+    const channel = spokenWords(video?.channelTitle ?? request.channel ?? "");
     if (!title || !channel) throw new RoomControlError("That video's title can't be said.", 400);
     return `ask ${invocation} to play the video ${title} from ${channel}`;
   }

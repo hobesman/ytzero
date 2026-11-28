@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Heart, ListMusic, Play, Radio, RotateCcw, Search, Sparkles } from "lucide-react";
+import { Heart, ListMusic, Play, Radio, RotateCcw, Sparkles } from "lucide-react";
 import { formatSongCount, useI18n } from "../i18n";
 import { parseAppTimestamp } from "../dateTime";
-import { Alert, Button, Input, SectionHeader } from "../components/ui";
+import { Alert, Button, SectionHeader } from "../components/ui";
 import {
   musicApi, type MusicAlbum, type MusicAlbumPage, type MusicArtist, type MusicArtistPage, type MusicGenre, type MusicGenrePage, type MusicPlaylist,
   type MusicPlaylistPage, type MusicTrack, type MusicUserPlaylist, type MusicUserPlaylistPage,
@@ -15,6 +15,7 @@ import {
 import { roomApi, type RoomQueue, type RoomSeed } from "./roomApi";
 import { deviceTimeZone, roomPath } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
+import { RoomSearchBox } from "./RoomSearchBox";
 import "../pages/MusicPage.css";
 
 type QueueRequest = { title: string } & ({ videoIds: string[] } | { seed: RoomSeed });
@@ -241,19 +242,10 @@ export function RoomMusicTab({ roomName, homeRoom, path, onCommand, playingKey }
   useEffect(loadQueue, [loadQueue]);
   const music = useRoomMusic(roomName, homeRoom, onCommand, loadQueue);
   const query = path[0] === "search" ? new URLSearchParams(location.search).get("q")?.trim() ?? "" : "";
-  const [draft, setDraft] = useState(query);
-  useEffect(() => setDraft(query), [query]);
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    if (draft.trim()) music.search(draft.trim());
-  };
   const replay = () => void onCommand(roomName, "play", () => roomApi.replayQueue(roomName));
   const [kind, id] = path;
   return <div className="room-music">
-    <form className="room-music__search" role="search" onSubmit={submit}>
-      <Input size="lg" value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={music.t("musicSearchPlaceholder")} aria-label={music.t("musicSearchPlaceholder")} enterKeyHint="search" />
-      <Button size="lg" type="submit" leadingIcon={<Search />}>{music.t("search")}</Button>
-    </form>
+    <RoomSearchBox value={query} placeholder={music.t("musicSearchPlaceholder")} onSearch={music.search} />
     {music.failure ? <Alert variant="danger" role="alert" className="room-tab__failure">{music.failure}</Alert> : null}
     {kind === "search" && query ? <SearchView music={music} query={query} roomName={roomName} />
       : kind && id && ["album", "artist", "genre", "playlist", "mine"].includes(kind) ? <DetailView music={music} kind={kind} id={decodeURIComponent(id)} roomName={roomName} />
