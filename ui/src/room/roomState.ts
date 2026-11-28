@@ -26,6 +26,31 @@ export function livePosition(current: RoomCurrent | null, receivedAt: number, no
   return { positionMs: durationMs ? Math.min(positionMs, durationMs) : positionMs, durationMs };
 }
 
+/** Where a book is in the whole book now, counted on like livePosition. */
+export function liveBookPosition(current: RoomCurrent | null, receivedAt: number, now: number): { positionMs: number; durationMs: number; leftMs: number } | null {
+  const book = current?.book;
+  if (!book) return null;
+  const elapsed = current.state === "playing" ? Math.max(0, now - receivedAt) : 0;
+  const positionMs = Math.min(book.bookDurationMs, Math.max(0, book.bookPositionMs + elapsed));
+  return { positionMs, durationMs: book.bookDurationMs, leftMs: Math.max(0, book.bookDurationMs - positionMs) };
+}
+
+/**
+ * Whether the progress bar can move playback. Our skills start a new stream
+ * at the place; what Home Assistant sees moves only if the Echo says it can seek.
+ */
+export function roomCanSeek(room: AlexaRoom | null, current: RoomCurrent | null): boolean {
+  if (!current?.durationMs || current.positionMs == null) return false;
+  if (current.origin === "home-assistant") return Boolean(room?.homeAssistant?.canSeek);
+  return current.state === "playing" || current.state === "paused";
+}
+
+/** A place on a book's chapter bar as a place in the whole book, in seconds, which is what the skill jumps to. */
+export function bookSeekSeconds(book: NonNullable<RoomCurrent["book"]>, chapterMs: number): number {
+  const chapterStart = book.bookPositionMs - (book.chapterPositionMs ?? 0);
+  return Math.max(0, Math.round((chapterStart + chapterMs) / 1000));
+}
+
 /** "3:07", or "1:02:45" past an hour. */
 export function clockDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -36,10 +61,10 @@ export function clockDuration(ms: number): string {
 }
 
 /** The badge naming where the sound comes from. Home Assistant names only the Echo's input, if that. */
-export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "home-assistant"; source: string | null };
+export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "books" } | { kind: "home-assistant"; source: string | null };
 
 export function roomSource(origin: RoomCurrent["origin"] | RoomPendingPlay["skill"], source: string | null = null): RoomSource {
-  if (origin === "music" || origin === "video") return { kind: origin };
+  if (origin === "music" || origin === "video" || origin === "books") return { kind: origin };
   // "Local Speaker" is the Echo's own input (Amazon Music, radio, podcasts): it names nothing a person would recognise.
   return { kind: "home-assistant", source: source && source.trim().toLowerCase() !== "local speaker" ? source : null };
 }
@@ -71,10 +96,12 @@ export function roomVolume(room: AlexaRoom | null): number | null {
 
 /** A command sent from the page, shown as pending until the room's state reflects it. */
 export type PendingControl = {
-  action: "pause" | "resume" | "next" | "volume" | "play";
+  action: "pause" | "resume" | "next" | "previous" | "skip" | "seek" | "volume" | "play";
   sentAt: number;
   /** For volume: the level asked for, 0–10. */
   volume?: number;
+  /** For seek: the place asked for, in the progress bar's milliseconds, shown until the Echo gets there. */
+  target?: number;
   /** The room as it was when the button was pressed. */
   before: RoomFingerprint;
 };
@@ -101,7 +128,8 @@ export function controlConfirmed(control: PendingControl, room: AlexaRoom | null
   switch (control.action) {
     case "pause": return now.state !== "playing";
     case "resume": return now.state === "playing" && !room?.pending;
-    case "next": return startedSomething || (changedItem && now.state === "playing");
+    // A chapter or a skip in a book starts a new stream, which shows as a play waiting to start.
+    case "next": case "previous": case "skip": case "seek": return startedSomething || (changedItem && now.state === "playing");
     case "play": return startedSomething || (changedItem && now.state === "playing");
     case "volume": {
       const level = roomVolume(room);
@@ -191,7 +219,7 @@ export type RoomLyricsSong =
 
 export function roomLyricsSong(room: AlexaRoom | null): RoomLyricsSong {
   const current = room?.current;
-  if (!current?.title || current.state === "finished") return null;
+  if (!current?.title || current.state === "finished" || current.origin === "books") return null;
   const videoId = current.origin === "home-assistant" ? null : room?.nowPlaying?.videoId;
   if (current.origin === "video") return videoId ? { kind: "video", videoId, key: `video:${videoId}` } : null;
   if (videoId) return { kind: "track", videoId, key: `track:${videoId}` };

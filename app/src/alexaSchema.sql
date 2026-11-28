@@ -5,7 +5,7 @@
 -- environment variables, and these rows mean nothing to another server.
 CREATE TABLE IF NOT EXISTS alexa_devices (
   user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video')),
+  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
   device_id    TEXT NOT NULL,
   -- NULL until the Echo is paired with a room.
   room         TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS alexa_devices (
 -- Echo's AudioPlayer events. Transient: the next event rewrites it.
 CREATE TABLE IF NOT EXISTS alexa_now_playing (
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  skill       TEXT NOT NULL CHECK (skill IN ('music', 'video')),
+  skill       TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
   device_id   TEXT NOT NULL,
   token       TEXT NOT NULL,
   video_id    TEXT NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS alexa_pairing (
 -- Transient.
 CREATE TABLE IF NOT EXISTS alexa_pending_play (
   user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video')),
+  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
   device_id    TEXT NOT NULL,
   token        TEXT NOT NULL,
   video_id     TEXT NOT NULL,
@@ -93,4 +93,32 @@ CREATE TABLE IF NOT EXISTS alexa_room_queues (
   video_ids TEXT NOT NULL DEFAULT '',
   saved_at  TEXT NOT NULL,
   PRIMARY KEY (user_id, room_key)
+);
+
+-- What "ask hoban books to play my book" plays in a room: a book from the
+-- user's Audiobookshelf, saved from a tablet, from a chosen chapter or time
+-- (start_seconds) or, when NULL, from the book's saved place. Transient:
+-- replaced by the next one.
+CREATE TABLE IF NOT EXISTS alexa_room_books (
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  room_key      TEXT NOT NULL,
+  book_id       TEXT NOT NULL,
+  title         TEXT NOT NULL DEFAULT '',
+  start_seconds REAL,
+  saved_at      TEXT NOT NULL,
+  PRIMARY KEY (user_id, room_key)
+);
+
+-- What each room's Echo played lately, one row per item and skill, for the
+-- tablet's "recently played here". Kept short: older rows are pruned.
+CREATE TABLE IF NOT EXISTS alexa_room_history (
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  room_key  TEXT NOT NULL,
+  skill     TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
+  item_id   TEXT NOT NULL,
+  title     TEXT NOT NULL DEFAULT '',
+  artist    TEXT NOT NULL DEFAULT '',
+  art       TEXT NOT NULL DEFAULT '',
+  played_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, room_key, skill, item_id)
 );

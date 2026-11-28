@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
-import { alexaAudioLink, alexaPlaylist, alexaPlaylistLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
+import { createAlexaRoomHistory, type AlexaRoomHistory } from "../alexa/alexaRoomHistory";
+import { alexaAudioLink, alexaAudioPath, alexaPlaylist, alexaPlaylistLink, verifyAlexaAudioLink, type AlexaAudioKind } from "../alexa/alexaAudioLinks";
 import { followChannelForAlexa, searchChannelsForAlexa, unfollowChannelForAlexa } from "../alexa/alexaChannelFollow";
 import { findGenrePlaylist } from "../alexa/alexaGenreMatch";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
@@ -30,6 +31,7 @@ import { defaultMusicAudio } from "./musicRoutes";
 import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
 import { playlistSegmentStart, trimPlaylist } from "../alexa/alexaPlaylistTrim";
 import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
+import { createAlexaBookRoutes, type AlexaBookRouteDependencies } from "./alexaBookRoutes";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 /** How long a play waits to learn where its playlist starts. */
@@ -54,6 +56,10 @@ export interface AlexaRouteDependencies {
   /** Rooms' Home Assistant entities and saved queues. */
   roomSettings?: AlexaRoomSettings;
   describeStream?: NowPlayingTracking["describe"];
+  /** Each room's recent plays. */
+  roomHistory?: AlexaRoomHistory;
+  /** Hoban Books: Audiobookshelf, the rooms' queued books and ffmpeg. */
+  books?: AlexaBookRouteDependencies;
   now?: () => number;
 }
 
@@ -107,7 +113,12 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
   const tracking: NowPlayingTracking = {
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
-    describe: dependencies.describeStream ?? describeStream,
+    history: dependencies.roomHistory ?? createAlexaRoomHistory(),
+    describe: dependencies.describeStream ?? (async (skill, userId, token) => {
+      if (skill !== "books") return describeStream(skill, userId, token);
+      const settings = enabled();
+      return settings ? books.describe(settings, token) : null;
+    }),
   };
   const roomSettings = dependencies.roomSettings ?? createAlexaRoomSettings();
   // The music skill sees its own device ID, so the room comes from its pairing.
@@ -135,7 +146,10 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       client,
       stations: dependencies.skill?.stations ?? createMusicStations(client, pages),
       prepare: dependencies.skill?.prepare ?? prepare,
-      audioLink: dependencies.skill?.audioLink ?? ((videoId, userId) => alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "music")),
+      audioLink: dependencies.skill?.audioLink ?? ((videoId, userId, startSeconds) => startSeconds
+        ? alexaPlaylistLink(settings.publicUrl, settings.secret, videoId, userId, now(), startSeconds, "music")
+        : alexaAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), "music")),
+      streamStart: dependencies.skill?.streamStart ?? streamStart,
       recordPlay: dependencies.skill?.recordPlay ?? recordMusicPlay,
       findTrack: dependencies.skill?.findTrack,
       saveTracks: dependencies.skill?.saveTracks,
@@ -174,6 +188,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     const settings = config();
     return "disabled" in settings ? null : settings;
   };
+  const books = createAlexaBookRoutes({ ...dependencies.books, enabled, rooms: tracking.rooms, isChild, now });
 
   router.post("/", async (context) => {
     const settings = enabled();
@@ -194,7 +209,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       return context.json({ error: "invalid signature" }, 400);
     }
     const skillId = envelopeSkillId(envelope);
-    const kind = skillId && skillId === settings.musicSkillId ? "music" : skillId && skillId === settings.videoSkillId ? "video" : null;
+    const kind = !skillId ? null : skillId === settings.musicSkillId ? "music" : skillId === settings.videoSkillId ? "video" : skillId === settings.booksSkillId ? "books" : null;
     if (!kind) {
       log.warn("alexa.request_refused", { reason: "wrong skill" });
       return context.json({ error: "wrong skill" }, 400);
@@ -205,7 +220,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       return context.json(speak("YT Zero can't find the profile this skill is set up to use."));
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
-    const skill = kind === "music" ? musicSkillFor(settings) : videoSkillFor(settings);
+    const skill = kind === "music" ? musicSkillFor(settings) : kind === "video" ? videoSkillFor(settings) : books.skillFor(settings);
     const response = await answerRoomIntent(tracking.rooms, userId, kind, envelope, now()) ?? await skill.handle(userId, envelope);
     await trackDevice(tracking, userId, kind, envelope, response, now());
     log.info("alexa.request", describeAlexaExchange(kind, envelope, response));
@@ -233,7 +248,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       if (result.kind === "playlist") {
         const fileQuery = new URLSearchParams(query);
         fileQuery.delete("t");
-        const fileLink = `${settings.publicUrl}/alexa/video-audio/${videoId}?${fileQuery}`;
+        const fileLink = `${settings.publicUrl}/alexa/${alexaAudioPath(kind)}/${videoId}?${fileQuery}`;
         const playlistText = trimPlaylist(result.playlist, Number(query.get("t")) || 0);
         return { response: new Response(alexaPlaylist(playlistText, videoId, fileLink), { headers: { "Content-Type": "application/vnd.apple.mpegurl", "Cache-Control": "no-store" } }) };
       }
@@ -263,8 +278,11 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     return response;
   };
   router.get("/audio/:id", serveAudio("music"));
+  // A song started part way in (a seek from the tablet), the way Hoban Tube starts every video.
+  router.get("/audio/:id/index.m3u8", serveAudio("music", true));
   router.get("/video-audio/:id", serveAudio("video"));
   router.get("/video-audio/:id/index.m3u8", serveAudio("video", true));
+  books.register(router);
 
   return router;
 }

@@ -1,6 +1,6 @@
 # Alexa Skills
 
-YT Zero can be the backend for two private Alexa skills. Set up either or both.
+YT Zero can be the backend for three private Alexa skills. Set up any of them.
 
 **Hoban Music** plays music mode: "Alexa, ask Hoban Music to play Harvest
 Moon", "…play songs by Radiohead", "…play the album OK Computer", "…play my
@@ -27,8 +27,9 @@ answers from the song it sent, so it stays right even when Alexa's own "what
 song is this?" goes stale, which can happen after a song fails to resume.
 
 Both skills support pause, resume and start over, by voice and with the
-device's buttons. The music skill and a shuffled channel also support next. In
-the video skill, say "skip forward 2 minutes" or "go back 30 seconds".
+device's buttons. The music skill and a shuffled channel also support next and
+previous. In either skill, say "skip forward 2 minutes", "go back 30 seconds"
+or "jump to 3 minutes".
 
 These names are only examples: the skills answer to whatever invocation names
 you give them in step 1.
@@ -62,6 +63,7 @@ Repeat these steps once per skill, using that skill's interaction model:
 | --- | --- | --- |
 | Music | [`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json) | `hoban music` |
 | Video | [`docs/alexa-video-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-video-interaction-model.json) | `hoban tube` |
+| Books | [`docs/alexa-books-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-books-interaction-model.json) | `hoban books` (see [Hoban Books](#hoban-books-audiobooks-from-audiobookshelf)) |
 
 1. Sign in to the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
    with the same Amazon account your Echo uses.
@@ -187,6 +189,69 @@ list music mode shows on the phone:
 
 The playlist's songs play shuffled. Once they run low, the station carries on
 like any other, following the songs you kept listening to.
+
+## Hoban Books: audiobooks from Audiobookshelf
+
+**Hoban Books** is a third, optional skill. It plays the audiobooks in your
+[Audiobookshelf](https://www.audiobookshelf.org/) server on an Echo, and keeps
+your place in Audiobookshelf itself, so the Audiobookshelf phone app and the
+Echo carry on from each other.
+
+- "Alexa, ask Hoban Books to continue my book" resumes the book you were last
+  listening to, from where you stopped on any device.
+- "…play *title*" (or "…read *title*") finds a book by its title, and "…play a
+  book by *author*" the author's book you're in the middle of, or their first.
+- "…play the next book in the series" starts the book after the one playing.
+- "…play my book" plays the book chosen for the room on its tablet.
+- "Alexa, next" and "Alexa, previous" move by chapter. "…skip forward 2
+  minutes" and "…go back 30 seconds" skip within the book; "Alexa, start over"
+  goes back to the start of the chapter.
+- "…what am I listening to?" says the book and chapter, and "…how much is
+  left?" the time left in the chapter and the book.
+
+Pause, resume and stop work as in the other skills. The place is saved in
+Audiobookshelf every minute while a book plays, and again when it pauses,
+stops, fails or finishes, so even a pulled plug loses no more than a minute.
+A book you finish is marked finished there.
+
+### Set it up
+
+1. In Audiobookshelf, sign in as the user whose books and progress the Echo
+   should share, and open **Settings → API Keys**. Create a key for that user
+   (no expiry) and copy it.
+2. Create the skill as in [step 1](#1-create-the-skills), with
+   [`docs/alexa-books-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-books-interaction-model.json)
+   and the invocation `hoban books`. Like the others, it uses the
+   `https://<your YT Zero address>/alexa` endpoint and needs **Audio Player**.
+3. Add these to the container and redeploy:
+
+| Variable | Value |
+| --- | --- |
+| `YTZERO_ALEXA_BOOKS_SKILL_ID` | The books skill's ID. |
+| `YTZERO_ALEXA_BOOKS_INVOCATION` | Its invocation name, such as `hoban books`, for room controls typed through Home Assistant. |
+| `YTZERO_AUDIOBOOKSHELF_URL` | Audiobookshelf's address as YT Zero's container reaches it, such as `http://127.0.0.1:8089` with host networking. It needn't be public. |
+| `YTZERO_AUDIOBOOKSHELF_API_KEY` | The key from step 1. It is a secret: it is never logged, sent to the Echo or returned by the API. |
+
+The books skill is off until both Audiobookshelf variables are set; the
+tablet's Books tab then says so. The other skills don't need them.
+
+4. Pair the room's Echo with Hoban Books too ("Alexa, ask Hoban Books, this is
+   the kitchen"); one-tap pairing on the tablet pairs all three skills.
+
+### How books play
+
+The Echo never talks to Audiobookshelf. YT Zero hands it signed links of its
+own, which hold only the book and its file, and fetches the audio with the
+key. An Echo ignores the start offset it is sent for these streams, so YT
+Zero's own ffmpeg starts each stream at the place asked for: resuming hour 9
+of a 10-hour single-file book starts within seconds. A book in several files
+plays them one after another. MP3 and M4B/AAC files play as they are; other
+formats are converted to AAC as they play.
+
+On the tablet, the **Books** tab shows the books you're listening to, your
+library with search, and a book's chapters, each with **Play in** the room.
+While a book plays, the now-playing panel shows the chapter and the whole
+book's progress, with previous and next chapter and 30-second skips.
 
 ## Rooms and now playing
 
@@ -422,6 +487,31 @@ pairing is for the TV app only: a browser page can't use its token.
 
 **Hoban Tube** has no queue, so the tablet tells the Echo what to say (see
 *Play a video* above). It works best with channels the profile follows.
+
+**Moving within what plays.** Drag the progress bar and let go to jump there:
+the page types "ask <skill> to jump to 3 minutes 20 seconds" to the Echo,
+which starts a new stream at that place. An Echo can't start part way into a
+plain audio file, so each skill hands it one that already begins there: a
+playlist that starts at the segment holding the place for songs and videos,
+and a stream cut by ffmpeg for books. The jump lands at the start of that
+segment, a few seconds early at most. For a book, the top bar is the chapter
+and the bar below it the whole book; only the chapter's moves. What Home
+Assistant shows (Amazon Music, say) moves with Home Assistant's own seek when
+the Echo reports it can, and the bar stays still when it can't. **Previous**
+goes back a song (Hoban Music), a video in a shuffle (Hoban Tube, otherwise
+the video starts over) or a chapter (Hoban Books).
+
+**The queue.** Tap the music tab's queue card for what plays next in the
+room (a saved queue's songs, or the song a station has already picked: a
+station picks each song as the one before ends) and what this room's Echo
+played lately, as opposed to the profile's history from every device. Tap a
+song to play from it. The videos tab lists what the room played lately too,
+and the books tab shows the book playing in the room; tap it for its
+chapters, and tap a chapter to jump there.
+
+After updating, paste the newer music and video interaction models into their
+skills (see *Updating a skill*): "jump to", and for music the skips and
+previous, are new commands.
 
 ## How it works
 

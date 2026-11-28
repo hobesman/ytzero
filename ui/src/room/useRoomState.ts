@@ -4,7 +4,8 @@ import { roomApi, type AlexaRooms } from "./roomApi";
 import { findRoom, pollDelay, roomFingerprint, settleControl, type PendingControl } from "./roomState";
 
 export type RoomsSnapshot = { rooms: AlexaRooms; receivedAt: number };
-export type RoomCommand = (room: string, action: PendingControl["action"], run: () => Promise<unknown>, volume?: number) => Promise<string | null>;
+/** `amount` is the volume asked for, or for a seek the place, in the progress bar's milliseconds. */
+export type RoomCommand = (room: string, action: PendingControl["action"], run: () => Promise<unknown>, amount?: number) => Promise<string | null>;
 
 function usePageVisible(): boolean {
   const [visible, setVisible] = useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
@@ -69,10 +70,10 @@ export function useRooms(idle: boolean) {
     return () => window.clearTimeout(timer);
   }, [attempt, idle, load, visible, waiting]);
 
-  const command = useCallback<RoomCommand>(async (room, action, run, volume) => {
+  const command = useCallback<RoomCommand>(async (room, action, run, amount) => {
     const key = room.toLowerCase();
     const before = roomFingerprint(findRoom(snapshotRef.current?.rooms ?? null, room));
-    setControls((current) => ({ ...current, [key]: { action, sentAt: Date.now(), volume, before } }));
+    setControls((current) => ({ ...current, [key]: { action, sentAt: Date.now(), ...(action === "volume" ? { volume: amount } : action === "seek" ? { target: amount } : {}), before } }));
     try {
       await run();
       void load();

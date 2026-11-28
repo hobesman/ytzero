@@ -1,0 +1,10 @@
+/* Hoban Books tab: book covers in a wrapping grid, each with its progress. */
+.room-books { display: flex; flex-direction: column; gap: 22px; }
+.room-books__grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.room-books__card { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.music-shelf__row .room-books__card { flex: 0 0 auto; width: 170px; }
+.room-books__card .music-card { width: 100%; }
+.room-books__card-progress.ui-progress { height: 5px; }
+.room-books__more.ui-button { align-self: center; margin-top: 12px; }
+.room-books__chapter { min-height: 72px; }
+.room-books__chapter--current { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 12px; }

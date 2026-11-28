@@ -172,6 +172,19 @@
             "what is this room called"
           ]
         },
+        {
+          "name": "SeekToIntent",
+          "slots": [{ "name": "position", "type": "AMAZON.DURATION" }],
+          "samples": [
+            "jump to {position}",
+            "go to {position}",
+            "skip to {position}",
+            "play from {position}",
+            "start from {position}",
+            "jump to {position} into the video",
+            "go to {position} into the video"
+          ]
+        },
         { "name": "AMAZON.YesIntent", "samples": [] },
         { "name": "AMAZON.NoIntent", "samples": [] },
         { "name": "AMAZON.PauseIntent", "samples": [] },

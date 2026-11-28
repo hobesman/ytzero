@@ -37,7 +37,7 @@ describe("home assistant config", () => {
   });
 
   test("reads the skills' invocation names as Alexa hears them", () => {
-    expect(alexaInvocations({ YTZERO_ALEXA_MUSIC_INVOCATION: "Hoban  Music" })).toEqual({ music: "hoban music", video: null });
+    expect(alexaInvocations({ YTZERO_ALEXA_MUSIC_INVOCATION: "Hoban  Music" })).toEqual({ music: "hoban music", video: null, books: null });
   });
 });
 
@@ -148,8 +148,8 @@ describe("room controls through home assistant", () => {
       currentUserId: (context) => context.get("userId"), rooms, roomSettings, isChild: async () => false, now: () => clock,
       control: {
         homeAssistant: () => ha.client,
-        invocations: () => ({ music: "hoban music", video: "hoban tube" }),
-        skills: () => ({ music: true, video: true }),
+        invocations: () => ({ music: "hoban music", video: "hoban tube", books: null }),
+        skills: () => ({ music: true, video: true, books: false }),
         knownSongs: async (ids) => new Set(ids.filter((videoId) => catalog.has(videoId))),
         sleep: async (ms) => { clock += ms; },
         pairWaitMs: 5000,
@@ -210,8 +210,8 @@ describe("room controls through home assistant", () => {
     await setEntity();
     echoHearsCommands();
     const result = await pairRoom({
-      homeAssistant: ha.client, invocations: { music: "hoban music", video: null }, rooms, settings: roomSettings,
-      skills: { music: true, video: true }, now: () => clock, sleep: async (ms) => { clock += ms; },
+      homeAssistant: ha.client, invocations: { music: "hoban music", video: null, books: null }, rooms, settings: roomSettings,
+      skills: { music: true, video: true, books: false }, now: () => clock, sleep: async (ms) => { clock += ms; },
     }, 1, "Kitchen", 5000);
     expect(result.paired).toEqual(["music"]);
     expect(result.failed).toEqual([{ skill: "video", reason: "YTZERO_ALEXA_VIDEO_INVOCATION isn't set" }]);

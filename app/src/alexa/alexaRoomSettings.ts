@@ -112,8 +112,14 @@ export function createAlexaRoomSettings(db: AsyncDatabaseClient = database) {
         .run(userId, roomKey(to), userId, roomKey(from));
       await db.prepare("DELETE FROM alexa_room_queues WHERE user_id = ? AND room_key = ? AND EXISTS (SELECT 1 FROM alexa_room_queues WHERE user_id = ? AND room_key = ?)")
         .run(userId, roomKey(to), userId, roomKey(from));
+      await db.prepare("DELETE FROM alexa_room_books WHERE user_id = ? AND room_key = ? AND EXISTS (SELECT 1 FROM alexa_room_books WHERE user_id = ? AND room_key = ?)")
+        .run(userId, roomKey(to), userId, roomKey(from));
       const changed = await db.prepare("UPDATE alexa_rooms SET room_key = ?, room = ? WHERE user_id = ? AND room_key = ?").run(roomKey(to), to, userId, roomKey(from));
       await db.prepare("UPDATE alexa_room_queues SET room_key = ? WHERE user_id = ? AND room_key = ?").run(roomKey(to), userId, roomKey(from));
+      await db.prepare("UPDATE alexa_room_books SET room_key = ? WHERE user_id = ? AND room_key = ?").run(roomKey(to), userId, roomKey(from));
+      // The room's recent plays go with it; the new name's own, if any, give way.
+      await db.prepare("DELETE FROM alexa_room_history WHERE user_id = ? AND room_key = ?").run(userId, roomKey(to));
+      await db.prepare("UPDATE alexa_room_history SET room_key = ? WHERE user_id = ? AND room_key = ?").run(roomKey(to), userId, roomKey(from));
       return changed.changes;
     },
   };

@@ -54,6 +54,10 @@
 .room-now__progress .ui-progress { height: 8px; }
 .room-now__times { color: var(--text-2); display: flex; font-size: 17px; font-variant-numeric: tabular-nums; justify-content: space-between; }
 .room-now__controls { align-items: center; display: flex; gap: 20px; justify-content: center; }
+.room-now__controls--book { gap: 14px; }
+.room-now__book { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.room-now__book .ui-progress { height: 5px; }
+.room-now__chapter { color: var(--text-2); font-size: 17px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-now__volume { align-items: center; display: flex; gap: 16px; padding-inline: 4px; }
 .room-now__volume svg { color: var(--text-2); flex: 0 0 auto; height: 30px; width: 30px; }
 .room-now__volume .ui-slider { flex: 1; height: 10px; }
@@ -158,3 +162,18 @@
 @media (orientation: landscape) and (max-height: 760px) {
   .room-now { gap: 14px; padding: 22px; }
 }
+
+/* The progress bar as a slider where playback can move: a touch-sized thumb on the same thin track. */
+.room-now__progress--seek .ui-slider { height: 8px; width: 100%; }
+.room-now__progress--seek .ui-slider::-webkit-slider-thumb { height: 28px; width: 28px; }
+.room-now__progress--seek .ui-slider::-moz-range-thumb { height: 28px; width: 28px; }
+.room-now__progress--seek .ui-slider[aria-busy="true"] { opacity: .65; }
+
+/* The queue card opens the room's queue: what plays next and what played there lately. */
+.room-music__queue-open { align-items: center; background: none; border: 0; border-radius: 12px; color: inherit; cursor: pointer; display: flex; flex: 1; font: inherit; gap: 16px; min-width: 0; padding: 0; text-align: start; }
+.room-music__queue-open > svg { color: var(--accent); flex: 0 0 auto; height: 30px; width: 30px; }
+.room-music__queue-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.room-music__queue--empty.room-music__queue-open { justify-content: space-between; width: 100%; }
+.room-music__queue-more { color: var(--accent); font-weight: 650; white-space: nowrap; }
+.room-queue__station { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
+.room-queue__station svg { flex: 0 0 auto; height: 18px; width: 18px; }

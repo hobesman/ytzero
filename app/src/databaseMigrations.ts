@@ -707,6 +707,45 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "CREATE INDEX IF NOT EXISTS idx_music_echo_plays_recent ON music_echo_plays(user_id, started_at DESC)" },
     ],
   },
+  {
+    version: 126,
+    name: "alexa-books-skill",
+    schemaHashes: {
+      "app/src/schema.sql": "cf2cc11b4a97a1ddfa26c59a70fe85d4def98829258b64228d591b0ee77e25ca",
+      "app/src/channelPostsSchema.sql": "70a7df33bf373524cf6cd0687e46d7987a7cd90a2619fd9586d12d6f940d45a5",
+      "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
+      "app/src/musicSchema.sql": "bd6ec87c97c08a627c413c0dc7c198c084ced480e6ef411dbd235013be16c507",
+      "app/src/publicShareSchema.sql": "607906c8adae087f6105876c76848ef1afebf180259cabee84ff2ddf203af1ae",
+      "app/src/alexaSchema.sql": "b76ef5cb32b4418b4a9580c43ed8907be251972b499bf32e4d2ac1d1218ec07e",
+    },
+    // SQLite can't change a CHECK constraint in place, so the three tables naming a skill are rebuilt.
+    sqlite: [
+      { kind: "sql", statement: "CREATE TABLE alexa_devices_rebuilt (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), device_id TEXT NOT NULL, room TEXT, paired_at TEXT, last_seen_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "INSERT INTO alexa_devices_rebuilt (user_id, skill, device_id, room, paired_at, last_seen_at) SELECT user_id, skill, device_id, room, paired_at, last_seen_at FROM alexa_devices" },
+      { kind: "sql", statement: "DROP TABLE alexa_devices" },
+      { kind: "sql", statement: "ALTER TABLE alexa_devices_rebuilt RENAME TO alexa_devices" },
+      { kind: "sql", statement: "CREATE TABLE alexa_now_playing_rebuilt (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), device_id TEXT NOT NULL, token TEXT NOT NULL, video_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', duration_ms INTEGER, state TEXT NOT NULL CHECK (state IN ('playing', 'paused', 'stopped', 'finished', 'failed')), offset_ms INTEGER NOT NULL DEFAULT 0, started_at TEXT, next_token TEXT, updated_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "INSERT INTO alexa_now_playing_rebuilt (user_id, skill, device_id, token, video_id, title, artist, art, duration_ms, state, offset_ms, started_at, next_token, updated_at) SELECT user_id, skill, device_id, token, video_id, title, artist, art, duration_ms, state, offset_ms, started_at, next_token, updated_at FROM alexa_now_playing" },
+      { kind: "sql", statement: "DROP TABLE alexa_now_playing" },
+      { kind: "sql", statement: "ALTER TABLE alexa_now_playing_rebuilt RENAME TO alexa_now_playing" },
+      { kind: "sql", statement: "CREATE TABLE alexa_pending_play_rebuilt (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), device_id TEXT NOT NULL, token TEXT NOT NULL, video_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', duration_ms INTEGER, offset_ms INTEGER NOT NULL DEFAULT 0, requested_at TEXT NOT NULL, PRIMARY KEY (user_id, skill, device_id))" },
+      { kind: "sql", statement: "INSERT INTO alexa_pending_play_rebuilt (user_id, skill, device_id, token, video_id, title, artist, art, duration_ms, offset_ms, requested_at) SELECT user_id, skill, device_id, token, video_id, title, artist, art, duration_ms, offset_ms, requested_at FROM alexa_pending_play" },
+      { kind: "sql", statement: "DROP TABLE alexa_pending_play" },
+      { kind: "sql", statement: "ALTER TABLE alexa_pending_play_rebuilt RENAME TO alexa_pending_play" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_books (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, book_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', start_seconds REAL, saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_history (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), item_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', played_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key, skill, item_id))" },
+    ],
+    postgres: [
+      { kind: "sql", statement: "ALTER TABLE alexa_devices DROP CONSTRAINT IF EXISTS alexa_devices_skill_check" },
+      { kind: "sql", statement: "ALTER TABLE alexa_devices ADD CONSTRAINT alexa_devices_skill_check CHECK (skill IN ('music', 'video', 'books'))" },
+      { kind: "sql", statement: "ALTER TABLE alexa_now_playing DROP CONSTRAINT IF EXISTS alexa_now_playing_skill_check" },
+      { kind: "sql", statement: "ALTER TABLE alexa_now_playing ADD CONSTRAINT alexa_now_playing_skill_check CHECK (skill IN ('music', 'video', 'books'))" },
+      { kind: "sql", statement: "ALTER TABLE alexa_pending_play DROP CONSTRAINT IF EXISTS alexa_pending_play_skill_check" },
+      { kind: "sql", statement: "ALTER TABLE alexa_pending_play ADD CONSTRAINT alexa_pending_play_skill_check CHECK (skill IN ('music', 'video', 'books'))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_books (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, book_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', start_seconds DOUBLE PRECISION, saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_history (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), item_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', played_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key, skill, item_id))" },
+    ],
+  },
 ];
 
 function quoteIdentifier(identifier: string): string {

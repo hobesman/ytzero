@@ -18,6 +18,9 @@ function signature(secret: string, kind: AlexaAudioKind, videoId: string, userId
   return createHmac("sha256", secret).update(`${label}\n${videoId}\n${userId}\n${expires}`).digest("base64url");
 }
 
+/** The path a kind's audio is served at, under /alexa. */
+export const alexaAudioPath = (kind: AlexaAudioKind) => PATHS[kind];
+
 export function alexaAudioLink(publicUrl: string, secret: string, videoId: string, userId: number, now = Date.now(), kind: AlexaAudioKind = "music"): string {
   const expires = Math.floor((now + ALEXA_AUDIO_LINK_TTL_MS) / 1000);
   const query = new URLSearchParams({ u: String(userId), e: String(expires), s: signature(secret, kind, videoId, userId, expires) });
@@ -42,8 +45,8 @@ export function verifyAlexaAudioLink(secret: string, videoId: string, query: URL
  * plain file. Signed like the file, which its segments point at; `t` is left
  * out of the signature, since any start within the video is allowed.
  */
-export function alexaPlaylistLink(publicUrl: string, secret: string, videoId: string, userId: number, now = Date.now(), startSeconds = 0): string {
-  const link = alexaAudioLink(publicUrl, secret, videoId, userId, now, "video").replace("?", "/index.m3u8?");
+export function alexaPlaylistLink(publicUrl: string, secret: string, videoId: string, userId: number, now = Date.now(), startSeconds = 0, kind: AlexaAudioKind = "video"): string {
+  const link = alexaAudioLink(publicUrl, secret, videoId, userId, now, kind).replace("?", "/index.m3u8?");
   return startSeconds > 0 ? `${link}&t=${Math.round(startSeconds * 1000) / 1000}` : link;
 }
 

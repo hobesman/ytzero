@@ -8,6 +8,7 @@ import {
   type AlexaPlaybackState, type AlexaResponse,
 } from "./alexaPlayback";
 import { nextInQueue, startRoomQueue, type AlexaQueueSource } from "./alexaQueue";
+import { isoDurationSeconds } from "./alexaVideoMatch";
 
 /** The parts of an Alexa request envelope the skill reads. */
 export interface AlexaEnvelope {
@@ -44,7 +45,10 @@ export interface AlexaSkillDependencies {
   stations: Pick<MusicStations, "next">;
   /** Starts fetching a song's audio before Alexa asks for it. */
   prepare: (userId: number, videoId: string) => void;
-  audioLink: (videoId: string, userId: number) => string;
+  /** The song's audio; with a start, a playlist that begins at that place, since an Echo can't start part way into the plain file. */
+  audioLink: (videoId: string, userId: number, startSeconds?: number) => string;
+  /** Where a playlist started at a place really begins: the start of the segment holding it. */
+  streamStart?: (userId: number, videoId: string, offsetSeconds: number) => Promise<number>;
   recordPlay: (userId: number, play: MusicPlay) => Promise<void>;
   findTrack?: (videoId: string) => Promise<StoredMusicTrack | null>;
   saveTracks?: typeof upsertMusicTracks;
@@ -57,13 +61,14 @@ export interface AlexaSkillDependencies {
 const MAX_FAILURES_IN_A_ROW = 3;
 const LISTEN_LIMIT = 256;
 const HELP = "You can say play a song, play songs by an artist, play an artist's radio, play the album, play eighties music, play my liked songs, play my mix, or play my queue. Ask what's playing to hear the song's name.";
+const DEFAULT_SKIP_SECONDS = 30;
 const ASK = "What would you like to hear?";
 const UNREACHABLE = "Sorry, I couldn't reach YouTube Music right now. Please try again in a moment.";
 
 const SEED_INTENTS = new Set(["PlaySongIntent", "PlayArtistIntent", "PlayArtistRadioIntent", "PlayAlbumIntent", "PlayLikedIntent", "PlayMixIntent", "PlayGenreIntent"]);
 const STOP_INTENTS = new Set(["AMAZON.PauseIntent", "AMAZON.StopIntent", "AMAZON.CancelIntent"]);
 const UNSUPPORTED_INTENTS = new Set([
-  "AMAZON.PreviousIntent", "AMAZON.LoopOnIntent", "AMAZON.LoopOffIntent", "AMAZON.ShuffleOnIntent",
+  "AMAZON.LoopOnIntent", "AMAZON.LoopOffIntent", "AMAZON.ShuffleOnIntent",
   "AMAZON.ShuffleOffIntent", "AMAZON.RepeatIntent",
 ]);
 
@@ -79,14 +84,18 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     while (listens.size > LISTEN_LIMIT) listens.delete(listens.keys().next().value!);
   }
 
-  async function play(userId: number, state: AlexaPlaybackState, track: StoredMusicTrack, behavior: "REPLACE_ALL" | "ENQUEUE", extra: { speech?: string | null; offset?: number; previousToken?: string } = {}) {
+  async function play(userId: number, state: AlexaPlaybackState, track: StoredMusicTrack, behavior: "REPLACE_ALL" | "ENQUEUE", extra: { speech?: string | null; offset?: number; previousToken?: string; seekTo?: number } = {}) {
     dependencies.prepare(userId, track.videoId);
+    // A seek plays a playlist that starts at the segment holding the place, and says that place is where it starts.
+    const start = extra.seekTo && extra.seekTo > 0
+      ? dependencies.streamStart ? await dependencies.streamStart(userId, track.videoId, extra.seekTo) : extra.seekTo
+      : 0;
     const directive = playDirective({
       track,
-      url: dependencies.audioLink(track.videoId, userId),
+      url: start > 0 ? dependencies.audioLink(track.videoId, userId, start) : dependencies.audioLink(track.videoId, userId),
       token: encodePlaybackToken(state),
       behavior,
-      offsetInMilliseconds: extra.offset,
+      offsetInMilliseconds: start > 0 ? Math.round(start * 1000) : extra.offset,
       expectedPreviousToken: extra.previousToken,
     });
     return extra.speech === undefined ? silent([directive]) : playResponse(extra.speech, directive);
@@ -170,6 +179,36 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     return play(userId, next.state, next.track, "REPLACE_ALL");
   }
 
+  /** Previous: the song before this one in the session, from its start; with none, this song starts over. */
+  async function previous(userId: number, envelope: AlexaEnvelope, speech: boolean): Promise<AlexaResponse> {
+    const token = envelope.context?.AudioPlayer?.token;
+    const state = decodePlaybackToken(token);
+    if (!state) return speech ? speak(`Nothing is playing. ${ASK}`, ASK) : silent();
+    const before = state.served.at(-1);
+    const track = before ? await findTrack(before) : null;
+    if (!before || !track) return resume(userId, envelope, true);
+    const listen = token ? listens.get(token) : undefined;
+    if (listen) listen.skipped = true;
+    const queue = state.queue && state.queue.index > 0 ? { id: state.queue.id, index: state.queue.index - 1 } : undefined;
+    const earlier: AlexaPlaybackState = { seed: state.seed, videoId: before, served: state.served.slice(0, -1), skipped: state.skipped, failures: 0, ...(queue ? { queue } : {}) };
+    return play(userId, earlier, track, "REPLACE_ALL");
+  }
+
+  /** Moves within the song playing: by a skip, or to a place ("jump to 2 minutes"). */
+  async function seekSong(userId: number, envelope: AlexaEnvelope, target: (position: number) => number | null, noTarget: string): Promise<AlexaResponse> {
+    const player = envelope.context?.AudioPlayer;
+    const state = decodePlaybackToken(player?.token);
+    const track = state ? await findTrack(state.videoId) : null;
+    if (!state || !track) return speak(`Nothing is playing. ${ASK}`, ASK);
+    const to = target(Math.max(0, (player?.offsetInMilliseconds ?? 0) / 1000));
+    if (to === null) return speak(noTarget);
+    const limit = track.duration ? Math.max(0, track.duration - 1) : Number.POSITIVE_INFINITY;
+    const place = Math.min(Math.max(0, to), limit);
+    return place > 0 ? play(userId, state, track, "REPLACE_ALL", { seekTo: place }) : play(userId, state, track, "REPLACE_ALL", { offset: 0 });
+  }
+
+  const skipAmount = (envelope: AlexaEnvelope) => isoDurationSeconds(envelope.request?.intent?.slots?.duration?.value) ?? DEFAULT_SKIP_SECONDS;
+
   async function finishListen(userId: number, envelope: AlexaEnvelope, endReason: "completed" | "stopped") {
     const token = envelope.request?.token;
     const state = decodePlaybackToken(token);
@@ -226,6 +265,7 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
 
   async function controller(userId: number, envelope: AlexaEnvelope, type: string): Promise<AlexaResponse> {
     if (type === "PlaybackController.NextCommandIssued") return skip(userId, envelope.context?.AudioPlayer?.token, false);
+    if (type === "PlaybackController.PreviousCommandIssued") return previous(userId, envelope, false);
     if (type === "PlaybackController.PauseCommandIssued") return silent([stopDirective]);
     if (type === "PlaybackController.PlayCommandIssued") {
       const response = await resume(userId, envelope, false);
@@ -264,6 +304,13 @@ export function createAlexaSkill(dependencies: AlexaSkillDependencies) {
     if (name === "AMAZON.ResumeIntent") return resume(userId, envelope, false);
     if (name === "AMAZON.StartOverIntent") return resume(userId, envelope, true);
     if (name === "AMAZON.NextIntent") return skip(userId, envelope.context?.AudioPlayer?.token, true);
+    if (name === "AMAZON.PreviousIntent") return previous(userId, envelope, true);
+    if (name === "SkipForwardIntent") return seekSong(userId, envelope, (at) => at + skipAmount(envelope), "");
+    if (name === "SkipBackIntent") return seekSong(userId, envelope, (at) => at - skipAmount(envelope), "");
+    if (name === "SeekToIntent") {
+      const to = isoDurationSeconds(envelope.request?.intent?.slots?.position?.value);
+      return seekSong(userId, envelope, () => to, "Where in the song? Say, for example, jump to 2 minutes.");
+    }
     if (name === "WhatsPlayingIntent") return whatsPlaying(envelope);
     if (name === "PlayQueueIntent") return playQueue(userId, envelope);
     if (UNSUPPORTED_INTENTS.has(name)) return speak("Sorry, YT Zero can't do that yet.");

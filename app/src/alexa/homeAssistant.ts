@@ -12,10 +12,11 @@ export interface HomeAssistantConfig {
   token: string;
 }
 
-/** What each skill is called aloud, for a typed command that has to name it. */
+/** What each skill is called aloud, for a typed command that has to name it. Books is Hoban Books, the audiobook skill. */
 export interface AlexaInvocations {
   music: string | null;
   video: string | null;
+  books: string | null;
 }
 
 type Environment = Record<string, string | undefined>;
@@ -38,7 +39,11 @@ export function homeAssistantConfig(environment: Environment = process.env): Hom
 /** Spoken invocation names, lowercase as Alexa hears them; null when not set. */
 export function alexaInvocations(environment: Environment = process.env): AlexaInvocations {
   const name = (value: string | undefined) => unquote(value).toLowerCase().replace(/\s+/g, " ") || null;
-  return { music: name(environment.YTZERO_ALEXA_MUSIC_INVOCATION), video: name(environment.YTZERO_ALEXA_VIDEO_INVOCATION) };
+  return {
+    music: name(environment.YTZERO_ALEXA_MUSIC_INVOCATION),
+    video: name(environment.YTZERO_ALEXA_VIDEO_INVOCATION),
+    books: name(environment.YTZERO_ALEXA_BOOKS_INVOCATION),
+  };
 }
 
 /** One entity as Home Assistant's REST API reports it. */
@@ -106,7 +111,7 @@ export function createHomeAssistantClient(config: HomeAssistantConfig, fetcher: 
   };
 }
 
-export type MediaPlayerService = "play_media" | "media_pause" | "media_play" | "media_next_track" | "media_previous_track" | "media_stop" | "volume_set";
+export type MediaPlayerService = "play_media" | "media_pause" | "media_play" | "media_next_track" | "media_previous_track" | "media_stop" | "volume_set" | "media_seek";
 export type HomeAssistantClient = ReturnType<typeof createHomeAssistantClient>;
 
 /** Whether an entity comes from Alexa Media Player, which always reports these attributes. */
@@ -134,7 +139,12 @@ export interface HomeAssistantReport {
   volume: number | null;
   muted: boolean | null;
   changedAt: string | null;
+  /** The player says it can seek (supported_features has SEEK). */
+  canSeek: boolean;
 }
+
+/** Home Assistant's MediaPlayerEntityFeature.SEEK. */
+const SUPPORTS_SEEK = 2;
 
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : null;
 const finite = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -166,6 +176,7 @@ export function homeAssistantReport(state: HomeAssistantState, now: number): Hom
     volume: finite(attributes.volume_level),
     muted: typeof attributes.is_volume_muted === "boolean" ? attributes.is_volume_muted : null,
     changedAt: state.last_changed ?? null,
+    canSeek: (Number(attributes.supported_features) & SUPPORTS_SEEK) !== 0,
   };
 }
 

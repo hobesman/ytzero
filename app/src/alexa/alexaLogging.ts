@@ -6,7 +6,7 @@ import type { AlexaEnvelope } from "./alexaSkill";
  * skill did about it. That makes the server log enough to tell "Alexa never
  * sent it" from "the skill answered" from "the Echo couldn't play it".
  */
-export function describeAlexaExchange(skill: "music" | "video", envelope: AlexaEnvelope, response: AlexaResponse): Record<string, unknown> {
+export function describeAlexaExchange(skill: "music" | "video" | "books", envelope: AlexaEnvelope, response: AlexaResponse): Record<string, unknown> {
   const request = envelope.request;
   const fields: Record<string, unknown> = { skill, type: request?.type ?? "unknown" };
   if (request?.intent?.name) fields.intent = request.intent.name;
