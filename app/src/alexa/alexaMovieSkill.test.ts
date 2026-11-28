@@ -133,7 +133,7 @@ describe("playing", () => {
   test("says so when Plex isn't set up", async () => {
     const skill = createAlexaMovieSkill({ plex: () => ({ disabled: "YTZERO_PLEX_URL is not set" }), audioLink: () => "", posterLink: () => "" });
     const response = await skill.handle(1, intent("ResumeWatchingIntent")) as { response: Record<string, any> };
-    expect(response.response.outputSpeech.text).toBe("Hoban Movies isn't connected to Plex yet.");
+    expect(response.response.outputSpeech.text).toBe("Hoban Plex isn't connected to Plex yet.");
   });
 });
 

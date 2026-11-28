@@ -69,7 +69,7 @@ export interface AlexaRouteDependencies {
   roomHistory?: AlexaRoomHistory;
   /** Hoban Books: Audiobookshelf, the rooms' queued books and ffmpeg. */
   books?: AlexaBookRouteDependencies;
-  /** Hoban Movies: Plex and ffmpeg. */
+  /** Hoban Plex: Plex and ffmpeg. */
   movies?: AlexaMovieRouteDependencies;
   /**
    * SponsorBlock cuts and music levelling for each stream (see

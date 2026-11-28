@@ -264,7 +264,7 @@ to this server's Home Assistant, configured by environment variables), and
 "play my queue", replaced by the next one. `alexa_room_books` is likewise the
 transient book (and optional chapter or start time) a tablet chose for a room's
 "play my book"; the listening place itself lives in Audiobookshelf, not in YT
-Zero. Hoban Movies' rows in these tables (skill `movies`) are the same
+Zero. Hoban Plex's rows in these tables (skill `movies`) are the same
 instance-local or transient state; its watch place lives in Plex, and its
 `YTZERO_ALEXA_MOVIES_SKILL_ID`, `YTZERO_ALEXA_MOVIES_INVOCATION`,
 `YTZERO_PLEX_URL` and `YTZERO_PLEX_TOKEN` (a secret, never logged, sent to an
