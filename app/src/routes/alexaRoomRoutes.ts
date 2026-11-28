@@ -27,7 +27,7 @@ export interface AlexaRoomRouteDependencies {
   control?: Partial<Omit<AlexaRoomControlDependencies, "currentUserId" | "rooms" | "settings" | "now">>;
 }
 
-const SKILLS = new Set<AlexaSkillKind>(["music", "video", "books"]);
+const SKILLS = new Set<AlexaSkillKind>(["music", "video", "books", "movies"]);
 const parseSkill = (value: unknown): AlexaSkillKind | null => SKILLS.has(value as AlexaSkillKind) ? value as AlexaSkillKind : null;
 const parseDeviceId = (value: unknown): string | null => typeof value === "string" && value && value.length <= 512 ? value : null;
 
@@ -126,7 +126,7 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
   const settings = dependencies.roomSettings ?? createAlexaRoomSettings();
   const homeAssistant = dependencies.control?.homeAssistant ?? defaultHomeAssistant;
   const audioPlans = dependencies.audioPlans ?? alexaAudioPlans;
-  const planOf = (userId: number, skill: AlexaSkillKind, record: NowPlaying) => skill === "books" ? null : audioPlans.peek(userId, skill, record.videoId);
+  const planOf = (userId: number, skill: AlexaSkillKind, record: NowPlaying) => skill === "books" || skill === "movies" ? null : audioPlans.peek(userId, skill, record.videoId);
 
   api.use("/alexa/*", async (context, next) => {
     if (await isChild(currentUserId(context))) return context.json({ error: "not allowed" }, 403);

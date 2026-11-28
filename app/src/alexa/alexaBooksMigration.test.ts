@@ -20,7 +20,7 @@ test("the books migration keeps existing Echo rows and accepts the books skill",
   await database.exec("INSERT INTO alexa_now_playing (user_id, skill, device_id, token, video_id, state, offset_ms, updated_at) VALUES (1, 'video', 'echo-2', 't', 'v', 'paused', 5, 'z')");
   expect(() => database.exec("INSERT INTO alexa_devices (user_id, skill, device_id, last_seen_at) VALUES (1, 'books', 'echo-3', 'y')")).toThrow();
 
-  expect(await applyDatabaseMigrations(database)).toBe(126);
+  expect(await applyDatabaseMigrations(database)).toBe(DATABASE_MIGRATIONS.at(-1)!.version);
   expect(await database.prepare("SELECT room FROM alexa_devices WHERE device_id = 'echo-1'").get() as unknown).toEqual({ room: "Kitchen" });
   expect(await database.prepare("SELECT offset_ms FROM alexa_now_playing WHERE device_id = 'echo-2'").get() as unknown).toEqual({ offset_ms: 5 });
   await database.exec("INSERT INTO alexa_devices (user_id, skill, device_id, last_seen_at) VALUES (1, 'books', 'echo-3', 'y')");

@@ -264,7 +264,12 @@ to this server's Home Assistant, configured by environment variables), and
 "play my queue", replaced by the next one. `alexa_room_books` is likewise the
 transient book (and optional chapter or start time) a tablet chose for a room's
 "play my book"; the listening place itself lives in Audiobookshelf, not in YT
-Zero. `alexa_room_history` is a short transient list of what each room's Echo
+Zero. Hoban Movies' rows in these tables (skill `movies`) are the same
+instance-local or transient state; its watch place lives in Plex, and its
+`YTZERO_ALEXA_MOVIES_SKILL_ID`, `YTZERO_ALEXA_MOVIES_INVOCATION`,
+`YTZERO_PLEX_URL` and `YTZERO_PLEX_TOKEN` (a secret, never logged, sent to an
+Echo or returned by the API) are machine-bound environment variables, never
+persisted, exported or restored. `alexa_room_history` is a short transient list of what each room's Echo
 played lately, pruned to the newest few per room and skill. None of them is exposed through settings
 or included in any portable backup section; an exact stopped-instance backup
 preserves them. The skills' audio plans (each stream's SponsorBlock cuts and

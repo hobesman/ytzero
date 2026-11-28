@@ -61,10 +61,10 @@ export function clockDuration(ms: number): string {
 }
 
 /** The badge naming where the sound comes from. Home Assistant names only the Echo's input, if that. */
-export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "books" } | { kind: "home-assistant"; source: string | null };
+export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "books" } | { kind: "movies" } | { kind: "home-assistant"; source: string | null };
 
 export function roomSource(origin: RoomCurrent["origin"] | RoomPendingPlay["skill"], source: string | null = null): RoomSource {
-  if (origin === "music" || origin === "video" || origin === "books") return { kind: origin };
+  if (origin === "music" || origin === "video" || origin === "books" || origin === "movies") return { kind: origin };
   // "Local Speaker" is the Echo's own input (Amazon Music, radio, podcasts): it names nothing a person would recognise.
   return { kind: "home-assistant", source: source && source.trim().toLowerCase() !== "local speaker" ? source : null };
 }

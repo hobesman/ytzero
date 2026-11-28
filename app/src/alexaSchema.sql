@@ -5,7 +5,7 @@
 -- environment variables, and these rows mean nothing to another server.
 CREATE TABLE IF NOT EXISTS alexa_devices (
   user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
+  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books', 'movies')),
   device_id    TEXT NOT NULL,
   -- NULL until the Echo is paired with a room.
   room         TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS alexa_devices (
 -- Echo's AudioPlayer events. Transient: the next event rewrites it.
 CREATE TABLE IF NOT EXISTS alexa_now_playing (
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  skill       TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
+  skill       TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books', 'movies')),
   device_id   TEXT NOT NULL,
   token       TEXT NOT NULL,
   video_id    TEXT NOT NULL,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS alexa_pairing (
 -- Transient.
 CREATE TABLE IF NOT EXISTS alexa_pending_play (
   user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
+  skill        TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books', 'movies')),
   device_id    TEXT NOT NULL,
   token        TEXT NOT NULL,
   video_id     TEXT NOT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS alexa_room_books (
 CREATE TABLE IF NOT EXISTS alexa_room_history (
   user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   room_key  TEXT NOT NULL,
-  skill     TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
+  skill     TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books', 'movies')),
   item_id   TEXT NOT NULL,
   title     TEXT NOT NULL DEFAULT '',
   artist    TEXT NOT NULL DEFAULT '',

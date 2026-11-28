@@ -33,6 +33,7 @@ import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
 import { playlistSegmentStart, trimPlaylist } from "../alexa/alexaPlaylistTrim";
 import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
 import { createAlexaBookRoutes, type AlexaBookRouteDependencies } from "./alexaBookRoutes";
+import { createAlexaMovieRoutes, type AlexaMovieRouteDependencies } from "./alexaMovieRoutes";
 import { UNCHANGED, type AlexaAudioPlans } from "../alexa/alexaAudioPlan";
 import { envelopeInVideoTime, responseInEchoTime } from "../alexa/alexaAudioTimeline";
 import { loopbackAudio as sharedLoopbackAudio, type LoopbackAudio } from "../alexa/alexaLoopbackAudio";
@@ -68,6 +69,8 @@ export interface AlexaRouteDependencies {
   roomHistory?: AlexaRoomHistory;
   /** Hoban Books: Audiobookshelf, the rooms' queued books and ffmpeg. */
   books?: AlexaBookRouteDependencies;
+  /** Hoban Movies: Plex and ffmpeg. */
+  movies?: AlexaMovieRouteDependencies;
   /**
    * SponsorBlock cuts and music levelling for each stream (see
    * alexaAudioPlan.ts). Without it nothing is processed: the server passes the
@@ -140,9 +143,10 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
     history: dependencies.roomHistory ?? createAlexaRoomHistory(),
     describe: dependencies.describeStream ?? (async (skill, userId, token) => {
-      if (skill !== "books") return describeStream(albumArt)(skill, userId, token);
+      if (skill === "music" || skill === "video") return describeStream(albumArt)(skill, userId, token);
       const settings = enabled();
-      return settings ? books.describe(settings, token) : null;
+      if (!settings) return null;
+      return skill === "books" ? books.describe(settings, token) : movies.describe(settings, token);
     }),
   };
   const roomSettings = dependencies.roomSettings ?? createAlexaRoomSettings();
@@ -219,6 +223,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     return "disabled" in settings ? null : settings;
   };
   const books = createAlexaBookRoutes({ ...dependencies.books, enabled, rooms: tracking.rooms, isChild, now });
+  const movies = createAlexaMovieRoutes({ ...dependencies.movies, enabled, rooms: tracking.rooms, isChild, now });
 
   router.post("/", async (context) => {
     const settings = enabled();
@@ -239,7 +244,8 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       return context.json({ error: "invalid signature" }, 400);
     }
     const skillId = envelopeSkillId(envelope);
-    const kind = !skillId ? null : skillId === settings.musicSkillId ? "music" : skillId === settings.videoSkillId ? "video" : skillId === settings.booksSkillId ? "books" : null;
+    const kind = !skillId ? null : skillId === settings.musicSkillId ? "music" : skillId === settings.videoSkillId ? "video" : skillId === settings.booksSkillId ? "books"
+      : skillId === settings.moviesSkillId ? "movies" : null;
     if (!kind) {
       log.warn("alexa.request_refused", { reason: "wrong skill" });
       return context.json({ error: "wrong skill" }, 400);
@@ -250,16 +256,17 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       return context.json(speak("YT Zero can't find the profile this skill is set up to use."));
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
-    const skill = kind === "music" ? musicSkillFor(settings) : kind === "video" ? videoSkillFor(settings) : books.skillFor(settings);
+    const skill = kind === "music" ? musicSkillFor(settings) : kind === "video" ? videoSkillFor(settings) : kind === "books" ? books.skillFor(settings) : movies.skillFor(settings);
     // Stream tokens carry their start for the Echo's sake only (see alexaStreamTokens.ts).
     const plain = envelopeWithoutStreamStarts(envelope);
     // The skills work in video time; the Echo, in the timeline of what it was sent (see alexaAudioTimeline.ts).
-    const seen = kind === "books" ? plain : envelopeInVideoTime(plain, userId, kind, plans, kind === "music"
+    // Books and movies streams start where they are sent, so their time needs no translating.
+    const seen = kind === "books" || kind === "movies" ? plain : envelopeInVideoTime(plain, userId, kind, plans, kind === "music"
       ? (token) => decodePlaybackToken(token)?.videoId ?? null
       : (token) => decodeVideoToken(token));
     const response = await answerRoomIntent(tracking.rooms, userId, kind, seen, now()) ?? await skill.handle(userId, seen);
     await trackDevice(tracking, userId, kind, seen, response, now());
-    const sent = responseWithStreamStarts(kind === "books" ? response : await responseInEchoTime(response, userId, kind, plans,
+    const sent = responseWithStreamStarts(kind === "books" || kind === "movies" ? response : await responseInEchoTime(response, userId, kind, plans,
       (videoId, startSeconds) => alexaProcessedAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), startSeconds, kind)), envelope);
     log.info("alexa.request", describeAlexaExchange(kind, seen, sent));
     return context.json(sent);
@@ -357,6 +364,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   router.get("/video-audio/:id", serveAudio("video"));
   router.get("/video-audio/:id/index.m3u8", serveAudio("video", true));
   books.register(router);
+  movies.register(router);
 
   return router;
 }

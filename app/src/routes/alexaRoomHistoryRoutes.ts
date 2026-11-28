@@ -20,7 +20,7 @@ export interface AlexaRoomHistoryDependencies {
 
 /** How many songs of a queue "up next" lists. */
 const UPCOMING_LIMIT = 25;
-const SKILLS: readonly AlexaSkillKind[] = ["music", "video", "books"];
+const SKILLS: readonly AlexaSkillKind[] = ["music", "video", "books", "movies"];
 
 export interface UpcomingSong { videoId: string; title: string; artist: string; art: string; durationMs: number | null }
 

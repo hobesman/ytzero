@@ -140,10 +140,10 @@ describe("room control: seek and skip", () => {
         service: async (name: string, _entity: string, data?: Record<string, unknown>) => { services.push([name, data]); },
         state: async () => seen ?? { entity_id: "media_player.kitchen", state: "idle", attributes: {} },
       },
-      invocations: { music: "hoban music", video: "hoban tube", books: "hoban books" },
+      invocations: { music: "hoban music", video: "hoban tube", books: "hoban books", movies: null },
       rooms: { devices: async () => devices },
       settings: { entity: async () => "media_player.kitchen", spelling: async () => "Kitchen" },
-      skills: { music: true, video: true, books: true },
+      skills: { music: true, video: true, books: true, movies: false },
       now: () => Date.parse("2030-01-01T00:00:10Z"),
     } as unknown as RoomControlDependencies;
     return { dependencies, typed, services };

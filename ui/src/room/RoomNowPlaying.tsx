@@ -9,7 +9,7 @@ import {
 import { useNow, type RoomCommand } from "./useRoomState";
 
 /** The skills' names as set in YTZERO_ALEXA_*_INVOCATION, written as a name ("hoban music" is Hoban Music). */
-export type SkillNames = { music: string | null; video: string | null; books: string | null };
+export type SkillNames = { music: string | null; video: string | null; books: string | null; movies?: string | null };
 
 export function skillName(invocation: string | null | undefined): string | null {
   if (!invocation) return null;
@@ -21,6 +21,7 @@ export function SourceBadge({ source, names }: { source: RoomSource; names: Skil
   const label = source.kind === "music" ? names.music ?? t("roomSourceMusic")
     : source.kind === "video" ? names.video ?? t("roomSourceVideo")
     : source.kind === "books" ? names.books ?? t("roomSourceBooks")
+    : source.kind === "movies" ? names.movies ?? t("roomSourceMovies")
     : source.source ?? t("roomSourceEcho");
   return <Badge variant={source.kind === "home-assistant" ? "neutral" : "accent"} className="room-now__badge">{label}</Badge>;
 }

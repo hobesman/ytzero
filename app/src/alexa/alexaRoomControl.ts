@@ -67,6 +67,7 @@ export function spokenPosition(seconds: number): string {
 /** The variable naming each skill's invocation. */
 export const INVOCATION_VARIABLES: Record<AlexaSkillKind, string> = {
   music: "YTZERO_ALEXA_MUSIC_INVOCATION", video: "YTZERO_ALEXA_VIDEO_INVOCATION", books: "YTZERO_ALEXA_BOOKS_INVOCATION",
+  movies: "YTZERO_ALEXA_MOVIES_INVOCATION",
 };
 
 export function parseRoomAction(body: Record<string, unknown> | null): RoomAction | null {
@@ -208,7 +209,7 @@ export async function pairRoom(dependencies: RoomControlDependencies, userId: nu
   const devices = await rooms.devices(userId);
   const room = await roomSpelling(devices, dependencies.settings, userId, roomName);
   const entity = await roomEntity(dependencies, userId, room);
-  const skills = (["music", "video", "books"] as const).filter((skill) => dependencies.skills[skill]);
+  const skills = (["music", "video", "books", "movies"] as const).filter((skill) => dependencies.skills[skill]);
   if (!skills.length) throw new RoomControlError("No Alexa skill is configured.");
   const named = skills.filter((skill) => dependencies.invocations[skill]);
   if (!named.length) invocation(dependencies.invocations, skills[0]!);

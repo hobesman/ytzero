@@ -1,6 +1,6 @@
 # Alexa Skills
 
-YT Zero can be the backend for three private Alexa skills. Set up any of them.
+YT Zero can be the backend for four private Alexa skills. Set up any of them.
 
 **Hoban Music** plays music mode: "Alexa, ask Hoban Music to play Harvest
 Moon", "…play songs by Radiohead", "…play the album OK Computer", "…play my
@@ -64,6 +64,7 @@ Repeat these steps once per skill, using that skill's interaction model:
 | Music | [`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json) | `hoban music` |
 | Video | [`docs/alexa-video-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-video-interaction-model.json) | `hoban tube` |
 | Books | [`docs/alexa-books-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-books-interaction-model.json) | `hoban books` (see [Hoban Books](#hoban-books-audiobooks-from-audiobookshelf)) |
+| Movies | [`docs/alexa-movies-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-movies-interaction-model.json) | `hoban movies` (see [Hoban Movies](#hoban-movies-movie-and-tv-soundtracks-from-plex)) |
 
 1. Sign in to the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
    with the same Amazon account your Echo uses.
@@ -241,7 +242,7 @@ The books skill is off until both Audiobookshelf variables are set; the
 tablet's Books tab then says so. The other skills don't need them.
 
 4. Pair the room's Echo with Hoban Books too ("Alexa, ask Hoban Books, this is
-   the kitchen"); one-tap pairing on the tablet pairs all three skills.
+   the kitchen"); one-tap pairing on the tablet pairs every skill you've set up.
 
 ### How books play
 
@@ -267,6 +268,70 @@ narration. The first time, YT Zero reads the text and timings out of the EPUB
 from a few seconds to half a minute. It keeps the result in
 `data/readalong/` after that. A book without such an EPUB says it has no
 read-along text.
+
+## Hoban Movies: movie and TV soundtracks from Plex
+
+**Hoban Movies** is a fourth, optional skill. It plays the audio of the movies
+and shows in your [Plex](https://www.plex.tv/) server on an Echo, and keeps
+your place in Plex itself, so the TV and the Echo carry on from each other.
+
+- "Alexa, ask Hoban Movies to continue watching" resumes what Plex has on
+  deck: the movie you're part way through, or your show's next episode.
+- "…play *title*" plays a movie from where you stopped. Name a show ("…play
+  The Office") and it carries on with the episode after the last one you
+  watched.
+- "…play The Office season 2 episode 4" (or "…season two", or "…s2e4") plays
+  that episode; "…play The Office season 3" plays the season's first.
+- "…continue *show*" or "…play the next episode of *show*" carries on with a
+  show.
+- A show plays on into its next episode. "Alexa, next" and "Alexa, previous"
+  move between episodes; in a movie they move by chapter, when the file has
+  chapters. "…skip forward 2 minutes", "…go back 30 seconds" and "…jump to 1
+  hour 10 minutes" work as in the other skills.
+- "…what's playing?" says the title, and "…how much is left?" the time left.
+
+The place is saved in Plex every minute while it plays, and when it pauses,
+stops, fails or finishes. A title played into its last few minutes (the
+credits: the last 5%, at least two minutes and at most ten) is marked watched
+in Plex, as a TV would.
+
+### Set it up
+
+1. Find a Plex token for the Plex user whose library and watch progress the
+   Echo should share. Plex's support article *Finding an authentication token /
+   X-Plex-Token* shows how: open any item's **Get Info → View XML** in Plex Web,
+   and copy the `X-Plex-Token` from the address it opens.
+2. Create the skill as in [step 1](#1-create-the-skills), with
+   [`docs/alexa-movies-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-movies-interaction-model.json)
+   and the invocation `hoban movies`. Like the others, it uses the
+   `https://<your YT Zero address>/alexa` endpoint and needs **Audio Player**.
+3. Add these to the container and redeploy:
+
+| Variable | Value |
+| --- | --- |
+| `YTZERO_ALEXA_MOVIES_SKILL_ID` | The movies skill's ID. |
+| `YTZERO_ALEXA_MOVIES_INVOCATION` | Its invocation name, such as `hoban movies`, for room controls typed through Home Assistant. |
+| `YTZERO_PLEX_URL` | Plex's address as YT Zero's container reaches it, such as `http://127.0.0.1:32400` with host networking. It needn't be public. |
+| `YTZERO_PLEX_TOKEN` | The token from step 1. It is a secret: it is never logged, sent to the Echo or returned by the API. |
+
+The movies skill says it isn't connected to Plex until both Plex variables
+are set. The other skills don't need them.
+
+4. Pair the room's Echo with Hoban Movies too ("Alexa, ask Hoban Movies, this
+   is the kitchen"); one-tap pairing on the tablet pairs it with the others.
+
+### How movies play
+
+The Echo never talks to Plex. YT Zero hands it signed links of its own, which
+hold only the Plex item, and its own ffmpeg reads the file from Plex with the
+token, starting at the place asked for. Only one audio track is sent: the one
+Plex has selected for you, else the file's default, else an English one that
+isn't a commentary. A movie's 5.1 soundtrack (AC3, E-AC3, DTS, TrueHD) is
+mixed down to stereo AAC as it plays, since an Echo plays none of those;
+stereo AAC is sent as it is. Plex's own transcoder isn't used.
+
+The room tablet doesn't have a Movies tab yet. An Echo playing a movie still
+shows in the room's now playing.
 
 ## Rooms and now playing
 

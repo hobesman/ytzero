@@ -2,8 +2,8 @@ import { http } from "../apiHttp";
 import type { MusicSeed } from "../music/musicApi";
 
 /** Which skill, or Home Assistant, a room's screen is showing. */
-export type RoomOrigin = "music" | "video" | "books" | "home-assistant";
-export type AlexaSkill = "music" | "video" | "books";
+export type RoomOrigin = "music" | "video" | "books" | "movies" | "home-assistant";
+export type AlexaSkill = "music" | "video" | "books" | "movies";
 
 /** Where a book is, for Hoban Books: its chapter and the whole book. Milliseconds, worked out when the response was sent. */
 export type RoomBookProgress = {
