@@ -90,6 +90,21 @@ describe("client", () => {
     await expect(refused.item("5")).rejects.toThrow("Plex refused the token");
   });
 
+  test("filters a library by its own rating strings, and asks Plex nothing when none fit", async () => {
+    const urls: string[] = [];
+    const client = createPlexClient({ url: "http://plex", token: "t" }, async (url) => {
+      urls.push(url);
+      return Response.json({ MediaContainer: { Directory: [{ key: "PG", title: "PG" }, { key: "gb%2F12A", title: "gb/12A" }], Metadata: [] } });
+    });
+    expect(await client.libraryContentRatings("1")).toEqual(["PG", "gb/12A"]);
+    await client.libraryItems("1", { contentRatings: ["G", "gb/12A"] });
+    expect(await client.libraryItems("1", { contentRatings: [] })).toEqual({ items: [], total: 0 });
+    expect(urls).toEqual([
+      "http://plex/library/sections/1/contentRating",
+      "http://plex/library/sections/1/all?contentRating=G%2Cgb%2F12A&sort=addedAt%3Adesc&X-Plex-Container-Start=0&X-Plex-Container-Size=40",
+    ]);
+  });
+
   test("saves progress in milliseconds and marks watched", async () => {
     const urls: string[] = [];
     const client = createPlexClient({ url: "http://plex", token: "t" }, async (url) => { urls.push(url); return new Response(""); });
