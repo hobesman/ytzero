@@ -6,7 +6,9 @@ import { safeSubtitleUpstreamUrl } from "./subtitleUpstream";
 const YOUTUBE_OPAQUE_TRACK_SUFFIX = /^(.*)-[A-Za-z0-9_-]{11}$/;
 const LANGUAGE_CODE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 const METADATA_CACHE_MS = 60_000;
-const MAX_METADATA_BYTES = 1_024 * 1_024;
+// Every caption language, each in several formats with a long signed URL: a
+// video with many author tracks lists 10 MB or more.
+const MAX_METADATA_BYTES = 32 * 1_024 * 1_024;
 
 export interface AvailableSubtitle {
   lang: string;
@@ -116,13 +118,12 @@ async function readTextLimited(stream: ReadableStream<Uint8Array>, limit = MAX_M
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
-function parseMetadata(output: string): SubtitleMetadata {
+/** yt-dlp's two printed lines. A video with no tracks of a kind prints "NA" for it, not JSON. */
+export function parseMetadata(output: string): SubtitleMetadata {
   const lines = output.split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) throw new Error("subtitle metadata was incomplete");
-  return {
-    subtitles: mapFromJson(JSON.parse(lines[0])),
-    automaticCaptions: mapFromJson(JSON.parse(lines[1])),
-  };
+  const tracks = (line: string) => line.trim() === "NA" ? {} : mapFromJson(JSON.parse(line));
+  return { subtitles: tracks(lines[0]), automaticCaptions: tracks(lines[1]) };
 }
 
 async function fetchMetadata(userId: number, videoId: string): Promise<SubtitleMetadata> {

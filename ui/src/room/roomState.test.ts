@@ -142,8 +142,14 @@ describe("lyrics", () => {
     expect(roomLyricsSong(amazon)).toEqual({ kind: "song", artist: "4 Non Blondes", title: "What's Up?", duration: 296, key: "song:4 Non Blondes|What's Up?" });
   });
 
-  test("has none for videos, finished songs, nothing playing, or a song with no artist", () => {
-    expect(roomLyricsSong(kitchen({ current: { ...song, origin: "video" } }))).toEqual({ kind: "video" });
+  test("uses a Hoban Tube video's subtitles", () => {
+    const video = { skill: "video" as const, videoId: "abcdefghijk", title: "Leaky Faucet", artist: "This Old House", art: "", durationMs: 600_000,
+      state: "playing", offsetMs: 0, startedAt: null, positionMs: 0, updatedAt: "" };
+    expect(roomLyricsSong(kitchen({ nowPlaying: video, current: { ...song, origin: "video" } }))).toEqual({ kind: "video", videoId: "abcdefghijk", key: "video:abcdefghijk" });
+    expect(roomLyricsSong(kitchen({ nowPlaying: null, current: { ...song, origin: "video" } }))).toBe(null);
+  });
+
+  test("has none for finished songs, nothing playing, or a song with no artist", () => {
     expect(roomLyricsSong(kitchen({ current: { ...song, state: "finished" } }))).toBe(null);
     expect(roomLyricsSong(kitchen({ current: null }))).toBe(null);
     expect(roomLyricsSong(kitchen({ current: { ...song, origin: "home-assistant", artist: null } }))).toBe(null);
