@@ -1,9 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { buildSubtitleAvailability, normalizeSubtitleLanguage } from "./subtitleAvailability";
+import { buildSubtitleAvailability, normalizeSubtitleLanguage, parseMetadata } from "./subtitleAvailability";
 
 const vtt = (name: string, url = "https://www.youtube.com/api/timedtext?lang=en") => [{ name, ext: "vtt", url }];
 
 describe("subtitle availability", () => {
+  test("reads yt-dlp's NA, for a video with no author tracks, as none", () => {
+    const automatic = { en: vtt("English") };
+    expect(parseMetadata(`NA\n${JSON.stringify(automatic)}\n`)).toEqual({ subtitles: {}, automaticCaptions: automatic });
+    expect(parseMetadata("NA\nNA\n")).toEqual({ subtitles: {}, automaticCaptions: {} });
+    expect(() => parseMetadata("NA\n")).toThrow("incomplete");
+  });
+
   test("folds only YouTube's opaque per-track suffix", () => {
     expect(normalizeSubtitleLanguage("en-nP7-2PuUl7o")).toBe("en");
     expect(normalizeSubtitleLanguage("fr-gqnk0mWVyHo")).toBe("fr");
