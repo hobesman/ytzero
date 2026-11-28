@@ -41,6 +41,9 @@
 }
 .room-now > * { flex: 0 0 auto; }
 .room-now__art-box { align-items: center; container-type: size; display: flex; flex: 1 1 0; justify-content: center; min-height: 0; }
+/* The cover as a button opens what's playing: no button chrome, just the focus ring. */
+.room-now__art-open { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; padding: 0; }
+.room-now__art-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .room-now--loading { min-height: 320px; }
 .room-now__art { aspect-ratio: 1; background: var(--surface-2); border-radius: 18px; height: min(100cqh, 100cqw, 420px); object-fit: cover; width: min(100cqh, 100cqw, 420px); }
 .room-now__art--empty { align-items: center; color: var(--text-3); display: flex; justify-content: center; }

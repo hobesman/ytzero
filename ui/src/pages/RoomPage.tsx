@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Home, Music, Settings2, Tv } from "lucide-react";
 import { useI18n } from "../i18n";
-import { Badge, Button, EmptyState, IconButton, SelectMenu, Tabs } from "../components/ui";
+import { Alert, Badge, Button, EmptyState, IconButton, SelectMenu, Tabs } from "../components/ui";
 import { roomApi } from "../room/roomApi";
 import { RoomIdle } from "../room/RoomIdle";
 import { RoomLyrics } from "../room/RoomLyrics";
@@ -11,6 +11,7 @@ import { RoomMusicTab } from "../room/RoomMusicTab";
 import { RoomNowPlaying, skillName, type SkillNames } from "../room/RoomNowPlaying";
 import { RoomSetup } from "../room/RoomSetup";
 import { RoomVideoTab } from "../room/RoomVideoTab";
+import { useOpenPlaying } from "../room/useOpenPlaying";
 import {
   ROOM_LYRICS_KEY, ROOM_STORAGE_KEY, deviceTimeZone, findRoom, isIdle, lastPlayedAt, roomDisplay, roomPath, storedRoom,
 } from "../room/roomState";
@@ -68,6 +69,7 @@ export default function RoomPage() {
   const room = findRoom(snapshot?.rooms ?? null, roomName);
   const display = roomDisplay(room);
   const control = controls[roomName.toLowerCase()] ?? null;
+  const openPlaying = useOpenPlaying(homeRoom, display.kind === "playing" || display.kind === "paused" ? display.current : null, () => setLyrics(false));
   const idle = Boolean(homeRoom) && !setupOpen && isIdle(display, lastTouch, now, Boolean(control));
   useEffect(() => setIdleState(idle), [idle]);
   // Another room is only visited: after a while untouched, the tablet goes back to its own.
@@ -126,7 +128,7 @@ export default function RoomPage() {
         {!snapshot ? <div className="room-now room-now--loading" /> : !room
           ? <section className="room-now"><EmptyState icon={<Home />} title={t("roomUnknown", { room: roomName })} description={t("roomUnknownHint")}
             action={<Button size="lg" onClick={() => setSetupOpen(true)}>{t("roomSetupTitle")}</Button>} /></section>
-          : <RoomNowPlaying roomName={room.room} room={room} display={display} control={control} receivedAt={snapshot.receivedAt} names={names} onCommand={command} lyrics={lyrics} onLyrics={setLyrics} />}
+          : <RoomNowPlaying roomName={room.room} room={room} display={display} control={control} receivedAt={snapshot.receivedAt} names={names} onCommand={command} lyrics={lyrics} onLyrics={setLyrics} onOpenArt={openPlaying.action} />}
         {lyrics ? <section className="room-page__browse room-page__browse--lyrics"><RoomLyrics room={room} receivedAt={snapshot?.receivedAt ?? 0} /></section> : <section className="room-page__browse">
           <Tabs label={t("roomTabs")} value={tab} onChange={(next) => navigate(roomPath(homeRoom, next === "music" ? undefined : next))} options={[
             { value: "music", label: names.music ?? t("roomSourceMusic"), icon: <Music /> },
@@ -134,6 +136,7 @@ export default function RoomPage() {
             { value: "books", label: names.books ?? t("roomTabBooks"), icon: <BookOpen /> },
           ]} className="room-page__tabs" />
           <div className="room-page__panel">
+            {openPlaying.notice ? <Alert variant="warning" role="status" className="room-tab__failure">{openPlaying.notice}</Alert> : null}
             {tab === "music" ? <RoomMusicTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command}
               playingKey={room?.current ? `${room.current.title ?? ""}|${room.current.artist ?? ""}` : ""} />
               : tab === "videos" ? <RoomVideoTab roomName={room?.room ?? roomName} onCommand={command} />

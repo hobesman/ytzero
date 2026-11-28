@@ -14,6 +14,8 @@ export type RoomBookProgress = {
 /** What the room's screen should show, as `GET /api/alexa/rooms` works it out. */
 export type RoomCurrent = {
   origin: RoomOrigin;
+  /** Our skills: the song's or video's ID, or the book's Audiobookshelf ID. */
+  videoId?: string | null;
   /** Our skills: playing, paused, stopped, finished, failed. Home Assistant: playing, paused. */
   state: string;
   title: string | null;

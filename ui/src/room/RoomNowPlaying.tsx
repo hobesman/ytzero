@@ -157,7 +157,7 @@ function useCoverBeside(layoutKey: string) {
   return { panel, beside };
 }
 
-export function RoomNowPlaying({ roomName, room, display, control, receivedAt, names, onCommand, lyrics, onLyrics }: {
+export function RoomNowPlaying({ roomName, room, display, control, receivedAt, names, onCommand, lyrics, onLyrics, onOpenArt }: {
   roomName: string;
   room: AlexaRoom | null;
   display: RoomDisplay;
@@ -168,6 +168,8 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
   /** Whether lyrics mode is on, and how to switch it. */
   lyrics: boolean;
   onLyrics: (on: boolean) => void;
+  /** Opens what's playing (its album, or its book) below, when there is one: the cover is then a button. */
+  onOpenArt?: { label: string; open: () => void };
 }) {
   const { t } = useI18n();
   const [failure, setFailure] = useState<string | null>(null);
@@ -205,7 +207,9 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
   const { panel, beside } = useCoverBeside([item?.title, item?.artist, display.kind, control?.action === "play", failure].join(""));
 
   return <section ref={panel} className={`room-now${beside ? " room-now--cover-beside" : ""}`} aria-label={t("roomNowPlaying")} aria-live="polite">
-    <div className="room-now__art-box"><RoomArt url={item?.art} /></div>
+    {onOpenArt
+      ? <button type="button" className="room-now__art-box room-now__art-open" aria-label={onOpenArt.label} onClick={onOpenArt.open}><RoomArt url={item?.art} /></button>
+      : <div className="room-now__art-box"><RoomArt url={item?.art} /></div>}
     <div className="room-now__copy">
       <div className="room-now__badges">
         {source ? <SourceBadge source={source} names={names} /> : null}
