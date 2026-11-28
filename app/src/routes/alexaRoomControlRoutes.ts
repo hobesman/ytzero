@@ -15,6 +15,7 @@ import {
 import { musicTracks } from "../music/musicCatalog";
 import { parseStationSeed } from "../music/musicStation";
 import { registerAlexaBookApiRoutes, type BookClient } from "./alexaBookApiRoutes";
+import { registerAlexaPlexApiRoutes, type PlexBrowseClient } from "./alexaPlexApiRoutes";
 import type { AlexaRoomBooks } from "../alexa/alexaRoomBooks";
 import type { AlexaRoomHistory } from "../alexa/alexaRoomHistory";
 import { registerAlexaRoomHistoryRoutes } from "./alexaRoomHistoryRoutes";
@@ -40,6 +41,8 @@ export interface AlexaRoomControlDependencies {
   /** Audiobookshelf for the Books tab, and the rooms' queued books. */
   audiobookshelf?: () => BookClient | { disabled: string };
   roomBooks?: AlexaRoomBooks;
+  /** Plex for the Hoban Plex tab. */
+  plex?: () => PlexBrowseClient | { disabled: string };
   /** Each room's recent plays. */
   roomHistory?: AlexaRoomHistory;
 }
@@ -264,6 +267,7 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
   registerAlexaBookApiRoutes(api, {
     currentUserId, rooms, settings, now, controls, audiobookshelf: dependencies.audiobookshelf, roomBooks: dependencies.roomBooks,
   });
+  registerAlexaPlexApiRoutes(api, { currentUserId, controls, plex: dependencies.plex });
   registerAlexaRoomHistoryRoutes(api, { currentUserId, rooms, settings, history: dependencies.roomHistory });
 }
 

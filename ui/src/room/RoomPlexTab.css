@@ -1,0 +1,12 @@
+/* Hoban Plex tab: posters in a wrapping grid, each with how far it has been watched; a title's chapters or episodes. */
+.room-plex { display: flex; flex-direction: column; gap: 22px; }
+.room-plex__grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.room-plex__card { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.music-shelf__row .room-plex__card { flex: 0 0 auto; width: 150px; }
+.room-plex__card .music-card { width: 100%; }
+.room-plex__card-progress.ui-progress { height: 5px; }
+.room-plex__more.ui-button { align-self: center; margin-top: 12px; }
+.room-plex__pickers { display: flex; flex-wrap: wrap; gap: 10px; }
+.room-plex__overview { color: var(--text-2); font-size: 17px; line-height: 1.5; margin: 0; max-width: 70ch; }
+.room-plex__row { min-height: 72px; }
+.room-plex__row--current { background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 12px; }

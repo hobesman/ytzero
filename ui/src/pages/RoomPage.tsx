@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Home, Music, Settings2, Tv } from "lucide-react";
+import { BookOpen, Film, Home, Music, Settings2, Tv } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Alert, Badge, Button, EmptyState, IconButton, SelectMenu, Tabs } from "../components/ui";
 import { roomApi } from "../room/roomApi";
 import { RoomIdle } from "../room/RoomIdle";
 import { RoomLyrics } from "../room/RoomLyrics";
 import { RoomBooksTab } from "../room/RoomBooksTab";
+import { RoomPlexTab } from "../room/RoomPlexTab";
 import { RoomMusicTab } from "../room/RoomMusicTab";
 import { RoomNowPlaying, skillName, type SkillNames } from "../room/RoomNowPlaying";
 import { RoomSetup } from "../room/RoomSetup";
@@ -18,8 +19,8 @@ import {
 import { useLongPress, useNow, useRooms, useScreenWakeLock, useSessionRenewal } from "../room/useRoomState";
 import "./RoomPage.css";
 
-type RoomTab = "music" | "videos" | "books";
-const TABS: readonly RoomTab[] = ["music", "videos", "books"];
+type RoomTab = "music" | "videos" | "books" | "plex";
+const TABS: readonly RoomTab[] = ["music", "videos", "books", "plex"];
 
 function safeStorage(): Storage | null {
   try { return window.localStorage; } catch { return null; }
@@ -131,15 +132,17 @@ export default function RoomPage() {
           : <RoomNowPlaying roomName={room.room} room={room} display={display} control={control} receivedAt={snapshot.receivedAt} names={names} onCommand={command} lyrics={lyrics} onLyrics={setLyrics} onOpenArt={openPlaying.action} />}
         {lyrics ? <section className="room-page__browse room-page__browse--lyrics"><RoomLyrics room={room} receivedAt={snapshot?.receivedAt ?? 0} /></section> : <section className="room-page__browse">
           <Tabs label={t("roomTabs")} value={tab} onChange={(next) => navigate(roomPath(homeRoom, next === "music" ? undefined : next))} options={[
-            { value: "music", label: names.music ?? t("roomSourceMusic"), icon: <Music /> },
-            { value: "videos", label: names.video ?? t("roomSourceVideo"), icon: <Tv /> },
-            { value: "books", label: names.books ?? t("roomTabBooks"), icon: <BookOpen /> },
+            { value: "music", label: t("roomTabMusic"), icon: <Music /> },
+            { value: "videos", label: t("roomTabTube"), icon: <Tv /> },
+            { value: "books", label: t("roomTabBooks"), icon: <BookOpen /> },
+            { value: "plex", label: t("roomTabPlex"), icon: <Film /> },
           ]} className="room-page__tabs" />
           <div className="room-page__panel">
             {openPlaying.notice ? <Alert variant="warning" role="status" className="room-tab__failure">{openPlaying.notice}</Alert> : null}
             {tab === "music" ? <RoomMusicTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command}
               playingKey={room?.current ? `${room.current.title ?? ""}|${room.current.artist ?? ""}` : ""} />
               : tab === "videos" ? <RoomVideoTab roomName={room?.room ?? roomName} onCommand={command} />
+              : tab === "plex" ? <RoomPlexTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command} current={room?.current ?? null} />
               : <RoomBooksTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command} current={room?.current ?? null} />}
           </div>
         </section>}

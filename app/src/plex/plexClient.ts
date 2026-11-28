@@ -95,6 +95,18 @@ export interface PlexSummary {
   year: number | null;
   /** An episode's show. */
   showTitle: string | null;
+  /** A Plex image path for the poster (an episode's, its show's). */
+  thumb: string;
+  /** Seconds; 0 for a show. */
+  duration: number;
+  /** Where Plex says the user is, in seconds. */
+  viewOffset: number;
+  watched: boolean;
+  /** A show's episodes, and how many of them are watched. */
+  leafCount: number;
+  viewedLeafCount: number;
+  /** Plex's description of it. */
+  overview: string;
 }
 
 export interface PlexLibrary { id: string; type: "movie" | "show"; title: string }
@@ -154,8 +166,19 @@ export function parsePlexSummary(entry: Json | null | undefined): PlexSummary | 
     title: text(entry.title) || "Untitled",
     year: number(entry.year) || null,
     showTitle: type === "episode" ? text(entry.grandparentTitle) || null : null,
+    thumb: text(type === "episode" ? entry.grandparentThumb || entry.parentThumb || entry.thumb : entry.thumb),
+    duration: number(entry.duration) / 1000,
+    viewOffset: Math.max(0, number(entry.viewOffset) / 1000),
+    watched: type === "show" ? number(entry.leafCount) > 0 && number(entry.viewedLeafCount) >= number(entry.leafCount) : number(entry.viewCount) > 0,
+    leafCount: number(entry.leafCount),
+    viewedLeafCount: number(entry.viewedLeafCount),
+    overview: text(entry.summary).slice(0, 2_000),
   };
 }
+
+/** The orders a library can be listed in: newest added first, or by title. Plex's own sort keys. */
+export const PLEX_LIBRARY_SORTS = { newest: "addedAt:desc", title: "titleSort" } as const;
+export type PlexLibrarySort = keyof typeof PLEX_LIBRARY_SORTS;
 
 const COMMENTARY = /commentary|descriptive|audio description|director/i;
 
@@ -216,6 +239,30 @@ export function createPlexClient(config: PlexConfig, fetcher: Fetch = fetch, tim
         }
       }
       return found;
+    },
+
+    /** One page of a library's movies or shows. */
+    async libraryItems(libraryId: string, options: { start?: number; size?: number; sort?: PlexLibrarySort } = {}): Promise<{ items: PlexSummary[]; total: number }> {
+      if (!isPlexId(libraryId)) return { items: [], total: 0 };
+      const query = new URLSearchParams({
+        sort: PLEX_LIBRARY_SORTS[options.sort ?? "newest"],
+        "X-Plex-Container-Start": String(Math.max(0, options.start ?? 0)),
+        "X-Plex-Container-Size": String(Math.min(100, Math.max(1, options.size ?? 40))),
+      });
+      const container = await call(`/library/sections/${libraryId}/all?${query}`);
+      const items = list(container?.Metadata).map(parsePlexSummary).filter((item): item is PlexSummary => item !== null);
+      return { items, total: number(container?.totalSize) || number(container?.size) || items.length };
+    },
+
+    /** A movie, show or episode as a list shows it, whatever its type. */
+    async summary(id: string): Promise<PlexSummary | null> {
+      if (!isPlexId(id)) return null;
+      try {
+        return parsePlexSummary(list((await call(`/library/metadata/${id}`))?.Metadata)[0]);
+      } catch (error) {
+        if (error instanceof PlexError && error.status === 404) return null;
+        throw error;
+      }
     },
 
     async item(id: string): Promise<PlexItem | null> {

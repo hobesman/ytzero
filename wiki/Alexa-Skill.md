@@ -337,8 +337,20 @@ isn't a commentary. A movie's 5.1 soundtrack (AC3, E-AC3, DTS, TrueHD) is
 mixed down to stereo AAC as it plays, since an Echo plays none of those;
 stereo AAC is sent as it is. Plex's own transcoder isn't used.
 
-The room tablet doesn't have a Movies tab yet. An Echo playing a movie still
-shows in the room's now playing.
+### On the room tablet
+
+The room page's **Plex** tab shows what Plex has on deck, each movie and TV
+library (recently added or by title) with search, a movie's chapters, and a
+show's seasons and episodes, with the one to carry on with marked. Tap
+**Play** to hear a title on the room's Echo, from its saved place or from the
+start, or from a chapter. A movie's poster shows whole in now playing, and
+tapping it opens that title in the tab.
+
+The tablet doesn't type the title to the Echo: YT Zero notes the exact movie
+or episode (and the place) for the room, then types "ask hoban plex to play
+my pick", and the skill plays what was noted. The note lasts a minute and a
+half and is used once; said by voice, "…play my pick" with nothing noted
+carries on with what you last watched.
 
 ## Rooms and now playing
 

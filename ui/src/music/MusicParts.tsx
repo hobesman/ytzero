@@ -31,9 +31,10 @@ export function useMusicData<T>(load: () => Promise<T>) {
 }
 
 /** Square artwork through the image proxy, or a note when there is none. */
-export function MusicArtwork({ url, size, round = false }: { url: string | null | undefined; size?: number; round?: boolean }) {
-  const style = size ? { width: size, height: size } : undefined;
-  const className = `music-art${round ? " music-art--round" : ""}`;
+/** `poster`: a movie or show poster, 2:3 instead of square; `size` is then its width. */
+export function MusicArtwork({ url, size, round = false, poster = false }: { url: string | null | undefined; size?: number; round?: boolean; poster?: boolean }) {
+  const style = size ? { width: size, height: poster ? Math.round(size * 1.5) : size } : undefined;
+  const className = `music-art${round ? " music-art--round" : ""}${poster ? " music-art--poster" : ""}`;
   if (!url) return <span className={`${className} music-art--empty`} style={style} aria-hidden="true"><Music /></span>;
   return <img className={className} style={style} src={img(url)} alt="" loading="lazy" />;
 }
@@ -143,12 +144,12 @@ export function MusicTrackMenu({ track, onRemove }: { track: MusicTrack; onRemov
 }
 
 /** The heading of an album, artist, genre or playlist page. */
-export function MusicDetailHeader({ art, round, title, detail, children }: { art?: string | null; round?: boolean; title: string; detail?: string; children?: ReactNode }) {
+export function MusicDetailHeader({ art, round, poster, title, detail, children }: { art?: string | null; round?: boolean; poster?: boolean; title: string; detail?: string; children?: ReactNode }) {
   const navigate = useNavigate();
   const { t } = useI18n();
   return <div className="music-detail">
     <IconButton variant="ghost" className="music-detail__back" label={t("musicBack")} icon={<ArrowLeft />} onClick={() => navigate(-1)} />
-    {art !== undefined ? <MusicArtwork url={art} size={160} round={round} /> : null}
+    {art !== undefined ? <MusicArtwork url={art} size={poster ? 120 : 160} round={round} poster={poster} /> : null}
     <div className="music-detail__copy">
       <h2 className="music-detail__title">{title}</h2>
       {detail ? <p className="music-detail__meta">{detail}</p> : null}

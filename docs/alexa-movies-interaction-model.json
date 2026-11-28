@@ -20,6 +20,17 @@
           ]
         },
         {
+          "name": "PlayRoomPickIntent",
+          "slots": [],
+          "samples": [
+            "play my pick",
+            "play the pick",
+            "play what I picked",
+            "play the one I picked",
+            "play the pick from the tablet"
+          ]
+        },
+        {
           "name": "PlayTitleIntent",
           "slots": [
             {

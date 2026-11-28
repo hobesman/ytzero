@@ -74,7 +74,7 @@ describe("client", () => {
         { type: "artist", Metadata: [{ ratingKey: "300", type: "artist", title: "Heatmiser" }] },
       ] } });
     });
-    expect(await client.search("heat")).toEqual([
+    expect(await client.search("heat")).toMatchObject([
       { id: "101", type: "movie", title: "Heat", year: 1995, showTitle: null },
       { id: "200", type: "show", title: "The Office", year: null, showTitle: null },
     ]);

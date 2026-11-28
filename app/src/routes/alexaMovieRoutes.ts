@@ -6,6 +6,7 @@ import { createMovieProgressSync, type MovieProgressSync } from "../alexa/alexaM
 import { createAlexaMovieSkill, decodeMovieToken, encodeMovieToken, movieSubtitle, type AlexaMovieSkill, type MovieApi } from "../alexa/alexaMovieSkill";
 import type { NowPlayingItem } from "../alexa/alexaNowPlaying";
 import type { AlexaRoomStore } from "../alexa/alexaRooms";
+import { roomPlexPicks, type RoomPlexPicks } from "../alexa/alexaRoomPlexPicks";
 import { log } from "../logger";
 import { chooseAudioStream, defaultPlex, type PlexClient } from "../plex/plexClient";
 
@@ -15,6 +16,8 @@ export interface AlexaMovieRouteDependencies {
   spawn?: SpawnFfmpeg;
   /** Saves playing titles' places and notices dropped streams; see alexaMovieProgressSync.ts. */
   sync?: MovieProgressSync;
+  /** What each room's tablet just picked; the server's own by default. */
+  picks?: RoomPlexPicks;
 }
 
 /**
@@ -31,12 +34,17 @@ export function createAlexaMovieRoutes(dependencies: AlexaMovieRouteDependencies
 }) {
   const plex = dependencies.plex ?? defaultPlex;
   const { rooms } = dependencies;
+  const picks = dependencies.picks ?? roomPlexPicks;
   let skill: AlexaMovieSkill | null = null;
 
   const skillFor = (settings: AlexaConfig): AlexaMovieSkill => skill ??= createAlexaMovieSkill({
     plex,
     audioLink: (itemId, userId, startSeconds) => alexaMovieAudioLink(settings.publicUrl, settings.secret, itemId, userId, startSeconds, dependencies.now()),
     posterLink: (itemId) => alexaMoviePosterLink(settings.publicUrl, settings.secret, itemId),
+    roomPick: async (userId, deviceId) => {
+      const room = await rooms.room(userId, "movies", deviceId);
+      return { room, pick: room ? picks.take(userId, room) : null };
+    },
     now: dependencies.now,
   });
 
