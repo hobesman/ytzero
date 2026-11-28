@@ -9,9 +9,9 @@ import { childLocalOnly, isChildUser } from "../childTime";
 import { DOWNLOADS_ADMIN_SETTING_KEYS, dlSettings, downloadCookiesConfigured, downloadSettings, profileDownloadsEnabled, removeDownloadCookies, saveDownloadCookies, setDownloadSettings, setProfileDownloadsEnabled } from "../downloadConfig";
 import { activeDownloadProgress, cancelAllPendingDownloads, downloadStats, downloadStatusSummary, enqueueDownload, ensureMobilePlayback, getDirectVideoResponse, getDownload, getHlsPlaylist, getHlsResource, getHlsSegment, hasHlsSession, invalidateAudioSources, invalidateDirectVideoSources, isSegmentName, listDownloads, listSubtitleFiles, liveStreamEnabled, prioritizeDownload, removeDownload, setDownloadPinned, srtToVtt, ytdlpJavascriptRuntimeStatus, ytdlpStatus } from "../downloader";
 import { createDownloadRule, deleteDownloadRule, DownloadRuleValidationError, listDownloadRules, previewDownloadRule, updateDownloadRule, type DownloadRuleInput } from "../downloadRules";
-import { availableSubtitlesForVideo, normalizeSubtitleLanguage, subtitleStreamForVideo } from "../subtitleAvailability";
+import { availableSubtitlesForVideo, normalizeSubtitleLanguage, subtitleStreamsForVideo } from "../subtitleAvailability";
 import { subtitleLanguageLabel } from "../subtitleLanguages";
-import { fetchSubtitleUpstream, proxySubtitleResponse } from "../subtitleUpstream";
+import { firstSubtitleResponse } from "../subtitleUpstream";
 import { configuredTimeZone } from "../timeZone";
 import { tubeArchivistResource, tubeArchivistSubtitleList, tubeArchivistSubtitleResponse } from "../tubeArchivist";
 import { validYouTubeVideoId } from "../youtubeComments";
@@ -479,15 +479,9 @@ api.get("/videos/:id/subtitles/:lang", async (c) => {
   }
   if (childLocalOnly(uid)) return c.json({ error: "not found" }, 404);
   try {
-    const url = await subtitleStreamForVideo(uid, videoId, language, await subtitlePreferences(uid, videoId));
-    if (!url) return c.json({ error: "not found" }, 404);
-    const upstream = await fetchSubtitleUpstream(fetch, url, { signal: c.req.raw.signal });
-    const proxied = upstream && proxySubtitleResponse(upstream);
-    if (!proxied) {
-      await upstream?.body?.cancel().catch(() => {});
-      return c.json({ error: "subtitle unavailable" }, 502);
-    }
-    return proxied;
+    const urls = await subtitleStreamsForVideo(uid, videoId, language, await subtitlePreferences(uid, videoId));
+    if (!urls.length) return c.json({ error: "not found" }, 404);
+    return await firstSubtitleResponse(fetch, urls, { signal: c.req.raw.signal }) ?? c.json({ error: "subtitle unavailable" }, 502);
   } catch {
     return c.json({ error: "subtitle unavailable" }, 502);
   }

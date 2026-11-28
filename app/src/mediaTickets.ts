@@ -11,6 +11,12 @@ export type MediaTicket = {
 };
 
 export const MEDIA_TICKET_TTL_MS = 15 * 60_000;
+/**
+ * How long a lapsed ticket stays renewable. It serves no media once lapsed,
+ * but its owner may renew it: a phone whose timers stopped while paused in the
+ * background then keeps the stream it loaded, and the buffer with it.
+ */
+export const MEDIA_TICKET_RENEWAL_GRACE_MS = 6 * 60 * 60_000;
 
 /** Process-local capabilities, never database/settings/backup data. */
 export class MediaTicketStore {
@@ -19,7 +25,7 @@ export class MediaTicketStore {
 
   issue(input: Omit<MediaTicket, "expiresAt">): string {
     for (const [key, ticket] of this.tickets) {
-      if (ticket.expiresAt <= this.now()) this.tickets.delete(key);
+      if (ticket.expiresAt + MEDIA_TICKET_RENEWAL_GRACE_MS <= this.now()) this.tickets.delete(key);
     }
     while (this.tickets.size >= this.capacity) this.tickets.delete(this.tickets.keys().next().value!);
     const token = randomBytes(32).toString("base64url");
@@ -27,21 +33,33 @@ export class MediaTicketStore {
     return token;
   }
 
+  /** A ticket that may still serve media. */
   read(token: string): MediaTicket | null {
+    const ticket = this.held(token);
+    return ticket && ticket.expiresAt > this.now() ? ticket : null;
+  }
+
+  /** A ticket still held, lapsed or not, if it belongs to this session's viewer and video. */
+  owned(token: string, userId: number, videoId: string, sessionToken: string): MediaTicket | null {
+    const ticket = this.held(token);
+    return ticket && ticket.userId === userId && ticket.videoId === videoId && ticket.sessionToken === sessionToken ? ticket : null;
+  }
+
+  renew(token: string, userId: number, videoId: string, sessionToken: string): boolean {
+    const ticket = this.owned(token, userId, videoId, sessionToken);
+    if (!ticket) return false;
+    ticket.expiresAt = this.now() + MEDIA_TICKET_TTL_MS;
+    return true;
+  }
+
+  private held(token: string): MediaTicket | null {
     const ticket = this.tickets.get(token);
     if (!ticket) return null;
-    if (ticket.expiresAt <= this.now()) {
+    if (ticket.expiresAt + MEDIA_TICKET_RENEWAL_GRACE_MS <= this.now()) {
       this.tickets.delete(token);
       return null;
     }
     return ticket;
-  }
-
-  renew(token: string, userId: number, videoId: string, sessionToken: string): boolean {
-    const ticket = this.read(token);
-    if (!ticket || ticket.userId !== userId || ticket.videoId !== videoId || ticket.sessionToken !== sessionToken) return false;
-    ticket.expiresAt = this.now() + MEDIA_TICKET_TTL_MS;
-    return true;
   }
 
   revoke(token: string): void { this.tickets.delete(token); }

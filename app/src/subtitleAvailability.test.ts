@@ -62,4 +62,15 @@ describe("subtitle availability", () => {
     );
     expect(available).toEqual([{ lang: "pl", label: "Polski", tracks: ["pl"] }]);
   });
+
+  test("puts the captions of what was said ahead of YouTube's translation into the language", () => {
+    const available = buildSubtitleAvailability({}, {
+      en: vtt("English", "https://www.youtube.com/api/timedtext?lang=en&tlang=en"),
+      "en-orig": vtt("English (Original)", "https://www.youtube.com/api/timedtext?lang=en"),
+      fr: vtt("French", "https://www.youtube.com/api/timedtext?lang=en&tlang=fr"),
+    }, ["en", "fr"]);
+    expect(available.find((subtitle) => subtitle.lang === "en")?.tracks).toEqual(["en-orig", "en"]);
+    expect(available.find((subtitle) => subtitle.lang === "fr")?.tracks).toEqual(["fr"]);
+    expect(available.some((subtitle) => subtitle.lang === "en-orig")).toBe(false);
+  });
 });
