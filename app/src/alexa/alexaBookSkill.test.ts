@@ -239,6 +239,13 @@ describe("play my book", () => {
     const response = await skillWith(api).handle(1, intent("PlayRoomBookIntent"));
     expect(response.response.outputSpeech.text).toBe("There's no book queued for the Kitchen, so resuming The Long Way.");
   });
+
+  test("on an Echo with no room, says so and plays nothing, rather than another book", async () => {
+    const { api } = fakeApi({ li_single: { currentTime: 100 } }, ["li_single"]);
+    const response = await skillWith(api, { room: null, roomBook: { bookId: "li_multi", title: "Many Files", startSeconds: null } }).handle(1, intent("PlayRoomBookIntent"));
+    expect(response.response.outputSpeech.text).toContain("This Echo isn't paired with a room yet");
+    expect(response.response.directives ?? []).toEqual([]);
+  });
 });
 
 test("says when Audiobookshelf isn't configured", async () => {

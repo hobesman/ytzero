@@ -202,7 +202,8 @@ Echo carry on from each other.
 - "…play *title*" (or "…read *title*") finds a book by its title, and "…play a
   book by *author*" the author's book you're in the middle of, or their first.
 - "…play the next book in the series" starts the book after the one playing.
-- "…play my book" plays the book chosen for the room on its tablet.
+- "…play my book" plays the book chosen for the room on its tablet. The Echo must
+  be paired with Hoban Books first; an Echo with no room says so and plays nothing.
 - "Alexa, next" and "Alexa, previous" move by chapter. "…skip forward 2
   minutes" and "…go back 30 seconds" skip within the book; "Alexa, start over"
   goes back to the start of the chapter.
