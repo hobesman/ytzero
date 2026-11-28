@@ -7,7 +7,7 @@ import { withoutStreamStart } from "./alexaStreamTokens";
 import { bestMatch, isoDurationSeconds, TITLE_MATCH_MIN, titleScore } from "./alexaVideoMatch";
 
 /**
- * Hoban Movies: the soundtrack of the movies and shows in the user's Plex
+ * Hoban Plex: the soundtrack of the movies and shows in the user's Plex
  * server, on an Echo. The place is kept in Plex itself, so the TV carries on
  * from where the kitchen stopped and the other way round. A show plays on
  * into its next episode; a title played to its end is marked watched.
@@ -363,7 +363,7 @@ export function createAlexaMovieSkill(dependencies: AlexaMovieSkillDependencies)
     if (name === "AMAZON.StartOverIntent") return seekTo(userId, envelope, () => 0, true, "");
     if (STOP_INTENTS.has(name)) return silent([stopDirective]);
     if (name === "AMAZON.ResumeIntent") return resume(userId, envelope, true);
-    if (UNSUPPORTED_INTENTS.has(name)) return speak("Sorry, Hoban Movies can't do that.");
+    if (UNSUPPORTED_INTENTS.has(name)) return speak("Sorry, Hoban Plex can't do that.");
     return speak(HELP, ASK);
   }
 
@@ -416,7 +416,7 @@ export function createAlexaMovieSkill(dependencies: AlexaMovieSkillDependencies)
     } catch (error) {
       log.warn("alexa.request_failed", { skill: "movies", type, error: error instanceof Error ? error.message : String(error) });
       if (type !== "IntentRequest" && type !== "LaunchRequest") return silent();
-      return speak(error instanceof Unavailable ? "Hoban Movies isn't connected to Plex yet." : UNREACHABLE);
+      return speak(error instanceof Unavailable ? "Hoban Plex isn't connected to Plex yet." : UNREACHABLE);
     }
   }
 

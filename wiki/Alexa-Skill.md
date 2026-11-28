@@ -64,7 +64,7 @@ Repeat these steps once per skill, using that skill's interaction model:
 | Music | [`docs/alexa-music-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-music-interaction-model.json) | `hoban music` |
 | Video | [`docs/alexa-video-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-video-interaction-model.json) | `hoban tube` |
 | Books | [`docs/alexa-books-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-books-interaction-model.json) | `hoban books` (see [Hoban Books](#hoban-books-audiobooks-from-audiobookshelf)) |
-| Movies | [`docs/alexa-movies-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-movies-interaction-model.json) | `hoban movies` (see [Hoban Movies](#hoban-movies-movie-and-tv-soundtracks-from-plex)) |
+| Movies | [`docs/alexa-movies-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-movies-interaction-model.json) | `hoban plex` (see [Hoban Plex](#hoban-plex-movie-and-tv-soundtracks-from-plex)) |
 
 1. Sign in to the [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
    with the same Amazon account your Echo uses.
@@ -269,13 +269,13 @@ from a few seconds to half a minute. It keeps the result in
 `data/readalong/` after that. A book without such an EPUB says it has no
 read-along text.
 
-## Hoban Movies: movie and TV soundtracks from Plex
+## Hoban Plex: movie and TV soundtracks from Plex
 
-**Hoban Movies** is a fourth, optional skill. It plays the audio of the movies
+**Hoban Plex** is a fourth, optional skill. It plays the audio of the movies
 and shows in your [Plex](https://www.plex.tv/) server on an Echo, and keeps
 your place in Plex itself, so the TV and the Echo carry on from each other.
 
-- "Alexa, ask Hoban Movies to continue watching" resumes what Plex has on
+- "Alexa, ask Hoban Plex to continue watching" resumes what Plex has on
   deck: the movie you're part way through, or your show's next episode.
 - "…play *title*" plays a movie from where you stopped. Name a show ("…play
   The Office") and it carries on with the episode after the last one you
@@ -303,22 +303,29 @@ in Plex, as a TV would.
    and copy the `X-Plex-Token` from the address it opens.
 2. Create the skill as in [step 1](#1-create-the-skills), with
    [`docs/alexa-movies-interaction-model.json`](https://github.com/hobesman/ytzero/blob/main/docs/alexa-movies-interaction-model.json)
-   and the invocation `hoban movies`. Like the others, it uses the
+   and the invocation `hoban plex`. Like the others, it uses the
    `https://<your YT Zero address>/alexa` endpoint and needs **Audio Player**.
+   Keep *movie*, *film*, *TV* and *watch* out of the name: Alexa sends
+   "play" with a film's title and a name like `hoban plex` to Fire TV and
+   Prime Video, so the request never reaches the skill (typed in the
+   console's Test tab it still works, which is how to tell).
 3. Add these to the container and redeploy:
 
 | Variable | Value |
 | --- | --- |
 | `YTZERO_ALEXA_MOVIES_SKILL_ID` | The movies skill's ID. |
-| `YTZERO_ALEXA_MOVIES_INVOCATION` | Its invocation name, such as `hoban movies`, for room controls typed through Home Assistant. |
+| `YTZERO_ALEXA_MOVIES_INVOCATION` | Its invocation name, such as `hoban plex`, for room controls typed through Home Assistant. |
 | `YTZERO_PLEX_URL` | Plex's address as YT Zero's container reaches it, such as `http://127.0.0.1:32400` with host networking. It needn't be public. |
 | `YTZERO_PLEX_TOKEN` | The token from step 1. It is a secret: it is never logged, sent to the Echo or returned by the API. |
 
 The movies skill says it isn't connected to Plex until both Plex variables
 are set. The other skills don't need them.
 
-4. Pair the room's Echo with Hoban Movies too ("Alexa, ask Hoban Movies, this
-   is the kitchen"); one-tap pairing on the tablet pairs it with the others.
+4. Pair the room's Echo with Hoban Plex too ("Alexa, ask Hoban Plex, this is
+   the kitchen"), or tap pair again on the tablet once
+   `YTZERO_ALEXA_MOVIES_INVOCATION` is set. Each skill sees the Echo under a
+   different ID, so a room paired before this skill existed doesn't know it:
+   the tablet won't show what Hoban Plex plays there until it is paired.
 
 ### How movies play
 

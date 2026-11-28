@@ -11,7 +11,7 @@ export interface AlexaConfig {
   videoSkillId: string | null;
   /** The audiobook skill's (Hoban Books) application ID, when there is one. */
   booksSkillId?: string | null;
-  /** The movie skill's (Hoban Movies) application ID, when there is one. */
+  /** The movie skill's (Hoban Plex) application ID, when there is one. */
   moviesSkillId?: string | null;
   /** The profile the skill plays as: its numeric ID or its name. */
   profile: string;

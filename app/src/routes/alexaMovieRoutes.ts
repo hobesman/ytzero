@@ -18,7 +18,7 @@ export interface AlexaMovieRouteDependencies {
 }
 
 /**
- * Hoban Movies on the /alexa router: the skill, its signed audio links (a
+ * Hoban Plex on the /alexa router: the skill, its signed audio links (a
  * title's soundtrack from a given place, through ffmpeg; see
  * alexaMovieAudio.ts) and posters. Neither Plex's address nor its token
  * reaches the Echo.

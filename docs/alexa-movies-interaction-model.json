@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "hoban movies",
+      "invocationName": "hoban plex",
       "intents": [
         {
           "name": "ResumeWatchingIntent",
@@ -32,7 +32,6 @@
             "play the movie {query}",
             "play the film {query}",
             "play the show {query}",
-            "watch {query}",
             "listen to {query}",
             "put on {query}",
             "start {query}"
@@ -48,7 +47,6 @@
           ],
           "samples": [
             "continue {query}",
-            "keep watching {query}",
             "play the next episode of {query}",
             "play the latest episode of {query}",
             "next episode of {query}"

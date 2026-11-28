@@ -1,5 +1,5 @@
 /**
- * The user's Plex Media Server, as the Hoban Movies skill uses it: movie and
+ * The user's Plex Media Server, as the Hoban Plex skill uses it: movie and
  * TV libraries, a title's audio tracks and chapters, what's on deck, and
  * watch progress. Configured only by machine-bound environment variables and
  * off until both are set. The token is a secret: it never leaves this module
@@ -173,7 +173,7 @@ export function chooseAudioStream(streams: readonly PlexAudioStream[]): PlexAudi
     ?? null;
 }
 
-/** Plex's REST API, as far as Hoban Movies uses it. */
+/** Plex's REST API, as far as Hoban Plex uses it. */
 export function createPlexClient(config: PlexConfig, fetcher: Fetch = fetch, timeoutMs = 8000) {
   const headers = {
     "X-Plex-Token": config.token,
