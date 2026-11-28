@@ -162,7 +162,8 @@ describe("room control: seek and skip", () => {
     const { dependencies, typed } = control([device("video")]);
     await controlRoom(dependencies, 1, "kitchen", { action: "seek", seconds: 125 });
     await controlRoom(dependencies, 1, "kitchen", { action: "skip", seconds: -30 });
-    expect(typed).toEqual(["ask hoban tube to jump to 2 minutes 5 seconds", "ask hoban tube to go back 30 seconds"]);
+    await controlRoom(dependencies, 1, "kitchen", { action: "seek", seconds: 0 });
+    expect(typed).toEqual(["ask hoban tube to jump to 2 minutes 5 seconds", "ask hoban tube to go back 30 seconds", "ask hoban tube to start over"]);
   });
 
   test("moves what Home Assistant plays with its own seek, and says so when the Echo can't", async () => {
