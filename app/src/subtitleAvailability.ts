@@ -4,6 +4,7 @@ import { subtitleLanguageLabel } from "./subtitleLanguages";
 import { safeSubtitleUpstreamUrl } from "./subtitleUpstream";
 
 const YOUTUBE_OPAQUE_TRACK_SUFFIX = /^(.*)-[A-Za-z0-9_-]{11}$/;
+const ORIGINAL = /-orig$/;
 const LANGUAGE_CODE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$/;
 const METADATA_CACHE_MS = 60_000;
 // Every caption language, each in several formats with a long signed URL: a
@@ -76,11 +77,11 @@ export function buildSubtitleAvailability(
 ): AvailableSubtitle[] {
   const automatic = new Set([...automaticLanguages].filter(validLanguageCode).map(normalizeSubtitleLanguage));
   const groups = new Map<string, { label: string; tracks: string[] }>();
-  const add = (source: Record<string, unknown>, include: (lang: string) => boolean) => {
+  const add = (source: Record<string, unknown>, include: (lang: string) => boolean, language = normalizeSubtitleLanguage) => {
     for (const [track, formats] of Object.entries(source)) {
       if (!validLanguageCode(track)) continue;
       if (!directVttUrl(formats)) continue;
-      const lang = normalizeSubtitleLanguage(track);
+      const lang = language(track);
       if (!include(lang)) continue;
       const current = groups.get(lang);
       if (current) {
@@ -94,7 +95,11 @@ export function buildSubtitleAvailability(
   // Author tracks always belong in the menu. Auto captions supplement them,
   // but never replace their order or label.
   add(subtitles, () => true);
-  add(automaticCaptions, (lang) => automatic.has(lang));
+  // An automatic "en" is YouTube's machine translation into English, which
+  // YouTube refuses (429) long before the captions of what was said, which it
+  // lists as "en-orig". The original goes first, under the plain language.
+  const originalsFirst = Object.fromEntries(Object.entries(automaticCaptions).sort(([a], [b]) => Number(ORIGINAL.test(b)) - Number(ORIGINAL.test(a))));
+  add(originalsFirst, (lang) => automatic.has(lang), (track) => normalizeSubtitleLanguage(track.replace(ORIGINAL, "")));
   return [...groups.entries()]
     .map(([lang, value]) => ({ lang, label: value.label, tracks: value.tracks }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -187,17 +192,14 @@ export async function availableSubtitlesForVideo(userId: number, videoId: string
   return buildSubtitleAvailability(metadata.subtitles, metadata.automaticCaptions, automaticLanguages);
 }
 
-/** Resolve one current direct WebVTT URL without exposing it to the client. */
-export async function subtitleStreamForVideo(userId: number, videoId: string, language: string, automaticLanguages: Iterable<string>): Promise<string | null> {
+/** The language's current direct WebVTT URLs, best first, kept from the client. */
+export async function subtitleStreamsForVideo(userId: number, videoId: string, language: string, automaticLanguages: Iterable<string>): Promise<string[]> {
   const metadata = await cachedMetadata(userId, videoId);
   const available = buildSubtitleAvailability(metadata.subtitles, metadata.automaticCaptions, automaticLanguages);
   const selected = available.find((subtitle) => subtitle.lang === language);
-  if (!selected) return null;
-  for (const track of selected.tracks) {
-    const url = directVttUrl(metadata.subtitles[track]) ?? directVttUrl(metadata.automaticCaptions[track]);
-    if (url) return url;
-  }
-  return null;
+  return (selected?.tracks ?? [])
+    .map((track) => directVttUrl(metadata.subtitles[track]) ?? directVttUrl(metadata.automaticCaptions[track]))
+    .filter((url): url is string => url != null);
 }
 
 export function clearSubtitleAvailabilityCache(): void {
