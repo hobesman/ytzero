@@ -64,8 +64,7 @@ export function registerNativePlaybackRoutes(api: Hono<Environment>, currentUser
     c.header("Cache-Control", "private, no-store");
     const sessionToken = bearerSessionToken(c.req.header("authorization"));
     const { ticket } = await c.req.json().catch(() => ({}));
-    const entry = typeof ticket === "string" ? mediaTickets.read(ticket) : null;
-    if (entry && entry.userId === currentUserId(c) && entry.videoId === c.req.param("id") && entry.sessionToken === sessionToken) mediaTickets.revoke(ticket);
+    if (sessionToken && typeof ticket === "string" && mediaTickets.owned(ticket, currentUserId(c), c.req.param("id"), sessionToken)) mediaTickets.revoke(ticket);
     return c.json({ ok: true });
   });
 }
