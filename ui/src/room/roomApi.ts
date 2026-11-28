@@ -107,6 +107,9 @@ export type RoomBookSummary = {
   progress: { currentTime: number; progress: number; isFinished: boolean } | null;
 };
 
+/** The library's order: newest added, a shuffle, or by title. */
+export type RoomLibrarySort = "newest" | "random" | "title";
+
 export type RoomBookChapter = { index: number; start: number; end: number; title: string };
 
 export type RoomBook = {
@@ -124,8 +127,8 @@ const room = (name: string) => `/alexa/rooms/${encodeURIComponent(name)}`;
 export const roomBooksApi = {
   status: () => http<{ enabled: boolean; reason?: string; libraries: { id: string; name: string }[] }>("/alexa/books"),
   continueListening: async () => (await http<{ books: RoomBookSummary[] }>("/alexa/books/continue")).books,
-  library: (query: string, page: number) => http<{ books: RoomBookSummary[]; total: number; page: number; pageSize: number }>(
-    `/alexa/books/library?${new URLSearchParams(query ? { q: query } : { page: String(page) })}`),
+  library: (query: string, page: number, sort: RoomLibrarySort = "newest") => http<{ books: RoomBookSummary[]; total: number; page: number; pageSize: number }>(
+    `/alexa/books/library?${new URLSearchParams(query ? { q: query } : { page: String(page), sort })}`),
   book: async (id: string) => (await http<{ book: RoomBook }>(`/alexa/books/items/${encodeURIComponent(id)}`)).book,
   coverUrl: (id: string) => `/api/alexa/books/items/${encodeURIComponent(id)}/cover`,
   queued: async (name: string) => (await http<{ book: RoomQueuedBook | null }>(`${room(name)}/book`)).book,

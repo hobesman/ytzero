@@ -28,6 +28,14 @@ export interface AlexaBookApiDependencies {
 
 const PAGE_SIZE = 40;
 
+/** The library's orders: newest added (the default), a shuffle, or by title. Audiobookshelf's own sort keys. */
+const LIBRARY_SORTS = {
+  newest: { sort: "addedAt", desc: true },
+  random: { sort: "random", desc: false },
+  title: { sort: "media.metadata.title", desc: false },
+} as const;
+export type LibrarySort = keyof typeof LIBRARY_SORTS;
+
 const withProgress = (book: BookSummary, progress: Map<string, BookProgress>) => {
   const saved = progress.get(book.id);
   return { ...book, progress: saved ? { currentTime: saved.currentTime, progress: saved.progress, isFinished: saved.isFinished } : null };
@@ -84,7 +92,7 @@ export function registerAlexaBookApiRoutes(api: Hono<ApiEnvironment>, dependenci
     }
   });
 
-  // ?q= searches every book library; otherwise one page of a library (?libraryId=, default the first) by title.
+  // ?q= searches every book library; otherwise one page of a library (?libraryId=, default the first), in ?sort= order.
   api.get("/alexa/books/library", async (context) => {
     const books = client(context);
     if (books instanceof Response) return books;
@@ -99,7 +107,9 @@ export function registerAlexaBookApiRoutes(api: Hono<ApiEnvironment>, dependenci
       }
       const libraryId = context.req.query("libraryId") ?? libraries[0]?.id;
       if (!libraryId || !libraries.some((library) => library.id === libraryId)) return context.json({ books: [], total: 0, page, pageSize: PAGE_SIZE });
-      const result = await books.libraryBooks(libraryId, { page, limit: PAGE_SIZE });
+      const asked = context.req.query("sort") ?? "";
+      const order = Object.hasOwn(LIBRARY_SORTS, asked) ? LIBRARY_SORTS[asked as LibrarySort] : LIBRARY_SORTS.newest;
+      const result = await books.libraryBooks(libraryId, { page, limit: PAGE_SIZE, ...order });
       return context.json({ books: result.books.map((book) => withProgress(book, progress)), total: result.total, page, pageSize: PAGE_SIZE });
     } catch (error) {
       return failure(context, error);

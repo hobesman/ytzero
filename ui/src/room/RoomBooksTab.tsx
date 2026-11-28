@@ -1,10 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, ListOrdered, Play } from "lucide-react";
 import { useI18n } from "../i18n";
-import { Alert, Button, EmptyState, List, ListRow, MenuLoading, ProgressBar, SectionHeader } from "../components/ui";
+import { Alert, Button, EmptyState, List, ListRow, MenuLoading, ProgressBar, SectionHeader, SelectMenu } from "../components/ui";
 import { MusicArtwork, MusicCard, MusicDetailHeader, MusicNote, useMusicData } from "../music/MusicParts";
-import { roomBooksApi, type RoomBook, type RoomBookSummary, type RoomCurrent } from "./roomApi";
+import { roomBooksApi, type RoomBook, type RoomBookSummary, type RoomCurrent, type RoomLibrarySort } from "./roomApi";
 import { clockDuration, roomPath } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
@@ -75,33 +75,43 @@ function BookView({ bookId, roomName, play, playingChapter }: {
   </>;
 }
 
-function LibraryShelf({ query, onOpen }: { query: string; onOpen: (book: RoomBookSummary) => void }) {
+const LIBRARY_SORTS: readonly RoomLibrarySort[] = ["newest", "random", "title"];
+
+/**
+ * The library, a page at a time. "Show more" adds the next page to what is
+ * shown rather than loading it all again, so a shuffle stays as it was; each
+ * page of a shuffle is shuffled afresh by Audiobookshelf, so a book already
+ * shown is left out.
+ */
+function LibraryShelf({ query, sort, onSort, onOpen }: {
+  query: string; sort: RoomLibrarySort; onSort: (sort: RoomLibrarySort) => void; onOpen: (book: RoomBookSummary) => void;
+}) {
   const { t } = useI18n();
-  const [pages, setPages] = useState(1);
-  const first = useMusicData(useCallback(() => roomBooksApi.library(query, 0), [query]));
-  const more = useMusicData(useCallback(async () => {
-    const loaded: RoomBookSummary[] = [];
-    for (let page = 1; page < pages; page++) loaded.push(...(await roomBooksApi.library("", page)).books);
-    return loaded;
-  }, [pages]));
+  const first = useMusicData(useCallback(() => roomBooksApi.library(query, 0, sort), [query, sort]));
+  const [more, setMore] = useState<{ pages: number; books: RoomBookSummary[]; loading: boolean; failed: boolean }>({ pages: 1, books: [], loading: false, failed: false });
+  useEffect(() => setMore({ pages: 1, books: [], loading: false, failed: false }), [query, sort]);
+  const showMore = () => {
+    setMore((state) => ({ ...state, loading: true, failed: false }));
+    roomBooksApi.library("", more.pages, sort).then(
+      (page) => setMore((state) => ({ pages: state.pages + 1, books: [...state.books, ...page.books], loading: false, failed: false })),
+      () => setMore((state) => ({ ...state, loading: false, failed: true })));
+  };
   if (first.failed) return <MusicNote text={t("roomBooksLoadFailed")} onRetry={first.retry} />;
   if (!first.data) return <MenuLoading label={t("loading")} />;
-  const books = [...first.data.books, ...(query ? [] : more.data ?? [])];
-  const hasMore = !query && books.length < first.data.total;
+  const seen = new Set<string>();
+  const books = [...first.data.books, ...(query ? [] : more.books)].filter((book) => !seen.has(book.id) && Boolean(seen.add(book.id)));
+  const hasMore = !query && more.pages * first.data.pageSize < first.data.total;
   return <section className="music-shelf">
-    <SectionHeader title={query ? t("roomVideoResults", { query }) : t("roomBooksLibrary")} level={2} />
+    <SectionHeader title={query ? t("roomVideoResults", { query }) : t("roomBooksLibrary")} level={2}
+      actions={query ? undefined : <SelectMenu size="lg" floating label={t("roomBooksSort")} value={sort} onChange={onSort}
+        options={LIBRARY_SORTS.map((value) => ({ value, label: t(`roomBooksSort_${value}`) }))} />} />
     {!books.length ? <EmptyState compact icon={<BookOpen />} title={query ? t("roomBooksNoResults") : t("roomBooksEmpty")} />
       : <div className="room-books__grid">{books.map((book) => <BookCard key={book.id} book={book} onOpen={onOpen} />)}</div>}
-    {hasMore ? <Button size="lg" className="room-books__more" onClick={() => setPages((count) => count + 1)}>{t("roomBooksMore")}</Button> : null}
+    {more.failed ? <MusicNote text={t("roomBooksLoadFailed")} onRetry={showMore} /> : null}
+    {hasMore ? <Button size="lg" className="room-books__more" busy={more.loading} onClick={showMore}>{t("roomBooksMore")}</Button> : null}
   </section>;
 }
 
-/**
- * Hoban Books for the room: books in progress, the library with search and
- * covers, and a book's chapters, each of which can start on the room's Echo.
- * A book starts by being queued for the room, then "ask hoban books to play
- * my book" is typed to the Echo, the way the music tab's queue works.
- */
 /** The book playing in the room, as its queue: tapping it opens the chapters to jump to one. */
 function PlayingBookCard({ roomName, current, onOpen }: { roomName: string; current: RoomCurrent; onOpen: () => void }) {
   const { t } = useI18n();
@@ -119,6 +129,12 @@ function PlayingBookCard({ roomName, current, onOpen }: { roomName: string; curr
   </div>;
 }
 
+/**
+ * Hoban Books for the room: books in progress, the library with search and
+ * covers, and a book's chapters, each of which can start on the room's Echo.
+ * A book starts by being queued for the room, then "ask hoban books to play
+ * my book" is typed to the Echo, the way the music tab's queue works.
+ */
 export function RoomBooksTab({ roomName, homeRoom, path, onCommand, current }: {
   roomName: string; homeRoom: string; path: string[]; onCommand: RoomCommand;
   /** What the room plays now, when it's a book. */
@@ -127,7 +143,12 @@ export function RoomBooksTab({ roomName, homeRoom, path, onCommand, current }: {
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
-  const query = new URLSearchParams(location.search).get("q")?.trim() ?? "";
+  const params = new URLSearchParams(location.search);
+  const query = params.get("q")?.trim() ?? "";
+  // The order is in the address, so going back to the library keeps it. Newest first unless chosen.
+  const asked = params.get("sort") as RoomLibrarySort | null;
+  const sort: RoomLibrarySort = asked && LIBRARY_SORTS.includes(asked) ? asked : "newest";
+  const chooseSort = (next: RoomLibrarySort) => navigate(`${roomPath(homeRoom, "books")}${next === "newest" ? "" : `?sort=${next}`}`, { replace: true });
   const status = useMusicData(roomBooksApi.status);
   const continuing = useMusicData(roomBooksApi.continueListening);
   const { play, failure } = useRoomBook(roomName, onCommand);
@@ -150,6 +171,6 @@ export function RoomBooksTab({ roomName, homeRoom, path, onCommand, current }: {
       <SectionHeader title={t("roomVideosContinue")} level={2} />
       <div className="music-shelf__row">{continuing.data.map((book) => <BookCard key={book.id} book={book} onOpen={open} />)}</div>
     </section> : null}
-    {status.data?.enabled ? <LibraryShelf query={query} onOpen={open} /> : status.failed ? <MusicNote text={t("roomBooksLoadFailed")} onRetry={status.retry} /> : null}
+    {status.data?.enabled ? <LibraryShelf query={query} sort={sort} onSort={chooseSort} onOpen={open} /> : status.failed ? <MusicNote text={t("roomBooksLoadFailed")} onRetry={status.retry} /> : null}
   </div>;
 }

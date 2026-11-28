@@ -267,8 +267,9 @@ export function createAlexaBookSkill(dependencies: AlexaBookSkillDependencies) {
   async function playRoomBook(userId: number, envelope: AlexaEnvelope): Promise<AlexaResponse> {
     const deviceId = envelopeDeviceId(envelope);
     const queued = deviceId && dependencies.roomBook ? await dependencies.roomBook(userId, deviceId) : { room: null, book: null };
+    // Without a room there's no telling which book the tablet chose: say so rather than play another.
+    if (!queued.room) return speak(`This Echo isn't paired with a room yet, so I can't tell which book was chosen for it. Say, for example, this is the kitchen.`);
     if (!queued.book) {
-      if (!queued.room) return resumeLatest(userId, true);
       const latest = await latestInProgress();
       if (!latest) return speak(`There's no book queued for the ${queued.room}. ${ASK}`, ASK);
       return playSaved(userId, latest, (resuming) => `There's no book queued for the ${queued.room}, so ${resuming ? "resuming" : "playing"} ${latest.title}.`);
