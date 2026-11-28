@@ -668,6 +668,10 @@ persisted.
   optional `quality` that becomes the job's existing `requested_quality`; no
   new server state
 - image cache, Deno's yt-dlp JavaScript-solver cache, and other network-derived cache
+- Hoban Books read-along text in `data/readalong/` (`READ_ALONG_DIR`): one JSON
+  file per Audiobookshelf book of its sentences timed in the audiobook, read out
+  of the book's read-aloud EPUB. It is rebuildable cache, keyed by the EPUB's
+  size and date, and is never exported
 - the yt-dlp update channel, automatic-update interval, and last-attempt timestamp;
   these control a machine-installed executable and remain machine-local. A
   missing channel means nightly; an explicit stable/nightly selection is never

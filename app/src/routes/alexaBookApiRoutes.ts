@@ -9,11 +9,12 @@ import { HomeAssistantError } from "../alexa/homeAssistant";
 import {
   AudiobookshelfError, defaultAudiobookshelf, isBookId, type AudiobookshelfClient, type Book, type BookProgress, type BookSummary,
 } from "../audiobookshelf/audiobookshelfClient";
+import { createReadAlongCache, type ReadAlongCache } from "../audiobookshelf/readAlongCache";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type ApiContext = Context<ApiEnvironment>;
 
-export type BookClient = Pick<AudiobookshelfClient, "bookLibraries" | "libraryBooks" | "search" | "book" | "inProgress" | "allProgress" | "progress" | "cover">;
+export type BookClient = Pick<AudiobookshelfClient, "bookLibraries" | "libraryBooks" | "search" | "book" | "inProgress" | "allProgress" | "progress" | "cover" | "fileRange">;
 
 export interface AlexaBookApiDependencies {
   currentUserId: (context: ApiContext) => number;
@@ -24,6 +25,7 @@ export interface AlexaBookApiDependencies {
   controls: () => RoomControlDependencies | string;
   audiobookshelf?: () => BookClient | { disabled: string };
   roomBooks?: AlexaRoomBooks;
+  readAlong?: ReadAlongCache;
 }
 
 const PAGE_SIZE = 40;
@@ -59,6 +61,7 @@ export function registerAlexaBookApiRoutes(api: Hono<ApiEnvironment>, dependenci
   const { currentUserId, rooms, settings, now } = dependencies;
   const audiobookshelf = dependencies.audiobookshelf ?? defaultAudiobookshelf;
   const roomBooks = dependencies.roomBooks ?? createAlexaRoomBooks();
+  const readAlong = dependencies.readAlong ?? createReadAlongCache();
   const client = (context: ApiContext): BookClient | Response => {
     const found = audiobookshelf();
     return "disabled" in found ? context.json({ error: `Audiobookshelf isn't configured: ${found.disabled}` }, 503) : found;
@@ -126,6 +129,21 @@ export function registerAlexaBookApiRoutes(api: Hono<ApiEnvironment>, dependenci
       return book ? context.json({ book: publicBook(book, saved) }) : context.json({ error: "not found" }, 404);
     } catch (error) {
       return failure(context, error);
+    }
+  });
+
+  // The book's sentences timed in the audiobook, from its read-aloud EPUB: lyrics mode on the room tablet. [] when it has none.
+  api.get("/alexa/books/items/:id/readalong", async (context) => {
+    const books = client(context);
+    if (books instanceof Response) return books;
+    const id = context.req.param("id");
+    if (!isBookId(id)) return context.json({ error: "not found" }, 404);
+    try {
+      const lines = await readAlong.lines(books, id);
+      return lines ? context.json({ lines }) : context.json({ error: "not found" }, 404);
+    } catch (error) {
+      if (error instanceof AudiobookshelfError) return failure(context, error);
+      return context.json({ error: `The read-along text couldn't be read: ${error instanceof Error ? error.message : String(error)}` }, 502);
     }
   });
 

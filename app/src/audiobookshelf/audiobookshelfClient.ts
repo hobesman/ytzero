@@ -67,6 +67,22 @@ export interface Book {
   duration: number;
   tracks: BookTrack[];
   chapters: BookChapter[];
+  /** A read-aloud EPUB among the book's files (Storyteller's, with the narration's timing), if there is one. */
+  readAloud?: ReadAloudFile | null;
+}
+
+export interface ReadAloudFile { ino: string; size: number; modified: number }
+
+/** "Title (readaloud).epub", "read-along", "Read Aloud": the name is all that marks one. */
+const READ_ALOUD_NAME = /read[\s._-]?a(?:loud|long)/i;
+
+function readAloudOf(item: Json): ReadAloudFile | null {
+  const files: Json[] = Array.isArray(item?.libraryFiles) ? item.libraryFiles : [];
+  const file = files.find((entry) => {
+    const name = text(entry?.metadata?.filename);
+    return /\.epub$/i.test(name) && READ_ALOUD_NAME.test(name) && text(entry?.ino) && number(entry?.metadata?.size) > 0;
+  });
+  return file ? { ino: text(file.ino), size: number(file.metadata.size), modified: number(file.metadata.mtimeMs) } : null;
 }
 
 /** A book in a list: no tracks or chapters. */
@@ -149,6 +165,7 @@ export function parseBook(item: Json): Book | null {
     duration,
     tracks,
     chapters,
+    readAloud: readAloudOf(item),
   };
 }
 
@@ -297,6 +314,25 @@ export function createAudiobookshelfClient(config: AudiobookshelfConfig, fetcher
     async cover(itemId: string, signal?: AbortSignal): Promise<Response> {
       if (!isBookId(itemId)) throw new AudiobookshelfError("not a book ID");
       return fetcher(`${config.url}/api/items/${itemId}/cover?width=600&format=jpeg`, { headers, signal });
+    },
+
+    /** Bytes `start` to `end` (inclusive) of one of the book's files. */
+    async fileRange(itemId: string, ino: string, start: number, end: number): Promise<Uint8Array> {
+      if (!isBookId(itemId) || !/^[A-Za-z0-9_-]{1,64}$/.test(ino)) throw new AudiobookshelfError("not a book file");
+      let response: Response;
+      try {
+        response = await fetcher(`${config.url}/api/items/${itemId}/file/${ino}`, {
+          headers: { ...headers, Range: `bytes=${start}-${end}` }, signal: AbortSignal.timeout(timeoutMs * 4),
+        });
+      } catch (error) {
+        throw new AudiobookshelfError(`Audiobookshelf is unreachable: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      // Only a partial answer: a server ignoring the range would send the whole file, a gigabyte of audio.
+      if (response.status !== 206) {
+        await response.body?.cancel().catch(() => {});
+        throw new AudiobookshelfError(`Audiobookshelf answered ${response.status} to a range request`, response.status);
+      }
+      return new Uint8Array(await response.arrayBuffer());
     },
 
     /** Where one audio file is, with the header that opens it, for ffmpeg to read with ranges. Never logged. */
