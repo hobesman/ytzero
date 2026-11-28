@@ -185,14 +185,15 @@ export function roomArtSource(url: string | null | undefined): string | null {
 export type RoomLyricsSong =
   | { kind: "track"; videoId: string; key: string }
   | { kind: "song"; artist: string; title: string; duration: number | null; key: string }
-  | { kind: "video" }
+  /** A Hoban Tube video: its subtitles stand in for lyrics. */
+  | { kind: "video"; videoId: string; key: string }
   | null;
 
 export function roomLyricsSong(room: AlexaRoom | null): RoomLyricsSong {
   const current = room?.current;
   if (!current?.title || current.state === "finished") return null;
-  if (current.origin === "video") return { kind: "video" };
-  const videoId = current.origin === "music" ? room?.nowPlaying?.videoId : null;
+  const videoId = current.origin === "home-assistant" ? null : room?.nowPlaying?.videoId;
+  if (current.origin === "video") return videoId ? { kind: "video", videoId, key: `video:${videoId}` } : null;
   if (videoId) return { kind: "track", videoId, key: `track:${videoId}` };
   if (!current.artist) return null;
   const duration = current.durationMs ? Math.round(current.durationMs / 1000) : null;

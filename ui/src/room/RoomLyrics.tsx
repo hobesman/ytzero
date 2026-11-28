@@ -2,25 +2,44 @@ import { useEffect, useRef, useState } from "react";
 import { MicVocal } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Button, EmptyState, MenuLoading } from "../components/ui";
+import type { VideoSubtitle } from "../apiTypes";
 import { musicApi, type MusicLyrics } from "../music/musicApi";
 import { currentLyricIndex } from "../music/musicLyrics";
 import type { AlexaRoom } from "./roomApi";
+import { captionLines, pickCaptions } from "./roomCaptions";
 import { livePosition, roomLyricsSong, type RoomLyricsSong } from "./roomState";
 import { useNow } from "./useRoomState";
 
-type Loaded = { key: string; lyrics: MusicLyrics | null; failed: boolean };
+/** `captions`: the subtitle language's name, when the lines are a video's subtitles. */
+type Loaded = { key: string; lyrics: MusicLyrics | null; failed: boolean; captions?: string };
 
-/** The song's lyrics, fetched once per song while lyrics mode is on. */
-function useRoomLyrics(song: RoomLyricsSong) {
-  const key = song && song.kind !== "video" ? song.key : null;
+/** A video's subtitles, in the page's language where it has them, as synced lines. */
+async function videoCaptions(videoId: string, locale: string): Promise<{ lyrics: MusicLyrics | null; captions?: string }> {
+  // A search result YT Zero doesn't have is a 404: no subtitles to show, not a failure.
+  const listed = await fetch(`/api/videos/${encodeURIComponent(videoId)}/subtitles`, { credentials: "same-origin" });
+  if (listed.status === 404) return { lyrics: null };
+  if (!listed.ok) throw new Error(`subtitles: ${listed.status}`);
+  const { subtitles } = await listed.json() as { subtitles: VideoSubtitle[] };
+  const track = pickCaptions(subtitles, locale);
+  if (!track) return { lyrics: null };
+  const response = await fetch(track.url, { credentials: "same-origin" });
+  if (!response.ok) throw new Error(`subtitles: ${response.status}`);
+  const synced = captionLines(await response.text());
+  return { lyrics: { videoId, synced: synced.length ? synced : null, plain: null, instrumental: false, source: null }, captions: track.label ?? track.lang };
+}
+
+/** The song's lyrics, or the video's subtitles, fetched once per item while lyrics mode is on. */
+function useRoomLyrics(song: RoomLyricsSong, locale: string) {
+  const key = song?.key ?? null;
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (!song || song.kind === "video" || !key) return;
+    if (!song || !key) return;
     let live = true;
-    const request = song.kind === "track" ? musicApi.lyrics(song.videoId) : musicApi.songLyrics(song);
+    const request = song.kind === "video" ? videoCaptions(song.videoId, locale)
+      : (song.kind === "track" ? musicApi.lyrics(song.videoId) : musicApi.songLyrics(song)).then((lyrics) => ({ lyrics }));
     request.then(
-      (lyrics) => { if (live) setLoaded({ key, lyrics, failed: false }); },
+      (result) => { if (live) setLoaded({ key, failed: false, ...result }); },
       () => { if (live) setLoaded({ key, lyrics: null, failed: true }); },
     );
     return () => { live = false; };
@@ -51,21 +70,24 @@ function SyncedLines({ lines, room, receivedAt }: { lines: NonNullable<MusicLyri
 }
 
 /**
- * Lyrics mode: the room's song's lyrics in place of the browser, large
- * enough to read across a kitchen. Synced lyrics follow the Echo; plain ones
+ * Lyrics mode: the room's song's lyrics (a video's subtitles) in place of the
+ * browser, large enough to read across a kitchen. Synced lyrics follow the Echo; plain ones
  * scroll by hand.
  */
 export function RoomLyrics({ room, receivedAt }: { room: AlexaRoom | null; receivedAt: number }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const song = roomLyricsSong(room);
-  const { loaded, retry } = useRoomLyrics(song);
+  const { loaded, retry } = useRoomLyrics(song, locale);
+  const video = song?.kind === "video";
   if (!room || !song) return <EmptyState icon={<MicVocal />} title={t("roomLyricsIdle")} />;
-  if (song.kind === "video") return <EmptyState icon={<MicVocal />} title={t("roomLyricsVideo")} />;
   if (!loaded) return <div className="room-lyrics__loading"><MenuLoading label={t("loading")} /></div>;
-  if (loaded.failed) return <EmptyState icon={<MicVocal />} title={t("musicLyricsFailed")} action={<Button size="lg" onClick={retry}>{t("musicRetry")}</Button>} />;
+  if (loaded.failed) return <EmptyState icon={<MicVocal />} title={video ? t("roomCaptionsFailed") : t("musicLyricsFailed")} action={<Button size="lg" onClick={retry}>{t("musicRetry")}</Button>} />;
   const lyrics = loaded.lyrics;
-  const source = lyrics?.source ? (lyrics.source === "LRCLIB" ? t("musicLyricsFrom", { source: "LRCLIB" }) : lyrics.source) : null;
-  if (!lyrics?.synced && !lyrics?.plain) return <EmptyState icon={<MicVocal />} title={lyrics?.instrumental ? t("musicLyricsInstrumental") : t("musicLyricsNone")} />;
+  const source = loaded.captions ? t("roomCaptionsFrom", { language: loaded.captions })
+    : lyrics?.source ? (lyrics.source === "LRCLIB" ? t("musicLyricsFrom", { source: "LRCLIB" }) : lyrics.source) : null;
+  if (!lyrics?.synced && !lyrics?.plain) {
+    return <EmptyState icon={<MicVocal />} title={video ? t("roomCaptionsNone") : lyrics?.instrumental ? t("musicLyricsInstrumental") : t("musicLyricsNone")} />;
+  }
   return <section className="room-lyrics" aria-label={t("musicLyrics")}>
     {lyrics.synced ? <SyncedLines lines={lyrics.synced} room={room} receivedAt={receivedAt} />
       : <div className="room-lyrics__scroll"><p className="room-lyrics__plain">{lyrics.plain}</p></div>}
