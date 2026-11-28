@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import type { AlexaRoom, AlexaRooms, RoomCurrent } from "./roomApi";
 import {
   CONTROL_TIMEOUT_MS, IDLE_AFTER_MS, bookSeekSeconds, roomCanSeek, clockDuration, controlConfirmed, findRoom, isIdle, liveBookPosition, livePosition, pollDelay, roomDisplay, roomFingerprint,
-  roomArtSource, roomLyricsSong, roomPath, roomSource, roomVolume, settleControl, storedRoom, type PendingControl,
+  roomArtSource, roomLyricsSong, roomPath, roomSource, roomVolume, settleControl, shuffledCopy, storedRoom, type PendingControl,
 } from "./roomState";
 
 const song: RoomCurrent = {
@@ -204,5 +204,16 @@ describe("seeking from the progress bar", () => {
   test("a place on a book's chapter bar is that chapter's start plus the place, in the whole book", () => {
     const book = { bookId: "b", author: "", chapterTitle: null, chapterIndex: 2, chapterCount: 9, chapterPositionMs: 60_000, chapterDurationMs: 600_000, bookPositionMs: 3_660_000, bookDurationMs: 9_000_000 };
     expect(bookSeekSeconds(book, 300_000)).toBe(3_900);
+  });
+});
+
+describe("shuffling a playlist", () => {
+  test("keeps every song once, in an order set by the random source", () => {
+    const songs = ["a", "b", "c", "d"];
+    const reversed = shuffledCopy(songs, () => 0);
+    expect([...reversed].sort()).toEqual(songs);
+    expect(reversed).toEqual(["b", "c", "d", "a"]);
+    expect(songs).toEqual(["a", "b", "c", "d"]);
+    expect(shuffledCopy(songs, () => 0.999)).toEqual(songs);
   });
 });
