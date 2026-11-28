@@ -204,6 +204,8 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
   const seek = current && roomCanSeek(room, current)
     ? (ms: number) => send("seek", book && current.book ? bookSeekSeconds(current.book, ms) : Math.round(ms / 1000), ms)
     : undefined;
+  // Books have it too: lyrics mode stays on across rooms, and a book's room needs a way out of it.
+  const lyricsButton = <IconButton size="xl" variant={lyrics ? "primary" : "ghost"} aria-pressed={lyrics} label={t("musicLyrics")} icon={<MicVocal />} onClick={() => onLyrics(!lyrics)} />;
   const { panel, beside } = useCoverBeside([item?.title, item?.artist, display.kind, control?.action === "play", failure].join(""));
 
   return <section ref={panel} className={`room-now${beside ? " room-now--cover-beside" : ""}`} aria-label={t("roomNowPlaying")} aria-live="polite">
@@ -233,9 +235,10 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
       {book ? <>
         <IconButton size="xl" variant="secondary" busy={control?.action === "skip"} label={t("roomSkipForward")} icon={<RotateCw />} onClick={() => send("skip", 30)} />
         <IconButton size="xl" variant="ghost" busy={control?.action === "next"} label={t("roomNextChapter")} icon={<SkipForward />} onClick={() => send("next")} />
+        {lyricsButton}
       </> : <>
         <IconButton size="xl" variant="secondary" busy={control?.action === "next"} label={t("roomNext")} icon={<SkipForward />} onClick={() => send("next")} />
-        <IconButton size="xl" variant={lyrics ? "primary" : "ghost"} aria-pressed={lyrics} label={t("musicLyrics")} icon={<MicVocal />} onClick={() => onLyrics(!lyrics)} />
+        {lyricsButton}
       </>}
     </div>
     <RoomVolume room={room} control={control} onVolume={(volume) => send("volume", volume)} />

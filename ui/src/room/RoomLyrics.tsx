@@ -79,6 +79,7 @@ export function RoomLyrics({ room, receivedAt }: { room: AlexaRoom | null; recei
   const song = roomLyricsSong(room);
   const { loaded, retry } = useRoomLyrics(song, locale);
   const video = song?.kind === "video";
+  if (room?.current?.origin === "books" && room.current.state !== "finished") return <EmptyState icon={<MicVocal />} title={t("roomBookTextNone")} />;
   if (!room || !song) return <EmptyState icon={<MicVocal />} title={t("roomLyricsIdle")} />;
   if (!loaded) return <div className="room-lyrics__loading"><MenuLoading label={t("loading")} /></div>;
   if (loaded.failed) return <EmptyState icon={<MicVocal />} title={video ? t("roomCaptionsFailed") : t("musicLyricsFailed")} action={<Button size="lg" onClick={retry}>{t("musicRetry")}</Button>} />;
