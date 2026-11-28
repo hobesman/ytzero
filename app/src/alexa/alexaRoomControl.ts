@@ -174,7 +174,8 @@ export async function controlRoom(dependencies: RoomControlDependencies, userId:
     }
     if (!ours) throw new RoomControlError(`Nothing of ours is playing in the ${room}.`);
     const name = invocation(dependencies.invocations, ours.skill);
-    if (action.action === "seek") return typed(`ask ${name} to jump to ${spokenPosition(action.seconds)}`);
+    // Alexa hears no place in "jump to 0 seconds" and asks where; a drag to the start is a start over.
+    if (action.action === "seek") return typed(action.seconds < 1 ? `ask ${name} to start over` : `ask ${name} to jump to ${spokenPosition(action.seconds)}`);
     const amount = spokenPosition(Math.abs(action.seconds));
     return typed(`ask ${name} to ${action.seconds > 0 ? `skip forward ${amount}` : `go back ${amount}`}`);
   }
