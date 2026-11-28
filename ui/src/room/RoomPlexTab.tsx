@@ -4,7 +4,7 @@ import { Film, Play, RotateCcw } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Alert, Button, EmptyState, List, ListRow, MenuLoading, ProgressBar, SectionHeader, SelectMenu } from "../components/ui";
 import { MusicArtwork, MusicCard, MusicDetailHeader, MusicNote, useMusicData } from "../music/MusicParts";
-import { roomPlexApi, type RoomCurrent, type RoomPlexItem, type RoomPlexLibrary, type RoomPlexShow, type RoomPlexSort, type RoomPlexSummary } from "./roomApi";
+import { roomPlexApi, type RoomCurrent, type RoomPlexItem, type RoomPlexLibrary, type RoomPlexRating, type RoomPlexShow, type RoomPlexSort, type RoomPlexSummary } from "./roomApi";
 import { clockDuration, roomPath } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
@@ -147,19 +147,36 @@ function ItemView({ itemId, roomName, play, playingId }: { itemId: string; roomN
 }
 
 const SORTS: readonly RoomPlexSort[] = ["newest", "title"];
+const RATINGS: readonly RoomPlexRating[] = ["g", "pg", "pg13", "r", "all"];
+const DEFAULT_RATING: RoomPlexRating = "pg";
+/** How each level reads in a movie library, a TV one, and a search across both. */
+const RATING_NAMES: Record<Exclude<RoomPlexRating, "all">, { movie: string; show: string }> = {
+  g: { movie: "G", show: "TV-G" }, pg: { movie: "PG", show: "TV-PG" }, pg13: { movie: "PG-13", show: "TV-14" }, r: { movie: "R", show: "TV-MA" },
+};
+function ratingLabel(level: RoomPlexRating, kind: "movie" | "show" | null, t: Translate): string {
+  if (level === "all") return t("roomPlexRatingAny");
+  const names = RATING_NAMES[level];
+  return t("roomPlexRatingUpTo", { rating: kind ? names[kind] : `${names.movie} / ${names.show}` });
+}
+
+function RatingPicker({ rating, kind, onChange }: { rating: RoomPlexRating; kind: "movie" | "show" | null; onChange: (rating: RoomPlexRating) => void }) {
+  const { t } = useI18n();
+  return <SelectMenu size="lg" floating label={t("roomPlexRating")} value={rating} onChange={(next) => onChange(next as RoomPlexRating)}
+    options={RATINGS.map((value) => ({ value, label: ratingLabel(value, kind, t) }))} />;
+}
 
 /** One library a page at a time ("Show more" adds the next), or what a search finds across every library. */
-function LibraryShelf({ libraries, libraryId, query, sort, onChoose, onOpen }: {
-  libraries: RoomPlexLibrary[]; libraryId: string; query: string; sort: RoomPlexSort;
-  onChoose: (libraryId: string, sort: RoomPlexSort) => void; onOpen: (id: string) => void;
+function LibraryShelf({ libraries, libraryId, query, sort, rating, onChoose, onOpen }: {
+  libraries: RoomPlexLibrary[]; libraryId: string; query: string; sort: RoomPlexSort; rating: RoomPlexRating;
+  onChoose: (libraryId: string, sort: RoomPlexSort, rating: RoomPlexRating) => void; onOpen: (id: string) => void;
 }) {
   const { t } = useI18n();
-  const first = useMusicData(useCallback(() => roomPlexApi.library(query ? { query } : { libraryId, page: 0, sort }), [query, libraryId, sort]));
+  const first = useMusicData(useCallback(() => roomPlexApi.library(query ? { query, rating } : { libraryId, page: 0, sort, rating }), [query, libraryId, sort, rating]));
   const [more, setMore] = useState<{ pages: number; items: RoomPlexSummary[]; loading: boolean; failed: boolean }>({ pages: 1, items: [], loading: false, failed: false });
-  useEffect(() => setMore({ pages: 1, items: [], loading: false, failed: false }), [query, libraryId, sort]);
+  useEffect(() => setMore({ pages: 1, items: [], loading: false, failed: false }), [query, libraryId, sort, rating]);
   const showMore = () => {
     setMore((state) => ({ ...state, loading: true, failed: false }));
-    roomPlexApi.library({ libraryId, page: more.pages, sort }).then(
+    roomPlexApi.library({ libraryId, page: more.pages, sort, rating }).then(
       (page) => setMore((state) => ({ pages: state.pages + 1, items: [...state.items, ...page.items], loading: false, failed: false })),
       () => setMore((state) => ({ ...state, loading: false, failed: true })));
   };
@@ -168,11 +185,13 @@ function LibraryShelf({ libraries, libraryId, query, sort, onChoose, onOpen }: {
   const seen = new Set<string>();
   const items = [...first.data.items, ...(query ? [] : more.items)].filter((item) => !seen.has(item.id) && Boolean(seen.add(item.id)));
   const hasMore = !query && more.pages * first.data.pageSize < first.data.total;
-  const pickers = query ? undefined : <div className="room-plex__pickers">
-    {libraries.length > 1 ? <SelectMenu size="lg" floating label={t("roomPlexLibrary")} value={libraryId} onChange={(next) => onChoose(next, sort)}
+  const kind = query ? null : libraries.find((library) => library.id === libraryId)?.type ?? null;
+  const pickers = <div className="room-plex__pickers">
+    {!query && libraries.length > 1 ? <SelectMenu size="lg" floating label={t("roomPlexLibrary")} value={libraryId} onChange={(next) => onChoose(next, sort, rating)}
       options={libraries.map((library) => ({ value: library.id, label: library.title }))} /> : null}
-    <SelectMenu size="lg" floating label={t("roomPlexSort")} value={sort} onChange={(next) => onChoose(libraryId, next)}
-      options={SORTS.map((value) => ({ value, label: t(`roomPlexSort_${value}`) }))} />
+    <RatingPicker rating={rating} kind={kind} onChange={(next) => onChoose(libraryId, sort, next)} />
+    {!query ? <SelectMenu size="lg" floating label={t("roomPlexSort")} value={sort} onChange={(next) => onChoose(libraryId, next, rating)}
+      options={SORTS.map((value) => ({ value, label: t(`roomPlexSort_${value}`) }))} /> : null}
   </div>;
   const title = query ? t("roomVideoResults", { query }) : libraries.find((library) => library.id === libraryId)?.title ?? t("roomPlexLibrary");
   return <section className="music-shelf">
@@ -200,8 +219,10 @@ export function RoomPlexTab({ roomName, homeRoom, path, onCommand, current }: {
   const navigate = useNavigate();
   const params = new URLSearchParams(location.search);
   const query = params.get("q")?.trim() ?? "";
+  // The rating is in the address too; without one, PG and TV-PG and under.
+  const rating = RATINGS.find((level) => level === params.get("rating")) ?? DEFAULT_RATING;
   const status = useMusicData(roomPlexApi.status);
-  const deck = useMusicData(roomPlexApi.onDeck);
+  const deck = useMusicData(useCallback(() => roomPlexApi.onDeck(rating), [rating]));
   const { play, failure } = useRoomPlex(roomName, onCommand);
   // Plex moves a title along On Deck once its place is saved: fetched again when the room starts or stops one.
   const playingId = current?.origin === "movies" && current.state !== "finished" ? current.videoId ?? null : null;
@@ -214,14 +235,21 @@ export function RoomPlexTab({ roomName, homeRoom, path, onCommand, current }: {
   const libraryId = libraries.find((library) => library.id === params.get("library"))?.id ?? libraries[0]?.id ?? "";
   const asked = params.get("sort") as RoomPlexSort | null;
   const sort: RoomPlexSort = asked && SORTS.includes(asked) ? asked : "newest";
-  const choose = (library: string, order: RoomPlexSort) => {
+  const choose = (library: string, order: RoomPlexSort, level: RoomPlexRating) => {
     const next = new URLSearchParams();
+    if (query) next.set("q", query);
     if (library !== libraries[0]?.id) next.set("library", library);
     if (order !== "newest") next.set("sort", order);
+    if (level !== DEFAULT_RATING) next.set("rating", level);
     navigate(`${roomPath(homeRoom, "plex")}${next.size ? `?${next}` : ""}`, { replace: true });
   };
   const open = (id: string) => navigate(roomPath(homeRoom, `plex/item/${encodeURIComponent(id)}`));
-  const search = (text: string) => navigate(`${roomPath(homeRoom, "plex")}${text ? `?q=${encodeURIComponent(text)}` : ""}`);
+  const search = (text: string) => {
+    const next = new URLSearchParams();
+    if (text) next.set("q", text);
+    if (rating !== DEFAULT_RATING) next.set("rating", rating);
+    navigate(`${roomPath(homeRoom, "plex")}${next.size ? `?${next}` : ""}`);
+  };
 
   if (status.data && !status.data.enabled) return <EmptyState icon={<Film />} title={t("roomPlexOff")} description={t("roomPlexOffHint")} />;
   const alert = failure ? <Alert variant="danger" role="alert" className="room-tab__failure">{failure}</Alert> : null;
@@ -234,7 +262,7 @@ export function RoomPlexTab({ roomName, homeRoom, path, onCommand, current }: {
       <SectionHeader title={t("roomPlexOnDeck")} level={2} />
       <div className="music-shelf__row">{deck.data.map((item) => <PlexCard key={item.id} item={item} onOpen={open} />)}</div>
     </section> : null}
-    {status.data?.enabled && libraryId ? <LibraryShelf libraries={libraries} libraryId={libraryId} query={query} sort={sort} onChoose={choose} onOpen={open} />
+    {status.data?.enabled && libraryId ? <LibraryShelf libraries={libraries} libraryId={libraryId} query={query} sort={sort} rating={rating} onChoose={choose} onOpen={open} />
       : status.failed ? <MusicNote text={t("roomPlexLoadFailed")} onRetry={status.retry} /> : null}
   </div>;
 }

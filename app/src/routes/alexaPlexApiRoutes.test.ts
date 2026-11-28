@@ -4,7 +4,7 @@ import type { PlexItem, PlexSummary } from "../plex/plexClient";
 import { registerAlexaPlexApiRoutes, type PlexBrowseClient } from "./alexaPlexApiRoutes";
 
 const summary = (fields: Partial<PlexSummary> & Pick<PlexSummary, "id" | "type" | "title">): PlexSummary => ({
-  year: null, showTitle: null, thumb: `/library/metadata/${fields.id}/thumb/1`, duration: 0, viewOffset: 0, watched: false, leafCount: 0, viewedLeafCount: 0, overview: "", ...fields,
+  year: null, showTitle: null, thumb: `/library/metadata/${fields.id}/thumb/1`, duration: 0, viewOffset: 0, watched: false, leafCount: 0, viewedLeafCount: 0, overview: "", contentRating: "", ...fields,
 });
 const episode = (id: string, season: number, number: number, watched = false): PlexItem => ({
   id, type: "episode", title: `Episode ${number}`, year: null, show: { id: "200", title: "The Office" }, season, episode: number, duration: 1_300,
@@ -76,4 +76,26 @@ test("says when Plex isn't set up", async () => {
   registerAlexaPlexApiRoutes(api, { currentUserId: () => 1, controls: () => "off", plex: () => ({ disabled: "YTZERO_PLEX_URL and YTZERO_PLEX_TOKEN are not set" }) });
   expect(await (await api.request("/alexa/plex")).json()).toEqual({ enabled: false, reason: "YTZERO_PLEX_URL and YTZERO_PLEX_TOKEN are not set", libraries: [] });
   expect((await api.request("/alexa/plex/deck")).status).toBe(503);
+});
+
+test("lists only titles up to the rating asked for, the library's own rating strings passed to Plex", async () => {
+  const asked: (readonly string[] | undefined)[] = [];
+  const plex = {
+    libraries: async () => [],
+    libraryContentRatings: async () => ["G", "PG", "PG-13", "R", "gb/PG", "Not Rated"],
+    libraryItems: async (_libraryId: string, options: { contentRatings?: readonly string[] }) => { asked.push(options.contentRatings); return { items: [], total: 0 }; },
+    search: async () => [summary({ id: "1", type: "movie", title: "Cars", contentRating: "G" }), summary({ id: "2", type: "movie", title: "Heat", contentRating: "R" }),
+      summary({ id: "3", type: "show", title: "Bluey", contentRating: "TV-Y" }), summary({ id: "4", type: "movie", title: "Home video" })],
+    onDeck: async () => [{ ...episode("201", 1, 1), contentRating: "TV-14" }, { ...episode("202", 1, 2), contentRating: "TV-PG" }],
+  } as unknown as PlexBrowseClient;
+  const api = new Hono<{ Variables: { userId: number } }>();
+  registerAlexaPlexApiRoutes(api, { currentUserId: () => 1, controls: () => "off", plex: () => plex });
+  await api.request("/alexa/plex/library?libraryId=1&rating=pg");
+  await api.request("/alexa/plex/library?libraryId=1&rating=all");
+  await api.request("/alexa/plex/library?libraryId=1");
+  expect(asked).toEqual([["G", "PG", "gb/PG"], undefined, undefined]);
+  const found = await (await api.request("/alexa/plex/library?q=a&rating=pg")).json() as { items: { id: string }[] };
+  expect(found.items.map((item) => item.id)).toEqual(["1", "3"]);
+  const deck = await (await api.request("/alexa/plex/deck?rating=pg")).json() as { items: { id: string }[] };
+  expect(deck.items.map((item) => item.id)).toEqual(["202"]);
 });

@@ -15,7 +15,7 @@ const HEAT = title({ id: "101", title: "Heat", year: 1995, duration: 10_200, vie
   chapters: [{ start: 0, end: 600, title: "Opening" }, { start: 600, end: 1_800, title: "The Heist" }, { start: 1_800, end: 10_200, title: "After" }] });
 
 /** Plex, mocked: a movie and a show of four episodes, the first two watched. */
-const SUMMARY: Omit<PlexSummary, "id" | "type" | "title" | "year"> = { showTitle: null, thumb: "", duration: 0, viewOffset: 0, watched: false, leafCount: 0, viewedLeafCount: 0, overview: "" };
+const SUMMARY: Omit<PlexSummary, "id" | "type" | "title" | "year"> = { showTitle: null, thumb: "", duration: 0, viewOffset: 0, watched: false, leafCount: 0, viewedLeafCount: 0, overview: "", contentRating: "" };
 
 function fakePlex(overrides: { episodes?: PlexItem[]; deck?: PlexItem[] } = {}) {
   const episodes = overrides.episodes ?? [

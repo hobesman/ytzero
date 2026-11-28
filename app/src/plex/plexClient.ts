@@ -107,6 +107,8 @@ export interface PlexSummary {
   viewedLeafCount: number;
   /** Plex's description of it. */
   overview: string;
+  /** "PG-13", "TV-14", "gb/15"; empty when Plex has none. */
+  contentRating: string;
 }
 
 export interface PlexLibrary { id: string; type: "movie" | "show"; title: string }
@@ -173,6 +175,7 @@ export function parsePlexSummary(entry: Json | null | undefined): PlexSummary | 
     leafCount: number(entry.leafCount),
     viewedLeafCount: number(entry.viewedLeafCount),
     overview: text(entry.summary).slice(0, 2_000),
+    contentRating: text(entry.contentRating),
   };
 }
 
@@ -241,10 +244,17 @@ export function createPlexClient(config: PlexConfig, fetcher: Fetch = fetch, tim
       return found;
     },
 
-    /** One page of a library's movies or shows. */
-    async libraryItems(libraryId: string, options: { start?: number; size?: number; sort?: PlexLibrarySort } = {}): Promise<{ items: PlexSummary[]; total: number }> {
-      if (!isPlexId(libraryId)) return { items: [], total: 0 };
+    /** The content ratings a library's titles carry, as Plex spells them. */
+    async libraryContentRatings(libraryId: string): Promise<string[]> {
+      if (!isPlexId(libraryId)) return [];
+      return list((await call(`/library/sections/${libraryId}/contentRating`))?.Directory).map((entry) => text(entry.title)).filter(Boolean);
+    },
+
+    /** One page of a library's movies or shows; with contentRatings, only titles carrying one of them. */
+    async libraryItems(libraryId: string, options: { start?: number; size?: number; sort?: PlexLibrarySort; contentRatings?: readonly string[] } = {}): Promise<{ items: PlexSummary[]; total: number }> {
+      if (!isPlexId(libraryId) || options.contentRatings?.length === 0) return { items: [], total: 0 };
       const query = new URLSearchParams({
+        ...(options.contentRatings ? { contentRating: options.contentRatings.join(",") } : {}),
         sort: PLEX_LIBRARY_SORTS[options.sort ?? "newest"],
         "X-Plex-Container-Start": String(Math.max(0, options.start ?? 0)),
         "X-Plex-Container-Size": String(Math.min(100, Math.max(1, options.size ?? 40))),
