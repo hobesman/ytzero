@@ -8,6 +8,7 @@ import { roomBooksApi, type RoomBook, type RoomBookSummary, type RoomCurrent, ty
 import { clockDuration, roomPath } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
+import { CONTINUE_AFTER_STOP_MS, CONTINUE_REFRESH_MS, withPlayingBook } from "./roomBooksLive";
 import "./RoomBooksTab.css";
 
 /** "10 h 4 min": a book's length, which runs to many hours. */
@@ -152,6 +153,18 @@ export function RoomBooksTab({ roomName, homeRoom, path, onCommand, current }: {
   const status = useMusicData(roomBooksApi.status);
   const continuing = useMusicData(roomBooksApi.continueListening);
   const { play, failure } = useRoomBook(roomName, onCommand);
+  // The list is fetched again every so often while a book plays, and once its place is saved after it stops.
+  const bookState = current?.origin === "books" ? `${current.book?.bookId ?? ""}:${current.state}` : "";
+  const refreshContinuing = continuing.retry;
+  useEffect(() => {
+    if (!bookState) return;
+    if (bookState.endsWith(":playing")) {
+      const timer = window.setInterval(refreshContinuing, CONTINUE_REFRESH_MS);
+      return () => window.clearInterval(timer);
+    }
+    const timer = window.setTimeout(refreshContinuing, CONTINUE_AFTER_STOP_MS);
+    return () => window.clearTimeout(timer);
+  }, [bookState, refreshContinuing]);
   const open = (book: RoomBookSummary) => navigate(roomPath(homeRoom, `books/book/${encodeURIComponent(book.id)}`));
   const search = (text: string) => navigate(`${roomPath(homeRoom, "books")}${text ? `?q=${encodeURIComponent(text)}` : ""}`);
 
@@ -162,14 +175,15 @@ export function RoomBooksTab({ roomName, homeRoom, path, onCommand, current }: {
     const chapter = playing?.book?.bookId === path[1] ? playing.book.chapterIndex : null;
     return <div className="room-books">{alert}<BookView bookId={path[1]} roomName={roomName} play={play} playingChapter={chapter} /></div>;
   }
+  const continuingBooks = continuing.data ? withPlayingBook(continuing.data, current) : [];
   return <div className="room-books">
     <RoomSearchBox value={query} placeholder={t("roomBooksSearchPlaceholder")} onSearch={search} />
     <p className="room-music__hint">{t("roomBooksHint", { room: roomName })}</p>
     {alert}
     {playing ? <PlayingBookCard roomName={roomName} current={playing} onOpen={() => navigate(roomPath(homeRoom, `books/book/${encodeURIComponent(playing.book!.bookId)}`))} /> : null}
-    {!query && continuing.data?.length ? <section className="music-shelf">
+    {!query && continuingBooks.length ? <section className="music-shelf">
       <SectionHeader title={t("roomVideosContinue")} level={2} />
-      <div className="music-shelf__row">{continuing.data.map((book) => <BookCard key={book.id} book={book} onOpen={open} />)}</div>
+      <div className="music-shelf__row">{continuingBooks.map((book) => <BookCard key={book.id} book={book} onOpen={open} />)}</div>
     </section> : null}
     {status.data?.enabled ? <LibraryShelf query={query} sort={sort} onSort={chooseSort} onOpen={open} /> : status.failed ? <MusicNote text={t("roomBooksLoadFailed")} onRetry={status.retry} /> : null}
   </div>;
