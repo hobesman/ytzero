@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Heart, ListMusic, Play, Radio, RotateCcw, Sparkles } from "lucide-react";
+import { Heart, ListMusic, Play, Radio, RotateCcw, Shuffle, Sparkles } from "lucide-react";
 import { formatSongCount, useI18n } from "../i18n";
 import { parseAppTimestamp } from "../dateTime";
 import { Alert, Button, SectionHeader } from "../components/ui";
@@ -13,7 +13,7 @@ import {
   albumDetail, useMusicData,
 } from "../music/MusicParts";
 import { roomApi, type RoomQueue, type RoomSeed } from "./roomApi";
-import { deviceTimeZone, roomPath } from "./roomState";
+import { deviceTimeZone, roomPath, shuffledCopy } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
 import { RoomMusicQueue } from "./RoomQueueView";
@@ -52,6 +52,12 @@ type RoomMusic = ReturnType<typeof useRoomMusic>;
 function PlayInRoom({ roomName, onClick, icon = <Play />, label }: { roomName: string; onClick: () => void; icon?: ReactNode; label?: string }) {
   const { t } = useI18n();
   return <Button size="lg" variant="primary" leadingIcon={icon} onClick={onClick}>{label ?? t("roomPlayIn", { room: roomName })}</Button>;
+}
+
+/** Plays a playlist's songs in the room in a random order, as its queue. */
+function ShuffleInRoom({ roomName, tracks, title, onPlay }: { roomName: string; tracks: MusicTrack[]; title: string; onPlay: (tracks: MusicTrack[], from: number, title: string) => void }) {
+  const { t } = useI18n();
+  return <Button size="lg" leadingIcon={<Shuffle />} onClick={() => onPlay(shuffledCopy(tracks), 0, title)}>{t("roomShuffleIn", { room: roomName })}</Button>;
 }
 
 function StationButton({ icon, title, hint, onPlay }: { icon: ReactNode; title: string; hint: string; onPlay: () => void }) {
@@ -223,6 +229,7 @@ function DetailView({ music, kind, id, roomName }: { music: RoomMusic; kind: str
       return <>
         <MusicDetailHeader art={playlist.thumbnail || null} title={playlist.title}>
           {playlist.tracks.length ? <PlayInRoom roomName={roomName} onClick={() => music.playTracks(playlist.tracks, 0, playlist.title)} /> : null}
+          {playlist.tracks.length > 1 ? <ShuffleInRoom roomName={roomName} tracks={playlist.tracks} title={playlist.title} onPlay={music.playTracks} /> : null}
         </MusicDetailHeader>
         {tap(playlist.tracks, playlist.title)}
       </>;
@@ -235,6 +242,7 @@ function DetailView({ music, kind, id, roomName }: { music: RoomMusic; kind: str
           <PlayInRoom roomName={roomName} onClick={() => playlist.tracks.length
             ? music.playTracks(playlist.tracks, 0, playlist.title)
             : music.play({ title: playlist.title, seed: { kind: "playlist", playlistId: playlist.playlistId } })} />
+          {playlist.tracks.length > 1 ? <ShuffleInRoom roomName={roomName} tracks={playlist.tracks} title={playlist.title} onPlay={music.playTracks} /> : null}
         </MusicDetailHeader>
         {tap(playlist.tracks, playlist.title)}
       </>;

@@ -227,3 +227,13 @@ export function roomLyricsSong(room: AlexaRoom | null): RoomLyricsSong {
   const duration = current.durationMs ? Math.round(current.durationMs / 1000) : null;
   return { kind: "song", artist: current.artist, title: current.title, duration, key: `song:${current.artist}|${current.title}` };
 }
+
+/** A shuffled copy, for playing a playlist in a random order that the queue can still show. */
+export function shuffledCopy<T>(items: readonly T[], random: () => number = Math.random): T[] {
+  const copy = [...items];
+  for (let index = copy.length - 1; index > 0; index--) {
+    const other = Math.floor(random() * (index + 1));
+    [copy[index], copy[other]] = [copy[other]!, copy[index]!];
+  }
+  return copy;
+}
