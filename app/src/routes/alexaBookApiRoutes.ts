@@ -98,8 +98,9 @@ export function registerAlexaBookApiRoutes(api: Hono<ApiEnvironment>, dependenci
         return context.json({ books: found.map((book) => withProgress(book, progress)), total: found.length, page: 0, pageSize: found.length });
       }
       const libraryId = context.req.query("libraryId") ?? libraries[0]?.id;
+      // Newest first: what was just added is what someone is likely looking for. Title order is what search is for.
       if (!libraryId || !libraries.some((library) => library.id === libraryId)) return context.json({ books: [], total: 0, page, pageSize: PAGE_SIZE });
-      const result = await books.libraryBooks(libraryId, { page, limit: PAGE_SIZE });
+      const result = await books.libraryBooks(libraryId, { page, limit: PAGE_SIZE, sort: "addedAt", desc: true });
       return context.json({ books: result.books.map((book) => withProgress(book, progress)), total: result.total, page, pageSize: PAGE_SIZE });
     } catch (error) {
       return failure(context, error);
