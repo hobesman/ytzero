@@ -1,4 +1,5 @@
 import { parseStationSeed, type StationSeed } from "../music/musicStation";
+import { withoutStreamStart } from "./alexaStreamTokens";
 
 /**
  * Alexa hands back the token of whatever it is playing with every event, so
@@ -46,7 +47,8 @@ export function encodePlaybackToken(state: AlexaPlaybackState): string {
   return TOKEN_PREFIX + Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
 
-export function decodePlaybackToken(token: unknown): AlexaPlaybackState | null {
+export function decodePlaybackToken(given: unknown): AlexaPlaybackState | null {
+  const token = typeof given === "string" ? withoutStreamStart(given) : given;
   if (typeof token !== "string" || !token.startsWith(TOKEN_PREFIX)) return null;
   let payload: Record<string, unknown>;
   try {

@@ -1,4 +1,5 @@
 import type { AlexaVideo } from "./alexaVideoCatalog";
+import { withoutStreamStart } from "./alexaStreamTokens";
 
 /**
  * Shuffled videos from one channel. Like a music station, the state travels in
@@ -21,7 +22,8 @@ export function encodeShuffleToken(state: VideoShuffle): string {
   return `${PREFIX}${state.channelId}.${state.videoId}.${state.played.slice(-SHUFFLE_PLAYED_LIMIT).join(",")}`;
 }
 
-export function decodeShuffleToken(token: unknown): VideoShuffle | null {
+export function decodeShuffleToken(given: unknown): VideoShuffle | null {
+  const token = typeof given === "string" ? withoutStreamStart(given) : given;
   if (typeof token !== "string" || !token.startsWith(PREFIX)) return null;
   const [channelId, videoId, played = "", ...extra] = token.slice(PREFIX.length).split(".");
   if (extra.length || !CHANNEL_ID.test(channelId ?? "") || !VIDEO_ID.test(videoId ?? "")) return null;

@@ -6,6 +6,7 @@ import { findGenrePlaylist } from "../alexa/alexaGenreMatch";
 import { alexaConfig, resolveAlexaProfile, type AlexaConfig } from "../alexa/alexaConfig";
 import { speak, type AlexaResponse } from "../alexa/alexaPlayback";
 import { describeAlexaExchange } from "../alexa/alexaLogging";
+import { envelopeWithoutStreamStarts, responseWithStreamStarts } from "../alexa/alexaStreamTokens";
 import { decodePlaybackToken } from "../alexa/alexaPlayback";
 import { answerRoomIntent, trackDevice, type NowPlayingTracking } from "../alexa/alexaRoomIntents";
 import { createAlexaRoomStore, type AlexaRoomStore } from "../alexa/alexaRooms";
@@ -244,14 +245,16 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
     const skill = kind === "music" ? musicSkillFor(settings) : kind === "video" ? videoSkillFor(settings) : books.skillFor(settings);
+    // Stream tokens carry their start for the Echo's sake only (see alexaStreamTokens.ts).
+    const plain = envelopeWithoutStreamStarts(envelope);
     // The skills work in video time; the Echo, in the timeline of what it was sent (see alexaAudioTimeline.ts).
-    const seen = kind === "books" ? envelope : envelopeInVideoTime(envelope, userId, kind, plans, kind === "music"
+    const seen = kind === "books" ? plain : envelopeInVideoTime(plain, userId, kind, plans, kind === "music"
       ? (token) => decodePlaybackToken(token)?.videoId ?? null
       : (token) => decodeVideoToken(token));
     const response = await answerRoomIntent(tracking.rooms, userId, kind, seen, now()) ?? await skill.handle(userId, seen);
     await trackDevice(tracking, userId, kind, seen, response, now());
-    const sent = kind === "books" ? response : await responseInEchoTime(response, userId, kind, plans,
-      (videoId, startSeconds) => alexaProcessedAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), startSeconds, kind));
+    const sent = responseWithStreamStarts(kind === "books" ? response : await responseInEchoTime(response, userId, kind, plans,
+      (videoId, startSeconds) => alexaProcessedAudioLink(settings.publicUrl, settings.secret, videoId, userId, now(), startSeconds, kind)), envelope);
     log.info("alexa.request", describeAlexaExchange(kind, seen, sent));
     return context.json(sent);
   });

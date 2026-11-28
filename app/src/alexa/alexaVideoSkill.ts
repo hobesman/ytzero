@@ -8,6 +8,7 @@ import {
   bestMatch, CHANNEL_MATCH_MIN, channelScore, fromSplits, isoDurationSeconds, TITLE_MATCH_MIN, titleScore,
 } from "./alexaVideoMatch";
 import { decodeShuffleToken, encodeShuffleToken, pickRandomVideo, shuffleAfter, type VideoShuffle } from "./alexaVideoShuffle";
+import { withoutStreamStart } from "./alexaStreamTokens";
 
 /**
  * The video skill: "play <title> from <channel>" plays one video's audio.
@@ -62,7 +63,8 @@ const UNSUPPORTED_INTENTS = new Set([
 ]);
 
 export const encodeVideoToken = (videoId: string) => TOKEN_PREFIX + videoId;
-export function decodeVideoToken(token: unknown): string | null {
+export function decodeVideoToken(given: unknown): string | null {
+  const token = typeof given === "string" ? withoutStreamStart(given) : given;
   const shuffle = decodeShuffleToken(token);
   if (shuffle) return shuffle.videoId;
   if (typeof token !== "string" || !token.startsWith(TOKEN_PREFIX)) return null;
