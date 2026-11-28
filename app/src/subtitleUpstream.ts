@@ -59,3 +59,19 @@ export function proxySubtitleResponse(response: Response, maxBytes = MAX_SUBTITL
   }));
   return new Response(body, { headers: { "Content-Type": "text/vtt; charset=utf-8", "Cache-Control": "private, max-age=60" } });
 }
+
+/**
+ * The first of a language's tracks that YouTube serves, as a bounded WebVTT
+ * response. YouTube refuses some tracks (a machine translation, under rate
+ * limiting) while serving others in the same language.
+ */
+export async function firstSubtitleResponse(fetchImpl: typeof fetch, candidates: string[], init: RequestInit): Promise<Response | null> {
+  for (const candidate of candidates) {
+    const upstream = await fetchSubtitleUpstream(fetchImpl, candidate, init);
+    const proxied = upstream && proxySubtitleResponse(upstream);
+    if (proxied) return proxied;
+    await upstream?.body?.cancel().catch(() => {});
+    if (init.signal?.aborted) return null;
+  }
+  return null;
+}

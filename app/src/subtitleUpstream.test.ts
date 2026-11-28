@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fetchSubtitleUpstream, proxySubtitleResponse, safeSubtitleUpstreamUrl } from "./subtitleUpstream";
+import { fetchSubtitleUpstream, firstSubtitleResponse, proxySubtitleResponse, safeSubtitleUpstreamUrl } from "./subtitleUpstream";
 
 describe("subtitle upstream", () => {
   test("accepts only trusted HTTPS YouTube and Google Video hosts", () => {
@@ -43,5 +43,20 @@ describe("subtitle upstream", () => {
     expect(proxied?.headers.get("content-type")).toBe("text/vtt; charset=utf-8");
     expect(proxied?.headers.get("set-cookie")).toBeNull();
     expect(await proxied?.text()).toBe("WEBVTT\n");
+  });
+
+  test("falls back to the next track when YouTube refuses one", async () => {
+    const asked: string[] = [];
+    const fetchImpl = (async (url: string) => {
+      asked.push(url);
+      return url.includes("tlang") ? new Response("<html>Sorry...</html>", { status: 429 }) : new Response("WEBVTT", { status: 200 });
+    }) as unknown as typeof fetch;
+    const response = await firstSubtitleResponse(fetchImpl, [
+      "https://www.youtube.com/api/timedtext?lang=en&tlang=en",
+      "https://www.youtube.com/api/timedtext?lang=en",
+    ], {});
+    expect(await response?.text()).toBe("WEBVTT");
+    expect(asked).toHaveLength(2);
+    expect(await firstSubtitleResponse(fetchImpl, ["https://www.youtube.com/api/timedtext?tlang=de"], {})).toBeNull();
   });
 });

@@ -900,10 +900,10 @@ describe("expired playback tickets", () => {
     const control = { play: async (player: VideoPlayer) => { player.play(); }, pause: async (player: VideoPlayer) => { player.pause(); } };
     const pool = new PlaybackBuffer(api, () => { const player = new FakePlayer(); players.push(player); return player as unknown as VideoPlayer; },
       async (player, seconds) => { player.currentTime = seconds; }, (entry) => failures.push(entry.video.video_id), undefined, control, undefined, undefined, undefined, () => clock.time);
-    return { clock, players, failures, issued, renewals, pool };
+    return { clock, players, failures, issued, renewals, pool, api };
   }
 
-  test("returning after the ticket lapsed fetches a new one before Play, and keeps the player paused", async () => {
+  test("returning after the ticket lapsed renews it before Play, keeping the loaded stream and its buffer", async () => {
     const h = clockedHarness();
     try {
       const entry = h.pool.prepare({ ...video("away"), is_short: 0 }, 0);
@@ -912,21 +912,50 @@ describe("expired playback tickets", () => {
       const player = h.players[0]!;
       player.currentTime = 45;
       player.pause();
+      const source = player.source;
       // A fresh ticket is left alone.
       entry.refresh();
       await flush();
-      expect(h.issued).toEqual(["away"]);
+      expect(h.renewals).toEqual([]);
       h.clock.time += 17 * 60_000;
       entry.refresh();
       await flush(); await flush();
-      expect(h.issued).toEqual(["away", "away"]);
+      expect(h.renewals).toEqual(["away-1"]);
+      expect(h.issued).toEqual(["away"]);
+      expect(player.source).toBe(source);
+      expect(player.currentTime).toBe(45);
+      expect(player.playing).toBe(false);
+      // Renewed, the ticket is fresh again: buffering is ordinary buffering.
+      player.emit("statusChange", { status: "loading" });
+      await flush();
+      expect(h.issued).toEqual(["away"]);
+      expect(h.failures).toEqual([]);
+    } finally { h.pool.dispose(); await flush(); }
+  });
+
+  test("a lapsed ticket the server will not renew is replaced, still paused where the viewer was", async () => {
+    const h = clockedHarness();
+    try {
+      const entry = h.pool.prepare({ ...video("gone"), is_short: 0 }, 0);
+      await entry.ready;
+      await h.pool.play(entry);
+      const player = h.players[0]!;
+      player.currentTime = 45;
+      player.pause();
+      h.clock.time += 7 * 60 * 60_000;
+      (h.api as { renewPlaybackTicket: unknown }).renewPlaybackTicket = async () => { throw Object.assign(new Error("expired media ticket"), { status: 401 }); };
+      entry.refresh();
+      // Refused segments while the renewal is on its way do not start a second reload.
+      player.emit("statusChange", { status: "loading" });
+      await flush(); await flush(); await flush();
+      expect(h.issued).toEqual(["gone", "gone"]);
       expect(player.currentTime).toBe(45);
       expect(player.playing).toBe(false);
       expect(h.failures).toEqual([]);
     } finally { h.pool.dispose(); await flush(); }
   });
 
-  test("a renewal timer that fires late replaces the lapsed ticket instead of renewing it", async () => {
+  test("a renewal timer that fires late renews the lapsed ticket and plays on", async () => {
     const timers = captureIntervals();
     const h = clockedHarness();
     try {
@@ -937,8 +966,8 @@ describe("expired playback tickets", () => {
       h.clock.time += 20 * 60_000;
       timers.callbacks.at(-1)!();
       await flush(); await flush();
-      expect(h.renewals).toEqual([]);
-      expect(h.issued).toEqual(["late", "late"]);
+      expect(h.renewals).toEqual(["late-1"]);
+      expect(h.issued).toEqual(["late"]);
       expect(h.players[0]!.playing).toBe(true);
     } finally { timers.restore(); h.pool.dispose(); await flush(); }
   });

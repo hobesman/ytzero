@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { authorizeHlsPlaylist, MEDIA_TICKET_TTL_MS, mediaTicketPath, MediaTicketStore, ticketAllowsPath, type MediaTicket } from "./mediaTickets";
+import { authorizeHlsPlaylist, MEDIA_TICKET_RENEWAL_GRACE_MS, MEDIA_TICKET_TTL_MS, mediaTicketPath, MediaTicketStore, ticketAllowsPath, type MediaTicket } from "./mediaTickets";
 
 const entry = { userId: 3, videoId: "video-1", sessionToken: "private-session", kind: "hls" as const };
 
@@ -31,8 +31,26 @@ describe("native playback capabilities", () => {
     now += MEDIA_TICKET_TTL_MS - 1;
     expect(store.read(token)).not.toBeNull();
     expect(store.renew(token, 3, entry.videoId, entry.sessionToken)).toBe(true);
-    now += MEDIA_TICKET_TTL_MS;
+    now += MEDIA_TICKET_TTL_MS + MEDIA_TICKET_RENEWAL_GRACE_MS;
     expect(store.read(token)).toBeNull();
+    expect(store.renew(token, 3, entry.videoId, entry.sessionToken)).toBe(false);
+  });
+
+  test("a lapsed ticket serves no media, but its owner may renew it within the grace", () => {
+    let now = 0;
+    const store = new MediaTicketStore(() => now);
+    const token = store.issue(entry);
+    now += MEDIA_TICKET_TTL_MS + 30 * 60_000;
+    expect(store.read(token)).toBeNull();
+    expect(store.renew(token, 4, entry.videoId, entry.sessionToken)).toBe(false);
+    expect(store.renew(token, 3, entry.videoId, "other-session")).toBe(false);
+    // A new ticket prunes only tickets past the grace.
+    store.issue(entry);
+    expect(store.renew(token, 3, entry.videoId, entry.sessionToken)).toBe(true);
+    expect(store.read(token)).not.toBeNull();
+    now += MEDIA_TICKET_TTL_MS + MEDIA_TICKET_RENEWAL_GRACE_MS;
+    store.issue(entry);
+    expect(store.owned(token, 3, entry.videoId, entry.sessionToken)).toBeNull();
     expect(store.renew(token, 3, entry.videoId, entry.sessionToken)).toBe(false);
   });
 

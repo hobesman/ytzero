@@ -21,8 +21,9 @@ export type BufferedPlayback = {
   /** Reloads the source at the current position, e.g. after the stream quality changed. */
   reload: () => void;
   /**
-   * Replaces a ticket that lapsed while the app was away, before the viewer
-   * presses Play: the paused player would otherwise buffer forever on refused segments.
+   * Renews a ticket that lapsed while the app was away, before the viewer
+   * presses Play: the paused player would otherwise buffer forever on refused
+   * segments. Only a renewal the server refuses replaces the ticket and its stream.
    */
   refresh: () => void;
   /** Whether playback is held up, and whether the viewer paused it there. */
@@ -165,6 +166,8 @@ export class PlaybackBuffer {
     // pause or a screen-off session can outlive the ticket without a renewal.
     let ticketValidUntil = 0;
     let renewalFailed = false;
+    // A lapsed ticket is being renewed: its stream, and the buffer, may stay.
+    let reviving = false;
     const ticketStale = () => renewalFailed || this.now() >= ticketValidUntil - ticketMargin;
     let renewTimer: ReturnType<typeof setInterval> | undefined;
     let renewRetry: ReturnType<typeof setTimeout> | undefined;
@@ -232,7 +235,8 @@ export class PlaybackBuffer {
         lastStatus = status;
         // A loaded stream that starts buffering after its ticket lapsed is
         // being refused segments; ExoPlayer can keep retrying them without failing.
-        if (status === "loading" && sourceUri && loaded && recoveries < MAX_RECOVERIES && ticketStale()) { recover(); return; }
+        // While the ticket is being renewed, the player retries the refused segment instead.
+        if (status === "loading" && sourceUri && loaded && !reviving && recoveries < MAX_RECOVERIES && ticketStale()) { recover(); return; }
         if (status === "error" && sourceUri && bridged) {
           // The stopgap ran out or was refused: wait for the chosen stream.
           if (switching === "background") pauseForSwitch();
@@ -300,8 +304,22 @@ export class PlaybackBuffer {
         startSwitch(prefer, !this.fastStart());
       },
       refresh: () => {
-        if (disposed || entry.error || !sourceUri || !loaded || reconnecting || !ticketStale()) return;
-        reconnect(this.activeEntry === entry && player.playing);
+        const lapsed = ticket;
+        if (disposed || entry.error || !lapsed || !sourceUri || !loaded || reconnecting || reviving || !ticketStale()) return;
+        // Renew the lapsed ticket first. A new ticket is a new source, and
+        // loading it throws away what a paused video had buffered.
+        reviving = true;
+        void this.api.renewPlaybackTicket(video.video_id, lapsed.ticket).then((renewed) => {
+          reviving = false;
+          if (disposed || entry.error || ticket !== lapsed) return;
+          ticketValidUntil = this.now() + renewed.expires_in * 1000;
+          renewalFailed = false;
+        }, (error) => {
+          reviving = false;
+          if (disposed || entry.error || ticket !== lapsed || reconnecting) return;
+          if (ticketRefused(error)) { fail(error); return; }
+          reconnect(this.activeEntry === entry && player.playing);
+        });
       },
       waitState,
       onWaitChange: (listener) => { waitListeners.add(listener); return () => { waitListeners.delete(listener); }; },
@@ -389,7 +407,7 @@ export class PlaybackBuffer {
         timeout = setTimeout(() => fail(new Error("Native source timed out")), 60_000);
         const renew = () => {
           clearTimeout(renewRetry);
-          // The timer stopped while the app was in the background: renewing a lapsed ticket fails.
+          // The timer stopped while the app was in the background: renew the lapsed ticket, or replace it.
           if (loaded && this.now() >= ticketValidUntil) { entry.refresh(); return; }
           void this.api.renewPlaybackTicket(video.video_id, authorization.ticket).then((renewed) => {
             if (ticket !== authorization) return;
