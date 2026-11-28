@@ -149,6 +149,12 @@ describe("lyrics", () => {
     expect(roomLyricsSong(kitchen({ nowPlaying: null, current: { ...song, origin: "video" } }))).toBe(null);
   });
 
+  test("uses a book's read-along text", () => {
+    const book = { bookId: "li_book" } as NonNullable<RoomCurrent["book"]>;
+    expect(roomLyricsSong(kitchen({ current: { ...song, origin: "books", book } }))).toEqual({ kind: "book", bookId: "li_book", key: "book:li_book" });
+    expect(roomLyricsSong(kitchen({ current: { ...song, origin: "books" } }))).toBe(null);
+  });
+
   test("has none for finished songs, nothing playing, or a song with no artist", () => {
     expect(roomLyricsSong(kitchen({ current: { ...song, state: "finished" } }))).toBe(null);
     expect(roomLyricsSong(kitchen({ current: null }))).toBe(null);

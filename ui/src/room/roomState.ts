@@ -215,11 +215,14 @@ export type RoomLyricsSong =
   | { kind: "song"; artist: string; title: string; duration: number | null; key: string }
   /** A Hoban Tube video: its subtitles stand in for lyrics. */
   | { kind: "video"; videoId: string; key: string }
+  /** A Hoban Books book: its read-aloud EPUB's sentences, when it has one. */
+  | { kind: "book"; bookId: string; key: string }
   | null;
 
 export function roomLyricsSong(room: AlexaRoom | null): RoomLyricsSong {
   const current = room?.current;
-  if (!current?.title || current.state === "finished" || current.origin === "books") return null;
+  if (!current?.title || current.state === "finished") return null;
+  if (current.origin === "books") return current.book?.bookId ? { kind: "book", bookId: current.book.bookId, key: `book:${current.book.bookId}` } : null;
   const videoId = current.origin === "home-assistant" ? null : room?.nowPlaying?.videoId;
   if (current.origin === "video") return videoId ? { kind: "video", videoId, key: `video:${videoId}` } : null;
   if (videoId) return { kind: "track", videoId, key: `track:${videoId}` };

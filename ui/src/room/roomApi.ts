@@ -133,6 +133,8 @@ export const roomBooksApi = {
     `/alexa/books/library?${new URLSearchParams(query ? { q: query } : { page: String(page), sort })}`),
   book: async (id: string) => (await http<{ book: RoomBook }>(`/alexa/books/items/${encodeURIComponent(id)}`)).book,
   coverUrl: (id: string) => `/api/alexa/books/items/${encodeURIComponent(id)}/cover`,
+  /** The book's sentences, each at its second in the audiobook, from its read-aloud EPUB; [] when it has none. */
+  readAlong: async (id: string) => (await http<{ lines: { time: number; text: string }[] }>(`/alexa/books/items/${encodeURIComponent(id)}/readalong`)).lines,
   queued: async (name: string) => (await http<{ book: RoomQueuedBook | null }>(`${room(name)}/book`)).book,
   /** Queues a book for the room, from a chapter or its saved place, and starts it on the room's Echo. */
   play: (name: string, request: { bookId: string; chapter?: number }) =>

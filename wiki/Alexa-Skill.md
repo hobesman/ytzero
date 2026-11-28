@@ -258,6 +258,16 @@ library with search, and a book's chapters, each with **Play in** the room.
 While a book plays, the now-playing panel shows the chapter and the whole
 book's progress, with previous and next chapter and 30-second skips.
 
+**Read along.** When the book has a read-aloud EPUB among its files in
+Audiobookshelf (one with "readaloud" or "read along" in its name, as
+[Storyteller](https://storyteller-platform.gitlab.io/storyteller/) makes them),
+the lyrics button shows the book's text, sentence by sentence, following the
+narration. The first time, YT Zero reads the text and timings out of the EPUB
+(about a megabyte of it; the audio inside is never downloaded), which takes
+from a few seconds to half a minute. It keeps the result in
+`data/readalong/` after that. A book without such an EPUB says it has no
+read-along text.
+
 ## Rooms and now playing
 
 YT Zero remembers each Echo the skills hear from and what it is playing, so a
