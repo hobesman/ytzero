@@ -35,7 +35,8 @@ import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
 import { createAlexaBookRoutes, type AlexaBookRouteDependencies } from "./alexaBookRoutes";
 import { UNCHANGED, type AlexaAudioPlans } from "../alexa/alexaAudioPlan";
 import { envelopeInVideoTime, responseInEchoTime } from "../alexa/alexaAudioTimeline";
-import { alexaInternalAudioLink, alexaProcessedAudioLink, processedStreamArgs } from "../alexa/alexaProcessedAudio";
+import { loopbackAudio as sharedLoopbackAudio, type LoopbackAudio } from "../alexa/alexaLoopbackAudio";
+import { alexaProcessedAudioLink, processedStreamArgs } from "../alexa/alexaProcessedAudio";
 import { ffmpegStreamResponse, type SpawnFfmpeg } from "../alexa/alexaBookAudio";
 import { createMusicAlbumArt, type MusicAlbumArt } from "../music/musicAlbumArt";
 import { roomVideoPicks } from "../alexa/alexaRoomVideoPicks";
@@ -73,8 +74,8 @@ export interface AlexaRouteDependencies {
    * app's own plans.
    */
   audioPlans?: Pick<AlexaAudioPlans, "get" | "peek">;
-  /** This server on its own port, where ffmpeg reads the audio it processes. */
-  internalOrigin?: string;
+  /** Where ffmpeg reads the audio it processes (see alexaLoopbackAudio.ts). */
+  loopbackAudio?: LoopbackAudio;
   spawn?: SpawnFfmpeg;
   now?: () => number;
 }
@@ -108,7 +109,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const now = dependencies.now ?? Date.now;
   const verifier = dependencies.verifier ?? createAlexaSignatureVerifier();
   const plans = dependencies.audioPlans ?? NO_PLANS;
-  const internalOrigin = dependencies.internalOrigin ?? `http://127.0.0.1:${Number(process.env.PORT ?? 3001)}`;
+  const loopback = dependencies.loopbackAudio ?? sharedLoopbackAudio;
   const resolveProfile = dependencies.resolveProfile ?? resolveAlexaProfile;
   const isChild = dependencies.isChild ?? isChildUser;
   const vodPlaylist = dependencies.vodPlaylist ?? (async (userId: number, videoId: string, signal?: AbortSignal) => (await import("../downloader")).getAudioVodPlaylist(userId, videoId, signal));
@@ -292,12 +293,8 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       // Audio that can't be indexed still plays, from its start.
       log.warn("alexa.playlist_unavailable", { videoId, result: result.kind });
     }
-    // ffmpeg reading for a processed stream: each range answered to the file's end.
-    const from = query.get("whole") === "1" ? range?.match(/^bytes=(\d+)-$/)?.[1] : undefined;
     const response = context.req.method === "HEAD"
       ? await audio.head(userId, videoId, range, signal)
-      : from !== undefined
-        ? await wholeAudioResponse((piece) => audio.audio(userId, videoId, piece, signal), Number(from))
       // With no range, the Echo needs the whole file; see alexaWholeAudio.ts.
       : range == null
         ? await wholeAudioResponse((piece) => audio.audio(userId, videoId, piece, signal))
@@ -338,8 +335,15 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     if (context.req.method === "HEAD") return new Response(null, { headers: { "Content-Type": "audio/mp4", "Cache-Control": "no-store" } });
     const plan = await plans.get(userId, kind, videoId);
     const start = Math.max(0, Number(query.get("t")) || 0);
-    const input = alexaInternalAudioLink(internalOrigin, settings.secret, videoId, userId, now(), kind);
-    const { response, error } = await ffmpegStreamResponse(processedStreamArgs(input, start, plan), context.req.raw.signal, dependencies.spawn);
+    const { audio, ytdlpAvailable } = await audioService();
+    if (!await ytdlpAvailable()) return fail(502, "yt-dlp unavailable");
+    // ffmpeg's ranges, each answered to the file's end, with its length.
+    const input = await loopback.link((range, signal) => {
+      const from = range == null ? "0" : range.match(/^bytes=(\d+)-$/)?.[1];
+      return from === undefined ? audio.audio(userId, videoId, range, signal)
+        : wholeAudioResponse((piece) => audio.audio(userId, videoId, piece, signal), Number(from));
+    });
+    const { response, error } = await ffmpegStreamResponse(processedStreamArgs(input.url, start, plan), context.req.raw.signal, dependencies.spawn, input.close);
     const done = { ...fields, start, cuts: plan.cuts.length, volumeDb: plan.volumeDb, status: response.status, ms: now() - startedAt };
     if (error) log.warn("alexa.audio_failed", { ...done, reason: error });
     else log.info("alexa.audio", done);
