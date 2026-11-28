@@ -346,6 +346,14 @@ show's seasons and episodes, with the one to carry on with marked. Tap
 start, or from a chapter. A movie's poster shows whole in now playing, and
 tapping it opens that title in the tab.
 
+A **Rating** drop-down beside the library picker limits what the lists,
+search and On Deck show. It starts at PG (TV-PG for shows) and under; each
+choice includes every rating below it, movie and TV alike (G with TV-Y,
+TV-Y7 and TV-G; PG with TV-PG; PG-13 with TV-14; R with NC-17 and TV-MA).
+Titles with no rating show only under **Any rating**. It's a browsing
+filter, not a lock: anyone at the tablet can change it, and a title opened
+directly (from now playing, say) still opens.
+
 The tablet doesn't type the title to the Echo: YT Zero notes the exact movie
 or episode (and the place) for the room, then types "ask hoban plex to play
 my pick", and the skill plays what was noted. The note lasts a minute and a

@@ -142,6 +142,8 @@ export const roomBooksApi = {
 };
 
 export type RoomPlexSort = "newest" | "title";
+/** The highest age rating to list; each includes those below it, movie and TV alike ("pg" is G, PG, TV-Y to TV-PG). */
+export type RoomPlexRating = "g" | "pg" | "pg13" | "r" | "all";
 export interface RoomPlexLibrary { id: string; type: "movie" | "show"; title: string }
 /** A movie, show or episode in a list. Times are seconds. */
 export interface RoomPlexSummary {
@@ -159,9 +161,9 @@ export interface RoomPlexShow extends RoomPlexSummary { overview: string; nextUp
 /** Hoban Plex for the room: Plex's movie and TV libraries, and starting a title on the room's Echo. */
 export const roomPlexApi = {
   status: () => http<{ enabled: boolean; reason?: string; libraries: RoomPlexLibrary[] }>("/alexa/plex"),
-  onDeck: async () => (await http<{ items: RoomPlexItem[] }>("/alexa/plex/deck")).items,
-  library: (request: { query: string } | { libraryId: string; page: number; sort: RoomPlexSort }) => http<{ items: RoomPlexSummary[]; total: number; page: number; pageSize: number }>(
-    `/alexa/plex/library?${new URLSearchParams("query" in request ? { q: request.query } : { libraryId: request.libraryId, page: String(request.page), sort: request.sort })}`),
+  onDeck: async (rating: RoomPlexRating) => (await http<{ items: RoomPlexItem[] }>(`/alexa/plex/deck?rating=${rating}`)).items,
+  library: (request: ({ query: string } | { libraryId: string; page: number; sort: RoomPlexSort }) & { rating: RoomPlexRating }) => http<{ items: RoomPlexSummary[]; total: number; page: number; pageSize: number }>(
+    `/alexa/plex/library?${new URLSearchParams({ rating: request.rating, ...("query" in request ? { q: request.query } : { libraryId: request.libraryId, page: String(request.page), sort: request.sort }) })}`),
   item: (id: string) => http<{ item: RoomPlexItem } | { show: RoomPlexShow }>(`/alexa/plex/items/${encodeURIComponent(id)}`),
   posterUrl: (id: string) => `/api/alexa/plex/items/${encodeURIComponent(id)}/poster`,
   /** Starts a movie or an episode on the room's Echo: from `startSeconds`, or else from its saved place. */

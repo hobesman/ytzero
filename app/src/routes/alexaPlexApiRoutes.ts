@@ -8,11 +8,12 @@ import { HomeAssistantError } from "../alexa/homeAssistant";
 import {
   defaultPlex, isPlexId, PLEX_LIBRARY_SORTS, PlexError, type PlexClient, type PlexItem, type PlexLibrarySort, type PlexSummary,
 } from "../plex/plexClient";
+import { parsePlexRatingLevel, plexRatingAllowed, type PlexRatingLevel } from "../plex/plexRatings";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type ApiContext = Context<ApiEnvironment>;
 
-export type PlexBrowseClient = Pick<PlexClient, "libraries" | "libraryItems" | "search" | "summary" | "item" | "episodes" | "onDeck" | "image">;
+export type PlexBrowseClient = Pick<PlexClient, "libraries" | "libraryItems" | "libraryContentRatings" | "search" | "summary" | "item" | "episodes" | "onDeck" | "image">;
 
 export interface AlexaPlexApiDependencies {
   currentUserId: (context: ApiContext) => number;
@@ -24,6 +25,10 @@ export interface AlexaPlexApiDependencies {
 
 const PAGE_SIZE = 40;
 const POSTER_CACHE_LIMIT = 2_000;
+const RATINGS_CACHE_MS = 10 * 60_000;
+
+/** ?rating= (g, pg, pg13, r or all): the highest age rating to list. Without one, everything. */
+const ratingLevel = (context: ApiContext): PlexRatingLevel => parsePlexRatingLevel(context.req.query("rating")) ?? "all";
 
 const publicSummary = (item: PlexSummary) => ({
   id: item.id, type: item.type, title: item.title, year: item.year, showTitle: item.showTitle, duration: item.duration,
@@ -48,6 +53,17 @@ export function registerAlexaPlexApiRoutes(api: Hono<ApiEnvironment>, dependenci
   const remember = (items: readonly { id: string; thumb: string }[]) => {
     for (const item of items) if (item.thumb) thumbs.set(item.id, item.thumb);
     while (thumbs.size > POSTER_CACHE_LIMIT) thumbs.delete(thumbs.keys().next().value!);
+  };
+  // Plex filters a library by its exact rating strings, so each library's own are looked up, and kept a while.
+  const libraryRatings = new Map<string, { at: number; ratings: string[] }>();
+  const ratingsAllowed = async (found: PlexBrowseClient, libraryId: string, level: PlexRatingLevel): Promise<string[] | undefined> => {
+    if (level === "all") return undefined;
+    let cached = libraryRatings.get(libraryId);
+    if (!cached || Date.now() - cached.at > RATINGS_CACHE_MS) {
+      cached = { at: Date.now(), ratings: await found.libraryContentRatings(libraryId) };
+      libraryRatings.set(libraryId, cached);
+    }
+    return cached.ratings.filter((rating) => plexRatingAllowed(rating, level));
   };
   const client = (context: ApiContext): PlexBrowseClient | Response => {
     const found = plex();
@@ -74,7 +90,8 @@ export function registerAlexaPlexApiRoutes(api: Hono<ApiEnvironment>, dependenci
     const found = client(context);
     if (found instanceof Response) return found;
     try {
-      const deck = await found.onDeck(20);
+      const level = ratingLevel(context);
+      const deck = (await found.onDeck(20)).filter((item) => plexRatingAllowed(item.contentRating, level));
       remember(deck);
       return context.json({ items: deck.map((item) => ({ ...publicItem(item), chapters: [] })) });
     } catch (error) {
@@ -82,15 +99,16 @@ export function registerAlexaPlexApiRoutes(api: Hono<ApiEnvironment>, dependenci
     }
   });
 
-  // ?q= searches every library; otherwise one page of ?libraryId= in ?sort= order.
+  // ?q= searches every library; otherwise one page of ?libraryId= in ?sort= order. Either way only up to ?rating=.
   api.get("/alexa/plex/library", async (context) => {
     const found = client(context);
     if (found instanceof Response) return found;
     const query = (context.req.query("q") ?? "").trim().slice(0, 200);
     const page = Math.max(0, Math.floor(Number(context.req.query("page")) || 0));
+    const level = ratingLevel(context);
     try {
       if (query) {
-        const items = await found.search(query, 30);
+        const items = (await found.search(query, 30)).filter((item) => plexRatingAllowed(item.contentRating, level));
         remember(items);
         return context.json({ items: items.map(publicSummary), total: items.length, page: 0, pageSize: items.length });
       }
@@ -98,7 +116,8 @@ export function registerAlexaPlexApiRoutes(api: Hono<ApiEnvironment>, dependenci
       if (!isPlexId(libraryId)) return context.json({ error: "libraryId is required" }, 400);
       const asked = context.req.query("sort") ?? "";
       const sort: PlexLibrarySort = Object.hasOwn(PLEX_LIBRARY_SORTS, asked) ? asked as PlexLibrarySort : "newest";
-      const result = await found.libraryItems(libraryId, { start: page * PAGE_SIZE, size: PAGE_SIZE, sort });
+      const contentRatings = await ratingsAllowed(found, libraryId, level);
+      const result = await found.libraryItems(libraryId, { start: page * PAGE_SIZE, size: PAGE_SIZE, sort, contentRatings });
       remember(result.items);
       return context.json({ items: result.items.map(publicSummary), total: result.total, page, pageSize: PAGE_SIZE });
     } catch (error) {
