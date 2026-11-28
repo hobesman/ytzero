@@ -98,7 +98,7 @@ const FIRST_BYTES_WAIT_MS = 20_000;
  * can't. The stream ends with the request; `onClose` hears how: `ended`
  * when the whole file went out, otherwise the Echo let go of it first.
  */
-export async function bookStreamResponse(
+export function bookStreamResponse(
   source: { url: string; headers: Record<string, string> },
   codec: string,
   startSeconds: number,
@@ -106,7 +106,17 @@ export async function bookStreamResponse(
   spawn: SpawnFfmpeg = defaultSpawn,
   onClose?: (outcome: { ended: boolean; bytes: number }) => void,
 ): Promise<{ response: Response; error?: string }> {
-  const child = spawn(bookStreamArgs(source, codec, startSeconds));
+  return ffmpegStreamResponse(bookStreamArgs(source, codec, startSeconds), signal, spawn, onClose);
+}
+
+/** ffmpeg's output as an fMP4 response, for any arguments that write it to stdout; see bookStreamResponse. */
+export async function ffmpegStreamResponse(
+  args: string[],
+  signal?: AbortSignal,
+  spawn: SpawnFfmpeg = defaultSpawn,
+  onClose?: (outcome: { ended: boolean; bytes: number }) => void,
+): Promise<{ response: Response; error?: string }> {
+  const child = spawn(args);
   let bytes = 0;
   let closed = false;
   const close = (ended: boolean) => { if (!closed) { closed = true; onClose?.({ ended, bytes }); } };

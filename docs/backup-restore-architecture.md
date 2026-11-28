@@ -267,7 +267,10 @@ transient book (and optional chapter or start time) a tablet chose for a room's
 Zero. `alexa_room_history` is a short transient list of what each room's Echo
 played lately, pruned to the newest few per room and skill. None of them is exposed through settings
 or included in any portable backup section; an exact stopped-instance backup
-preserves them.
+preserves them. The skills' audio plans (each stream's SponsorBlock cuts and
+music levelling, from the profile's existing `sponsorblock_*` and
+`music_volume_leveling` settings) are an in-memory rebuildable cache, never
+persisted.
 
 ### Portable configuration and organization
 

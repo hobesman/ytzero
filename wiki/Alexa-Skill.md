@@ -548,6 +548,21 @@ previous, are new commands.
   is where that segment starts: a resume can go back up to 20 seconds. Audio
   that can't be indexed is served whole, from its start (logged as
   `alexa.playlist_unavailable`).
+- Songs and videos get what the app's own players give them. With
+  SponsorBlock on for the profile (Settings), the profile's categories are cut
+  out: sponsors and the rest in Hoban Tube, and in a music video its
+  non-music sections when "Non-music section" (`music_offtopic`) is among
+  them. With volume levelling on, a song louder than YouTube's target is
+  turned down to it (never turned up). An Echo can't be told to skip or to
+  play quieter, so such a stream comes from
+  `GET /alexa/audio/<videoId>/processed` (or `/alexa/video-audio/…`), signed like
+  the file: ffmpeg reads the file from YT Zero's own port, starts at the
+  place asked for (`t`, so a resume is exact), leaves the cuts out and writes
+  AAC. Each plan is logged once as `alexa.audio_plan`. A stream with nothing
+  to cut or level is served as before. Cutting shortens the stream, and an
+  Echo reports places on that shorter timeline. YT Zero turns them back into
+  places in the video, so saved progress, resumes, the tablet's progress bar
+  and its seeks all stay in the video's own time.
 - Each station travels inside the stream token Alexa sends back with every
   event: its seed, the current song, and the last songs played and skipped.
   The server keeps no Alexa session, so a restart doesn't interrupt the queue.
