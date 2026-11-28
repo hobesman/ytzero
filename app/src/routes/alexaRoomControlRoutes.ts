@@ -55,8 +55,8 @@ function defaultHomeAssistant(): HomeAssistantClient | { disabled: string } {
 
 function defaultSkills(): Record<AlexaSkillKind, boolean> {
   const config = alexaConfig();
-  return "disabled" in config ? { music: false, video: false, books: false }
-    : { music: Boolean(config.musicSkillId), video: Boolean(config.videoSkillId), books: Boolean(config.booksSkillId) };
+  return "disabled" in config ? { music: false, video: false, books: false, movies: false }
+    : { music: Boolean(config.musicSkillId), video: Boolean(config.videoSkillId), books: Boolean(config.booksSkillId), movies: Boolean(config.moviesSkillId) };
 }
 
 const defaultVideoLookup = (userId: number): RoomVideoLookup => ({

@@ -1,8 +1,9 @@
 import { BOOK_AUDIO_PATH } from "./alexaBookAudio";
+import { MOVIE_AUDIO_PATH } from "./alexaMovieAudio";
 import type { AlexaResponse } from "./alexaPlayback";
 import type { AlexaEnvelope } from "./alexaSkill";
 
-export type AlexaSkillKind = "music" | "video" | "books";
+export type AlexaSkillKind = "music" | "video" | "books" | "movies";
 export type NowPlayingState = "playing" | "paused" | "stopped" | "finished" | "failed";
 
 /** One device's now playing, as stored. Times are ISO strings. */
@@ -81,8 +82,8 @@ export function nowPlayingChange(envelope: AlexaEnvelope, response: AlexaRespons
       change.enqueue = { token };
       continue;
     }
-    // A book stream names its Audiobookshelf item, which stands in for the video.
-    const videoId = typeof stream.url === "string" ? stream.url.match(AUDIO_PATH)?.[1] ?? stream.url.match(BOOK_AUDIO_PATH)?.[1] : undefined;
+    // A book stream names its Audiobookshelf item, and a movie stream its Plex item, which stand in for the video.
+    const videoId = typeof stream.url === "string" ? stream.url.match(AUDIO_PATH)?.[1] ?? stream.url.match(BOOK_AUDIO_PATH)?.[1] ?? stream.url.match(MOVIE_AUDIO_PATH)?.[1] : undefined;
     if (!videoId) continue;
     const metadata = directive.audioItem?.metadata ?? {};
     change.play = {

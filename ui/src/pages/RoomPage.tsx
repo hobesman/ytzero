@@ -29,8 +29,8 @@ function useSkillNames(): SkillNames {
   const [names, setNames] = useState<SkillNames>({ music: null, video: null, books: null });
   useEffect(() => {
     roomApi.homeAssistant().then((answer) => {
-      const invocations = (answer as { invocations?: { music?: string | null; video?: string | null; books?: string | null } }).invocations;
-      setNames({ music: skillName(invocations?.music), video: skillName(invocations?.video), books: skillName(invocations?.books) });
+      const invocations = (answer as { invocations?: { music?: string | null; video?: string | null; books?: string | null; movies?: string | null } }).invocations;
+      setNames({ music: skillName(invocations?.music), video: skillName(invocations?.video), books: skillName(invocations?.books), movies: skillName(invocations?.movies) });
     }, () => {});
   }, []);
   return names;

@@ -1,0 +1,253 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "hoban movies",
+      "intents": [
+        {
+          "name": "ResumeWatchingIntent",
+          "slots": [],
+          "samples": [
+            "continue watching",
+            "keep watching",
+            "resume what I was watching",
+            "resume my movie",
+            "resume my show",
+            "continue my movie",
+            "continue my show",
+            "carry on",
+            "pick up where I left off",
+            "play where I left off"
+          ]
+        },
+        {
+          "name": "PlayTitleIntent",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "play {query}",
+            "play the movie {query}",
+            "play the film {query}",
+            "play the show {query}",
+            "watch {query}",
+            "listen to {query}",
+            "put on {query}",
+            "start {query}"
+          ]
+        },
+        {
+          "name": "ContinueShowIntent",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "continue {query}",
+            "keep watching {query}",
+            "play the next episode of {query}",
+            "play the latest episode of {query}",
+            "next episode of {query}"
+          ]
+        },
+        {
+          "name": "WhatIsPlayingIntent",
+          "slots": [],
+          "samples": [
+            "what am I listening to",
+            "what am I watching",
+            "what's playing",
+            "what is playing",
+            "what movie is this",
+            "what show is this",
+            "which episode is this",
+            "what episode is this"
+          ]
+        },
+        {
+          "name": "TimeLeftIntent",
+          "slots": [],
+          "samples": [
+            "how much is left",
+            "how long is left",
+            "how much time is left",
+            "how long until the end",
+            "when does it end",
+            "when does this end"
+          ]
+        },
+        {
+          "name": "SkipForwardIntent",
+          "slots": [
+            {
+              "name": "duration",
+              "type": "AMAZON.DURATION"
+            }
+          ],
+          "samples": [
+            "skip forward {duration}",
+            "skip ahead {duration}",
+            "go forward {duration}",
+            "fast forward {duration}",
+            "jump ahead {duration}",
+            "skip forward",
+            "skip ahead",
+            "fast forward"
+          ]
+        },
+        {
+          "name": "SkipBackIntent",
+          "slots": [
+            {
+              "name": "duration",
+              "type": "AMAZON.DURATION"
+            }
+          ],
+          "samples": [
+            "go back {duration}",
+            "skip back {duration}",
+            "rewind {duration}",
+            "jump back {duration}",
+            "go back",
+            "skip back",
+            "rewind"
+          ]
+        },
+        {
+          "name": "SeekToIntent",
+          "slots": [
+            {
+              "name": "position",
+              "type": "AMAZON.DURATION"
+            }
+          ],
+          "samples": [
+            "jump to {position}",
+            "go to {position}",
+            "skip to {position}",
+            "play from {position}",
+            "start from {position}"
+          ]
+        },
+        {
+          "name": "PairDeviceIntent",
+          "slots": [],
+          "samples": [
+            "pair",
+            "pair this",
+            "pair this echo",
+            "pair this device",
+            "pair this speaker",
+            "pair device",
+            "start pairing"
+          ]
+        },
+        {
+          "name": "SetRoomIntent",
+          "slots": [
+            {
+              "name": "room",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "this is the {room}",
+            "this is {room}",
+            "this echo is in the {room}",
+            "this speaker is in the {room}",
+            "this device is in the {room}",
+            "this room is the {room}",
+            "this room is {room}",
+            "set the room to {room}",
+            "call this room {room}",
+            "I am in the {room}"
+          ]
+        },
+        {
+          "name": "WhichRoomIntent",
+          "slots": [],
+          "samples": [
+            "which room is this",
+            "what room is this",
+            "which room am I in",
+            "what room am I in",
+            "what is this room called"
+          ]
+        },
+        {
+          "name": "AMAZON.YesIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NoIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PauseIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ResumeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NextIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.PreviousIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StartOverIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.RepeatIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.LoopOnIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.LoopOffIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ShuffleOnIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.ShuffleOffIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

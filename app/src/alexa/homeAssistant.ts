@@ -17,6 +17,7 @@ export interface AlexaInvocations {
   music: string | null;
   video: string | null;
   books: string | null;
+  movies: string | null;
 }
 
 type Environment = Record<string, string | undefined>;
@@ -43,6 +44,7 @@ export function alexaInvocations(environment: Environment = process.env): AlexaI
     music: name(environment.YTZERO_ALEXA_MUSIC_INVOCATION),
     video: name(environment.YTZERO_ALEXA_VIDEO_INVOCATION),
     books: name(environment.YTZERO_ALEXA_BOOKS_INVOCATION),
+    movies: name(environment.YTZERO_ALEXA_MOVIES_INVOCATION),
   };
 }
 
