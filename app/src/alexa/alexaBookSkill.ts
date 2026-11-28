@@ -7,6 +7,7 @@ import {
 import { playResponse, silent, speak, stopDirective, type AlexaResponse } from "./alexaPlayback";
 import { envelopeDeviceId, type AlexaEnvelope } from "./alexaSkill";
 import { bestMatch, isoDurationSeconds, normalizeSpoken, TITLE_MATCH_MIN, titleScore } from "./alexaVideoMatch";
+import { withoutStreamStart } from "./alexaStreamTokens";
 
 /**
  * Hoban Books: audiobooks from the user's Audiobookshelf server on an Echo.
@@ -54,7 +55,8 @@ const UNSUPPORTED_INTENTS = new Set([
 
 /** The stream token: the book and the file, nothing more. */
 export const encodeBookToken = (bookId: string, fileIndex: number) => `${TOKEN_PREFIX}${bookId}.${fileIndex}`;
-export function decodeBookToken(token: unknown): { bookId: string; fileIndex: number } | null {
+export function decodeBookToken(given: unknown): { bookId: string; fileIndex: number } | null {
+  const token = typeof given === "string" ? withoutStreamStart(given) : given;
   if (typeof token !== "string" || !token.startsWith(TOKEN_PREFIX)) return null;
   const match = token.slice(TOKEN_PREFIX.length).match(/^([A-Za-z0-9_-]{1,64})\.(\d{1,4})$/);
   return match && isBookId(match[1]) ? { bookId: match[1]!, fileIndex: Number(match[2]) } : null;
