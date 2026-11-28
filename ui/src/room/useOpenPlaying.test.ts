@@ -14,6 +14,10 @@ describe("tapping now playing's cover", () => {
     expect(openPlayingTarget(book)).toEqual({ kind: "book", id: "li_book" });
   });
 
+  test("opens a Plex movie's or episode's page", () => {
+    expect(openPlayingTarget(current({ origin: "movies", videoId: "22962" }))).toEqual({ kind: "plex", id: "22962" });
+  });
+
   test("does nothing for a video, Amazon Music or nothing playing", () => {
     expect(openPlayingTarget(current({ origin: "video" }))).toBe(null);
     expect(openPlayingTarget(current({ origin: "home-assistant", videoId: null }))).toBe(null);

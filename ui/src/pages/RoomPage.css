@@ -25,7 +25,7 @@
 
 .room-page__body { display: grid; flex: 1; gap: 24px; grid-template-columns: minmax(340px, 42%) 1fr; min-height: 0; padding-top: 8px; }
 .room-page__browse { display: flex; flex-direction: column; gap: 14px; min-height: 0; min-width: 0; }
-.room-page__tabs .ui-tabs__tab { align-items: center; display: inline-flex; font-size: 17px; gap: 8px; min-height: 48px; padding-inline: 20px; }
+.room-page__tabs .ui-tabs__tab { align-items: center; display: inline-flex; font-size: 17px; gap: 6px; min-height: 48px; padding-inline: 14px; }
 .room-page__tabs .ui-tabs__tab svg { height: 20px; width: 20px; }
 .room-page__panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 24px; padding-right: 4px; }
 
@@ -180,3 +180,9 @@
 .room-music__queue-more { color: var(--accent); font-weight: 650; white-space: nowrap; }
 .room-queue__station { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
 .room-queue__station svg { flex: 0 0 auto; height: 18px; width: 18px; }
+
+/* A movie or show poster is 2:3: framed tall instead of cropped to a square. Last, so it wins in every layout above. */
+.room-now .room-now__art.room-now__art--poster { aspect-ratio: 2 / 3; height: min(100cqh, 150cqw, 480px); width: auto; }
+@supports not (height: 1cqh) {
+  .room-now .room-now__art.room-now__art--poster { height: min(32vh, 280px); }
+}

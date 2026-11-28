@@ -15,14 +15,16 @@ const HEAT = title({ id: "101", title: "Heat", year: 1995, duration: 10_200, vie
   chapters: [{ start: 0, end: 600, title: "Opening" }, { start: 600, end: 1_800, title: "The Heist" }, { start: 1_800, end: 10_200, title: "After" }] });
 
 /** Plex, mocked: a movie and a show of four episodes, the first two watched. */
+const SUMMARY: Omit<PlexSummary, "id" | "type" | "title" | "year"> = { showTitle: null, thumb: "", duration: 0, viewOffset: 0, watched: false, leafCount: 0, viewedLeafCount: 0, overview: "" };
+
 function fakePlex(overrides: { episodes?: PlexItem[]; deck?: PlexItem[] } = {}) {
   const episodes = overrides.episodes ?? [
     episode("201", 1, 1, { watched: true }), episode("202", 1, 2, { watched: true }), episode("203", 2, 1), episode("204", 2, 2),
   ];
   const items = new Map<string, PlexItem>([[HEAT.id, HEAT], ...episodes.map((item) => [item.id, item] as const)]);
   const summaries: PlexSummary[] = [
-    { id: "101", type: "movie", title: "Heat", year: 1995, showTitle: null },
-    { id: "200", type: "show", title: "The Office", year: 2005, showTitle: null },
+    { ...SUMMARY, id: "101", type: "movie", title: "Heat", year: 1995 },
+    { ...SUMMARY, id: "200", type: "show", title: "The Office", year: 2005 },
   ];
   const saved: { id: string; seconds: number; state: string }[] = [];
   const watched: string[] = [];

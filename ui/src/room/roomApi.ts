@@ -140,6 +140,34 @@ export const roomBooksApi = {
   play: (name: string, request: { bookId: string; chapter?: number }) =>
     http<{ book: RoomQueuedBook; error?: string }>(`${room(name)}/book`, { method: "PUT", body: JSON.stringify({ ...request, play: true }) }),
 };
+
+export type RoomPlexSort = "newest" | "title";
+export interface RoomPlexLibrary { id: string; type: "movie" | "show"; title: string }
+/** A movie, show or episode in a list. Times are seconds. */
+export interface RoomPlexSummary {
+  id: string; type: "movie" | "show" | "episode"; title: string; year: number | null; showTitle: string | null;
+  duration: number; viewOffset: number; watched: boolean; leafCount: number; viewedLeafCount: number;
+}
+/** A movie or an episode, with where it would resume and its chapters. */
+export interface RoomPlexItem {
+  id: string; type: "movie" | "episode"; title: string; year: number | null; show: { id: string; title: string } | null;
+  season: number | null; episode: number | null; duration: number; viewOffset: number; watched: boolean; resumeAt: number;
+  chapters: { index: number; title: string; start: number; end: number }[]; overview?: string;
+}
+export interface RoomPlexShow extends RoomPlexSummary { overview: string; nextUpId: string | null; seasons: { season: number; episodes: RoomPlexItem[] }[] }
+
+/** Hoban Plex for the room: Plex's movie and TV libraries, and starting a title on the room's Echo. */
+export const roomPlexApi = {
+  status: () => http<{ enabled: boolean; reason?: string; libraries: RoomPlexLibrary[] }>("/alexa/plex"),
+  onDeck: async () => (await http<{ items: RoomPlexItem[] }>("/alexa/plex/deck")).items,
+  library: (request: { query: string } | { libraryId: string; page: number; sort: RoomPlexSort }) => http<{ items: RoomPlexSummary[]; total: number; page: number; pageSize: number }>(
+    `/alexa/plex/library?${new URLSearchParams("query" in request ? { q: request.query } : { libraryId: request.libraryId, page: String(request.page), sort: request.sort })}`),
+  item: (id: string) => http<{ item: RoomPlexItem } | { show: RoomPlexShow }>(`/alexa/plex/items/${encodeURIComponent(id)}`),
+  posterUrl: (id: string) => `/api/alexa/plex/items/${encodeURIComponent(id)}/poster`,
+  /** Starts a movie or an episode on the room's Echo: from `startSeconds`, or else from its saved place. */
+  play: (name: string, request: { itemId: string; startSeconds?: number }) =>
+    http<{ via: string; error?: string }>(`${room(name)}/plex`, { method: "POST", body: JSON.stringify(request) }),
+};
 const send = (method: string, body?: unknown): RequestInit => ({ method, body: body === undefined ? undefined : JSON.stringify(body) });
 
 /** The room page's conversation with the server: the Alexa rooms API, signed in as the profile the skills play as. */

@@ -26,12 +26,13 @@ export function SourceBadge({ source, names }: { source: RoomSource; names: Skil
   return <Badge variant={source.kind === "home-assistant" ? "neutral" : "accent"} className="room-now__badge">{label}</Badge>;
 }
 
-function RoomArt({ url }: { url: string | null | undefined }) {
+/** `poster`: a movie or show poster, shown whole in a 2:3 frame rather than cropped square. */
+function RoomArt({ url, poster = false }: { url: string | null | undefined; poster?: boolean }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [url]);
   const source = roomArtSource(url);
   if (!source || failed) return <span className="room-now__art room-now__art--empty" aria-hidden="true"><Music /></span>;
-  return <img className="room-now__art" src={source} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
+  return <img className={`room-now__art${poster ? " room-now__art--poster" : ""}`} src={source} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
 
 /** After a key press on the bar, how long to wait for another before jumping: each jump is a command typed to the Echo. */
@@ -211,8 +212,8 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
 
   return <section ref={panel} className={`room-now${beside ? " room-now--cover-beside" : ""}`} aria-label={t("roomNowPlaying")} aria-live="polite">
     {onOpenArt
-      ? <button type="button" className="room-now__art-box room-now__art-open" aria-label={onOpenArt.label} onClick={onOpenArt.open}><RoomArt url={item?.art} /></button>
-      : <div className="room-now__art-box"><RoomArt url={item?.art} /></div>}
+      ? <button type="button" className="room-now__art-box room-now__art-open" aria-label={onOpenArt.label} onClick={onOpenArt.open}><RoomArt url={item?.art} poster={source?.kind === "movies"} /></button>
+      : <div className="room-now__art-box"><RoomArt url={item?.art} poster={source?.kind === "movies"} /></div>}
     <div className="room-now__copy">
       <div className="room-now__badges">
         {source ? <SourceBadge source={source} names={names} /> : null}

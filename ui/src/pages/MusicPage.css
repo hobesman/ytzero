@@ -5,6 +5,7 @@
 
 .music-art { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: var(--surface-2); flex: none; }
 .music-art--round { border-radius: 50%; }
+.music-art--poster { aspect-ratio: 2 / 3; }
 .music-art--empty { display: grid; place-items: center; color: var(--text-3); }
 .music-art--empty svg { width: 40%; height: 40%; }
 

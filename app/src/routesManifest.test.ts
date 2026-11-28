@@ -104,10 +104,11 @@ describe("HTTP route manifest", () => {
       "POST /alexa/rooms/:room/video",
       "GET /alexa/books", "GET /alexa/books/continue", "GET /alexa/books/library", "GET /alexa/books/items/:id", "GET /alexa/books/items/:id/cover", "GET /alexa/books/items/:id/readalong",
       "GET /alexa/rooms/:room/book", "PUT /alexa/rooms/:room/book", "DELETE /alexa/rooms/:room/book",
+      "GET /alexa/plex", "GET /alexa/plex/deck", "GET /alexa/plex/library", "GET /alexa/plex/items/:id", "GET /alexa/plex/items/:id/poster", "POST /alexa/rooms/:room/plex",
       "GET /alexa/rooms/:room/history", "GET /alexa/rooms/:room/upcoming",
     ];
     for (const route of alexaRoomRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(337);
+    expect(routes).toHaveLength(343);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);

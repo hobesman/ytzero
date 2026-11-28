@@ -2,7 +2,7 @@ import { isPlexId, type PlexChapter, type PlexClient, type PlexItem, type PlexSu
 import { log } from "../logger";
 import { spokenDuration } from "./alexaBookMath";
 import { playResponse, silent, speak, stopDirective, type AlexaResponse } from "./alexaPlayback";
-import type { AlexaEnvelope } from "./alexaSkill";
+import { envelopeDeviceId, type AlexaEnvelope } from "./alexaSkill";
 import { withoutStreamStart } from "./alexaStreamTokens";
 import { bestMatch, isoDurationSeconds, TITLE_MATCH_MIN, titleScore } from "./alexaVideoMatch";
 
@@ -21,6 +21,8 @@ export interface AlexaMovieSkillDependencies {
   audioLink: (itemId: string, userId: number, startSeconds: number) => string;
   /** A poster the Echo's screen can fetch. */
   posterLink: (itemId: string) => string;
+  /** The room this Echo is paired with, and the title its tablet just picked there (see alexaRoomPlexPicks.ts). */
+  roomPick?: (userId: number, deviceId: string) => Promise<{ room: string | null; pick: { itemId: string; startSeconds: number | null } | null }>;
   now?: () => number;
 }
 
@@ -279,6 +281,18 @@ export function createAlexaMovieSkill(dependencies: AlexaMovieSkillDependencies)
     return next ? playSaved(userId, next) : speak(`${show.title} has no episodes I can play.`);
   }
 
+  /** "Play my pick": the exact title the room's tablet chose, typed to this Echo moments ago. */
+  async function playRoomPick(userId: number, envelope: AlexaEnvelope): Promise<AlexaResponse> {
+    const deviceId = envelopeDeviceId(envelope);
+    const found = deviceId && dependencies.roomPick ? await dependencies.roomPick(userId, deviceId) : { room: null, pick: null };
+    if (!found.room) return speak("This Echo isn't paired with a room yet, so I can't tell what was picked for it. Say, for example, this is the kitchen.");
+    if (!found.pick) return resumeLatest(userId, true);
+    const title = await item(found.pick.itemId);
+    if (!title) return speak("I couldn't find that in Plex any more.");
+    if (found.pick.startSeconds === null) return playSaved(userId, title);
+    return play(userId, title, found.pick.startSeconds, `Playing ${spokenTitle(title)}.`);
+  }
+
   async function seekTo(userId: number, envelope: AlexaEnvelope, target: (playing: { item: PlexItem; position: number }) => number | null, speech: boolean, noTarget: string): Promise<AlexaResponse> {
     const playing = await current(envelope);
     if (!playing) return speech ? speak(`Nothing is playing. ${ASK}`, ASK) : silent();
@@ -339,6 +353,7 @@ export function createAlexaMovieSkill(dependencies: AlexaMovieSkillDependencies)
     const name = envelope.request?.intent?.name ?? "";
     const query = envelope.request?.intent?.slots?.query?.value?.trim().slice(0, 200) ?? "";
     if (name === "ResumeWatchingIntent") return resumeLatest(userId, true);
+    if (name === "PlayRoomPickIntent") return playRoomPick(userId, envelope);
     if (name === "PlayTitleIntent") {
       if (!query) return speak(ASK, HELP);
       // "Play the next episode of X" can land here as "play {query}".
