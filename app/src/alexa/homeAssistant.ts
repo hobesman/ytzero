@@ -111,7 +111,7 @@ export function createHomeAssistantClient(config: HomeAssistantConfig, fetcher: 
   };
 }
 
-export type MediaPlayerService = "play_media" | "media_pause" | "media_play" | "media_next_track" | "media_previous_track" | "media_stop" | "volume_set";
+export type MediaPlayerService = "play_media" | "media_pause" | "media_play" | "media_next_track" | "media_previous_track" | "media_stop" | "volume_set" | "media_seek";
 export type HomeAssistantClient = ReturnType<typeof createHomeAssistantClient>;
 
 /** Whether an entity comes from Alexa Media Player, which always reports these attributes. */
@@ -139,7 +139,12 @@ export interface HomeAssistantReport {
   volume: number | null;
   muted: boolean | null;
   changedAt: string | null;
+  /** The player says it can seek (supported_features has SEEK). */
+  canSeek: boolean;
 }
+
+/** Home Assistant's MediaPlayerEntityFeature.SEEK. */
+const SUPPORTS_SEEK = 2;
 
 const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim() : null;
 const finite = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -171,6 +176,7 @@ export function homeAssistantReport(state: HomeAssistantState, now: number): Hom
     volume: finite(attributes.volume_level),
     muted: typeof attributes.is_volume_muted === "boolean" ? attributes.is_volume_muted : null,
     changedAt: state.last_changed ?? null,
+    canSeek: (Number(attributes.supported_features) & SUPPORTS_SEEK) !== 0,
   };
 }
 

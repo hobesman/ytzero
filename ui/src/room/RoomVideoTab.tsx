@@ -9,6 +9,11 @@ import { useMusicData } from "../music/MusicParts";
 import { roomApi, type RoomVideoRequest } from "./roomApi";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
+import { RoomRecentlyPlayed } from "./RoomQueueView";
+import { roomArtSource } from "./roomState";
+
+/** How many of the room's recent videos the tab lists. */
+const RECENT_HERE = 8;
 
 /** Audio can't be served for live, upcoming, private, unavailable or members-only videos, nor Shorts. */
 const playable = (video: Video) => video.is_short !== 1 && !video.is_private && !video.is_unavailable && !video.members_only
@@ -93,6 +98,15 @@ export function RoomVideoTab({ roomName, onCommand }: { roomName: string; onComm
       <SectionHeader title={t("roomVideosContinue")} level={2} />
       <VideoRows videos={inProgress.data} roomName={roomName} onPlay={playVideo} />
     </section> : null}
+    {/* Hoban Tube has no queue to show; what this room's Echo played lately stands in for one. */}
+    <RoomRecentlyPlayed roomName={roomName} skill="video" playingId={null}>
+      {(items) => <List className="room-videos__list">
+        {items.slice(0, RECENT_HERE).map((item) => <ListRow key={item.itemId} className="room-videos__row"
+          media={<img className="room-videos__thumb" src={roomArtSource(item.art) ?? ""} alt="" loading="lazy" />}
+          title={item.title} description={item.artist}
+          actions={<Button size="lg" variant="primary" leadingIcon={<Play />} onClick={() => play({ kind: "video", videoId: item.itemId })}>{t("roomPlayIn", { room: roomName })}</Button>} />)}
+      </List>}
+    </RoomRecentlyPlayed>
     {channels.data?.length ? <section className="music-shelf">
       <SectionHeader title={t("roomVideosChannels")} level={2} />
       <List className="room-videos__list">

@@ -89,7 +89,7 @@ describe("cross-database schema migrations", () => {
       expect(await database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name=?").get<{ count: number }>(table))
         .toEqual({ count: 1 });
     }
-    for (const table of ["public_share_policy", "public_shares", "public_share_limits", "public_share_plays", "alexa_devices", "alexa_now_playing", "alexa_pairing", "alexa_pending_play", "alexa_rooms", "alexa_room_queues", "alexa_room_books"]) {
+    for (const table of ["public_share_policy", "public_shares", "public_share_limits", "public_share_plays", "alexa_devices", "alexa_now_playing", "alexa_pairing", "alexa_pending_play", "alexa_rooms", "alexa_room_queues", "alexa_room_books", "alexa_room_history"]) {
       expect(await database.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type='table' AND name=?").get<{ count: number }>(table))
         .toEqual({ count: 1 });
     }

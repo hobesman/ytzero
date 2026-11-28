@@ -16,6 +16,8 @@ import { musicTracks } from "../music/musicCatalog";
 import { parseStationSeed } from "../music/musicStation";
 import { registerAlexaBookApiRoutes, type BookClient } from "./alexaBookApiRoutes";
 import type { AlexaRoomBooks } from "../alexa/alexaRoomBooks";
+import type { AlexaRoomHistory } from "../alexa/alexaRoomHistory";
+import { registerAlexaRoomHistoryRoutes } from "./alexaRoomHistoryRoutes";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type ApiContext = Context<ApiEnvironment>;
@@ -38,6 +40,8 @@ export interface AlexaRoomControlDependencies {
   /** Audiobookshelf for the Books tab, and the rooms' queued books. */
   audiobookshelf?: () => BookClient | { disabled: string };
   roomBooks?: AlexaRoomBooks;
+  /** Each room's recent plays. */
+  roomHistory?: AlexaRoomHistory;
 }
 
 let defaultClient: { key: string; client: HomeAssistantClient } | null = null;
@@ -161,7 +165,7 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
     const room = roomParam(context);
     const action = parseRoomAction(await body(context));
     if (!room) return context.json({ error: "invalid room" }, 400);
-    if (!action) return context.json({ error: "action must be pause, resume, next, previous, volume with a volume from 0 to 10, or skip with seconds" }, 400);
+    if (!action) return context.json({ error: "action must be pause, resume, next, previous, volume with a volume from 0 to 10, skip with seconds, or seek with the seconds to jump to" }, 400);
     const ready = controls();
     if (typeof ready === "string") return context.json({ error: ready }, 503);
     try {
@@ -260,6 +264,7 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
   registerAlexaBookApiRoutes(api, {
     currentUserId, rooms, settings, now, controls, audiobookshelf: dependencies.audiobookshelf, roomBooks: dependencies.roomBooks,
   });
+  registerAlexaRoomHistoryRoutes(api, { currentUserId, rooms, settings, history: dependencies.roomHistory });
 }
 
 export { defaultHomeAssistant };

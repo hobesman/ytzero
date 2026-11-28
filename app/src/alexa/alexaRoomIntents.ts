@@ -1,4 +1,5 @@
 import { log } from "../logger";
+import type { AlexaRoomHistory } from "./alexaRoomHistory";
 import { applyNowPlayingChange, nowPlayingChange, type AlexaSkillKind, type NowPlayingItem } from "./alexaNowPlaying";
 import { speak, type AlexaResponse } from "./alexaPlayback";
 import { normalizeRoomName, type AlexaRoomStore } from "./alexaRooms";
@@ -52,6 +53,8 @@ export interface NowPlayingTracking {
   rooms: AlexaRoomStore;
   /** The video a stream token plays and what the catalog says about it. */
   describe: (skill: AlexaSkillKind, userId: number, token: string) => Promise<{ videoId: string; item: NowPlayingItem } | null>;
+  /** Each room's recent plays, added to as a stream starts. */
+  history?: AlexaRoomHistory;
 }
 
 /**
@@ -76,6 +79,11 @@ export async function trackDevice(tracking: NowPlayingTracking, userId: number, 
     });
     if (after.current) await tracking.rooms.saveNowPlaying(userId, skill, deviceId, after.current);
     if (after.pending !== before.pending) await tracking.rooms.savePending(userId, skill, deviceId, after.pending);
+    const started = change.event?.kind === "started" ? after.current : null;
+    const room = started && tracking.history ? await tracking.rooms.room(userId, skill, deviceId) : null;
+    if (started && room) {
+      await tracking.history!.record(userId, room, { skill, itemId: started.videoId, title: started.title, artist: started.artist, art: started.art }, now);
+    }
   } catch (error) {
     log.warn("alexa.now_playing_failed", { skill, error: error instanceof Error ? error.message : String(error) });
   }

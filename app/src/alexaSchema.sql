@@ -108,3 +108,17 @@ CREATE TABLE IF NOT EXISTS alexa_room_books (
   saved_at      TEXT NOT NULL,
   PRIMARY KEY (user_id, room_key)
 );
+
+-- What each room's Echo played lately, one row per item and skill, for the
+-- tablet's "recently played here". Kept short: older rows are pruned.
+CREATE TABLE IF NOT EXISTS alexa_room_history (
+  user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  room_key  TEXT NOT NULL,
+  skill     TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')),
+  item_id   TEXT NOT NULL,
+  title     TEXT NOT NULL DEFAULT '',
+  artist    TEXT NOT NULL DEFAULT '',
+  art       TEXT NOT NULL DEFAULT '',
+  played_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, room_key, skill, item_id)
+);

@@ -716,7 +716,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       "app/src/tubeArchivistSchema.sql": "31e77b7af023276f38d1075b0a5a2197fef150513f010b90bab5909971871056",
       "app/src/musicSchema.sql": "bd6ec87c97c08a627c413c0dc7c198c084ced480e6ef411dbd235013be16c507",
       "app/src/publicShareSchema.sql": "607906c8adae087f6105876c76848ef1afebf180259cabee84ff2ddf203af1ae",
-      "app/src/alexaSchema.sql": "7a9172174270764551e607c98bc19738a4377b3e776223cda3368408ef2a5be3",
+      "app/src/alexaSchema.sql": "b76ef5cb32b4418b4a9580c43ed8907be251972b499bf32e4d2ac1d1218ec07e",
     },
     // SQLite can't change a CHECK constraint in place, so the three tables naming a skill are rebuilt.
     sqlite: [
@@ -733,6 +733,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "DROP TABLE alexa_pending_play" },
       { kind: "sql", statement: "ALTER TABLE alexa_pending_play_rebuilt RENAME TO alexa_pending_play" },
       { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_books (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, book_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', start_seconds REAL, saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_history (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), item_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', played_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key, skill, item_id))" },
     ],
     postgres: [
       { kind: "sql", statement: "ALTER TABLE alexa_devices DROP CONSTRAINT IF EXISTS alexa_devices_skill_check" },
@@ -742,6 +743,7 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = [
       { kind: "sql", statement: "ALTER TABLE alexa_pending_play DROP CONSTRAINT IF EXISTS alexa_pending_play_skill_check" },
       { kind: "sql", statement: "ALTER TABLE alexa_pending_play ADD CONSTRAINT alexa_pending_play_skill_check CHECK (skill IN ('music', 'video', 'books'))" },
       { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_books (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, book_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', start_seconds DOUBLE PRECISION, saved_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key))" },
+      { kind: "sql", statement: "CREATE TABLE IF NOT EXISTS alexa_room_history (user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, room_key TEXT NOT NULL, skill TEXT NOT NULL CHECK (skill IN ('music', 'video', 'books')), item_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', artist TEXT NOT NULL DEFAULT '', art TEXT NOT NULL DEFAULT '', played_at TEXT NOT NULL, PRIMARY KEY (user_id, room_key, skill, item_id))" },
     ],
   },
 ];

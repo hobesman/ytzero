@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { AlexaRoom, AlexaRooms, RoomCurrent } from "./roomApi";
 import {
-  CONTROL_TIMEOUT_MS, IDLE_AFTER_MS, clockDuration, controlConfirmed, findRoom, isIdle, liveBookPosition, livePosition, pollDelay, roomDisplay, roomFingerprint,
+  CONTROL_TIMEOUT_MS, IDLE_AFTER_MS, bookSeekSeconds, roomCanSeek, clockDuration, controlConfirmed, findRoom, isIdle, liveBookPosition, livePosition, pollDelay, roomDisplay, roomFingerprint,
   roomArtSource, roomLyricsSong, roomPath, roomSource, roomVolume, settleControl, storedRoom, type PendingControl,
 } from "./roomState";
 
@@ -189,5 +189,20 @@ describe("liveBookPosition", () => {
   test("holds still while paused, and is null for anything but a book", () => {
     expect(liveBookPosition({ ...book, state: "paused" }, 10_000, 99_000)?.positionMs).toBe(3_600_000);
     expect(liveBookPosition(song, 10_000, 14_000)).toBe(null);
+  });
+});
+
+describe("seeking from the progress bar", () => {
+  test("our skills can always move; what Home Assistant sees only if the Echo says it can seek", () => {
+    expect(roomCanSeek(kitchen(), song)).toBe(true);
+    expect(roomCanSeek(kitchen(), { ...song, durationMs: null })).toBe(false);
+    const amazon: RoomCurrent = { ...song, origin: "home-assistant" };
+    expect(roomCanSeek(kitchen({ homeAssistant: { entity: "media_player.k", error: null, canSeek: false } }), amazon)).toBe(false);
+    expect(roomCanSeek(kitchen({ homeAssistant: { entity: "media_player.k", error: null, canSeek: true } }), amazon)).toBe(true);
+  });
+
+  test("a place on a book's chapter bar is that chapter's start plus the place, in the whole book", () => {
+    const book = { bookId: "b", author: "", chapterTitle: null, chapterIndex: 2, chapterCount: 9, chapterPositionMs: 60_000, chapterDurationMs: 600_000, bookPositionMs: 3_660_000, bookDurationMs: 9_000_000 };
+    expect(bookSeekSeconds(book, 300_000)).toBe(3_900);
   });
 });

@@ -35,6 +35,22 @@ export function liveBookPosition(current: RoomCurrent | null, receivedAt: number
   return { positionMs, durationMs: book.bookDurationMs, leftMs: Math.max(0, book.bookDurationMs - positionMs) };
 }
 
+/**
+ * Whether the progress bar can move playback. Our skills start a new stream
+ * at the place; what Home Assistant sees moves only if the Echo says it can seek.
+ */
+export function roomCanSeek(room: AlexaRoom | null, current: RoomCurrent | null): boolean {
+  if (!current?.durationMs || current.positionMs == null) return false;
+  if (current.origin === "home-assistant") return Boolean(room?.homeAssistant?.canSeek);
+  return current.state === "playing" || current.state === "paused";
+}
+
+/** A place on a book's chapter bar as a place in the whole book, in seconds, which is what the skill jumps to. */
+export function bookSeekSeconds(book: NonNullable<RoomCurrent["book"]>, chapterMs: number): number {
+  const chapterStart = book.bookPositionMs - (book.chapterPositionMs ?? 0);
+  return Math.max(0, Math.round((chapterStart + chapterMs) / 1000));
+}
+
 /** "3:07", or "1:02:45" past an hour. */
 export function clockDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -80,10 +96,12 @@ export function roomVolume(room: AlexaRoom | null): number | null {
 
 /** A command sent from the page, shown as pending until the room's state reflects it. */
 export type PendingControl = {
-  action: "pause" | "resume" | "next" | "previous" | "skip" | "volume" | "play";
+  action: "pause" | "resume" | "next" | "previous" | "skip" | "seek" | "volume" | "play";
   sentAt: number;
   /** For volume: the level asked for, 0–10. */
   volume?: number;
+  /** For seek: the place asked for, in the progress bar's milliseconds, shown until the Echo gets there. */
+  target?: number;
   /** The room as it was when the button was pressed. */
   before: RoomFingerprint;
 };
@@ -111,7 +129,7 @@ export function controlConfirmed(control: PendingControl, room: AlexaRoom | null
     case "pause": return now.state !== "playing";
     case "resume": return now.state === "playing" && !room?.pending;
     // A chapter or a skip in a book starts a new stream, which shows as a play waiting to start.
-    case "next": case "previous": case "skip": return startedSomething || (changedItem && now.state === "playing");
+    case "next": case "previous": case "skip": case "seek": return startedSomething || (changedItem && now.state === "playing");
     case "play": return startedSomething || (changedItem && now.state === "playing");
     case "volume": {
       const level = roomVolume(room);

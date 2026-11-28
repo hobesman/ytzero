@@ -25,8 +25,10 @@ export interface RoomControlDependencies {
 }
 
 export type RoomAction = { action: "pause" } | { action: "resume" } | { action: "next" } | { action: "previous" } | { action: "volume"; volume: number }
-  /** Seconds forward, or back when negative: books only. */
-  | { action: "skip"; seconds: number };
+  /** Seconds forward, or back when negative, in what our skills play. */
+  | { action: "skip"; seconds: number }
+  /** A place to jump to, in seconds from the start: of the song or video, or of the whole book. */
+  | { action: "seek"; seconds: number };
 
 /** A control failed for a reason the caller should see. */
 export class RoomControlError extends Error {
@@ -46,6 +48,21 @@ export interface RoomControlResult {
 
 const MAX_VOLUME = 10;
 const MAX_SKIP_SECONDS = 3600;
+/** A day: longer than any book or video, so only nonsense is refused. */
+const MAX_SEEK_SECONDS = 86_400;
+
+/** "1 hour 2 minutes 5 seconds", as typed to the Echo for the skill's AMAZON.DURATION slot. */
+export function spokenPosition(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const parts: string[] = [];
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const rest = total % 60;
+  if (hours) parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
+  if (minutes) parts.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+  if (rest || !parts.length) parts.push(`${rest} ${rest === 1 ? "second" : "seconds"}`);
+  return parts.join(" ");
+}
 
 /** The variable naming each skill's invocation. */
 export const INVOCATION_VARIABLES: Record<AlexaSkillKind, string> = {
@@ -58,6 +75,10 @@ export function parseRoomAction(body: Record<string, unknown> | null): RoomActio
   if (action === "skip") {
     const seconds = Number(body?.seconds);
     return Number.isInteger(seconds) && seconds !== 0 && Math.abs(seconds) <= MAX_SKIP_SECONDS ? { action, seconds } : null;
+  }
+  if (action === "seek") {
+    const seconds = Number(body?.seconds);
+    return Number.isFinite(seconds) && seconds >= 0 && seconds <= MAX_SEEK_SECONDS ? { action, seconds: Math.round(seconds) } : null;
   }
   if (action === "volume") {
     const volume = Number(body?.volume);
@@ -113,7 +134,7 @@ export async function controlRoom(dependencies: RoomControlDependencies, userId:
     log.info("alexa.room_control", { room, action: action.action, via: "typed", command });
     return { room, entity, via: "typed", command };
   };
-  const service = async (name: "media_pause" | "media_play" | "media_next_track" | "media_previous_track" | "volume_set", data?: Record<string, unknown>): Promise<RoomControlResult> => {
+  const service = async (name: "media_pause" | "media_play" | "media_next_track" | "media_previous_track" | "volume_set" | "media_seek", data?: Record<string, unknown>): Promise<RoomControlResult> => {
     try { await homeAssistant.service(name, entity, data); } catch (error) { throw homeAssistantError(error); }
     log.info("alexa.room_control", { room, action: action.action, via: "home-assistant", service: name });
     return { room, entity, via: "home-assistant", service: name };
@@ -144,10 +165,18 @@ export async function controlRoom(dependencies: RoomControlDependencies, userId:
   if (action.action === "previous") {
     return !oursPlaying && seen ? service("media_previous_track") : typed("previous");
   }
-  if (action.action === "skip") {
-    if (ours?.skill !== "books") throw new RoomControlError("Skipping back and forward is only for books.");
-    const amount = `${Math.abs(action.seconds)} seconds`;
-    return typed(`ask ${invocation(dependencies.invocations, "books")} to ${action.seconds > 0 ? `skip forward ${amount}` : `go back ${amount}`}`);
+  if (action.action === "skip" || action.action === "seek") {
+    // What Home Assistant sees playing it moves itself, if the Echo lets it; our skills get the command typed.
+    if (seen && !oursPlaying) {
+      if (!seen.canSeek) throw new RoomControlError(`The ${room} Echo can't jump within what it's playing.`);
+      const to = action.action === "seek" ? action.seconds : Math.max(0, (seen.positionMs ?? 0) / 1000 + action.seconds);
+      return service("media_seek", { seek_position: Math.round(to) });
+    }
+    if (!ours) throw new RoomControlError(`Nothing of ours is playing in the ${room}.`);
+    const name = invocation(dependencies.invocations, ours.skill);
+    if (action.action === "seek") return typed(`ask ${name} to jump to ${spokenPosition(action.seconds)}`);
+    const amount = spokenPosition(Math.abs(action.seconds));
+    return typed(`ask ${name} to ${action.seconds > 0 ? `skip forward ${amount}` : `go back ${amount}`}`);
   }
   // Resume whichever paused last: what Home Assistant sees, or our skill's song.
   const oursPaused = ours && (ours.record.state === "paused" || ours.record.state === "stopped") ? ours : null;

@@ -27,8 +27,9 @@ answers from the song it sent, so it stays right even when Alexa's own "what
 song is this?" goes stale, which can happen after a song fails to resume.
 
 Both skills support pause, resume and start over, by voice and with the
-device's buttons. The music skill and a shuffled channel also support next. In
-the video skill, say "skip forward 2 minutes" or "go back 30 seconds".
+device's buttons. The music skill and a shuffled channel also support next and
+previous. In either skill, say "skip forward 2 minutes", "go back 30 seconds"
+or "jump to 3 minutes".
 
 These names are only examples: the skills answer to whatever invocation names
 you give them in step 1.
@@ -486,6 +487,31 @@ pairing is for the TV app only: a browser page can't use its token.
 
 **Hoban Tube** has no queue, so the tablet tells the Echo what to say (see
 *Play a video* above). It works best with channels the profile follows.
+
+**Moving within what plays.** Drag the progress bar and let go to jump there:
+the page types "ask <skill> to jump to 3 minutes 20 seconds" to the Echo,
+which starts a new stream at that place. An Echo can't start part way into a
+plain audio file, so each skill hands it one that already begins there: a
+playlist that starts at the segment holding the place for songs and videos,
+and a stream cut by ffmpeg for books. The jump lands at the start of that
+segment, a few seconds early at most. For a book, the top bar is the chapter
+and the bar below it the whole book; only the chapter's moves. What Home
+Assistant shows (Amazon Music, say) moves with Home Assistant's own seek when
+the Echo reports it can, and the bar stays still when it can't. **Previous**
+goes back a song (Hoban Music), a video in a shuffle (Hoban Tube, otherwise
+the video starts over) or a chapter (Hoban Books).
+
+**The queue.** Tap the music tab's queue card for what plays next in the
+room (a saved queue's songs, or the song a station has already picked: a
+station picks each song as the one before ends) and what this room's Echo
+played lately, as opposed to the profile's history from every device. Tap a
+song to play from it. The videos tab lists what the room played lately too,
+and the books tab shows the book playing in the room; tap it for its
+chapters, and tap a chapter to jump there.
+
+After updating, paste the newer music and video interaction models into their
+skills (see *Updating a skill*): "jump to", and for music the skips and
+previous, are new commands.
 
 ## How it works
 

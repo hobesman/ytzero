@@ -16,6 +16,7 @@ import { roomApi, type RoomQueue, type RoomSeed } from "./roomApi";
 import { deviceTimeZone, roomPath } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
+import { RoomMusicQueue } from "./RoomQueueView";
 import "../pages/MusicPage.css";
 
 type QueueRequest = { title: string } & ({ videoIds: string[] } | { seed: RoomSeed });
@@ -42,6 +43,7 @@ function useRoomMusic(roomName: string, homeRoom: string, onCommand: RoomCommand
     openGenre: (genre: MusicGenre) => open(`genre/${encodeURIComponent(genre.id)}`),
     openPlaylist: (playlist: MusicPlaylist) => open(`playlist/${encodeURIComponent(playlist.playlistId)}`),
     openMine: (playlist: MusicUserPlaylist) => open(`mine/${encodeURIComponent(playlist.id)}`),
+    openQueue: () => open("queue"),
     search: (query: string) => open(`search?q=${encodeURIComponent(query)}`),
   };
 }
@@ -60,21 +62,28 @@ function StationButton({ icon, title, hint, onPlay }: { icon: ReactNode; title: 
   </button>;
 }
 
-/** The room's saved queue: what "play my queue" plays there. */
-function RoomQueueCard({ roomName, queue, onReplay }: { roomName: string; queue: RoomQueue | null | undefined; onReplay: () => void }) {
+/** The room's saved queue: what "play my queue" plays there. Tapping it opens what plays next and what played there lately. */
+function RoomQueueCard({ roomName, queue, onReplay, onOpen }: { roomName: string; queue: RoomQueue | null | undefined; onReplay: () => void; onOpen: () => void }) {
   const { t, locale, language } = useI18n();
   if (queue === undefined) return null;
-  if (!queue) return <p className="room-music__queue room-music__queue--empty">{t("roomQueueEmpty", { room: roomName })}</p>;
+  if (!queue) {
+    return <button type="button" className="room-music__queue room-music__queue--empty room-music__queue-open" onClick={onOpen}>
+      <span>{t("roomQueueEmpty", { room: roomName })}</span>
+      <span className="room-music__queue-more">{t("roomQueueOpen")}</span>
+    </button>;
+  }
   const saved = new Intl.DateTimeFormat(locale, { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: deviceTimeZone() })
     .format(parseAppTimestamp(queue.savedAt));
   const what = queue.seed ? t(`roomQueueSeed_${queue.seed.kind === "artist" && queue.seed.radio ? "radio" : queue.seed.kind}`) : formatSongCount(queue.videoIds.length, language);
   return <div className="room-music__queue">
-    <ListMusic aria-hidden="true" />
-    <div className="room-music__queue-copy">
-      <span className="room-music__queue-label">{t("roomQueueTitle", { room: roomName })}</span>
-      <span className="room-music__queue-title">{queue.title || what}</span>
-      <span className="room-music__queue-detail">{[queue.title ? what : null, t("roomQueueSaved", { time: saved })].filter(Boolean).join(" · ")}</span>
-    </div>
+    <button type="button" className="room-music__queue-open" onClick={onOpen} aria-label={t("roomQueueOpenNamed", { room: roomName })}>
+      <ListMusic aria-hidden="true" />
+      <span className="room-music__queue-copy">
+        <span className="room-music__queue-label">{t("roomQueueTitle", { room: roomName })}</span>
+        <span className="room-music__queue-title">{queue.title || what}</span>
+        <span className="room-music__queue-detail">{[queue.title ? what : null, t("roomQueueSaved", { time: saved })].filter(Boolean).join(" · ")}</span>
+      </span>
+    </button>
     <Button size="lg" leadingIcon={<RotateCcw />} onClick={onReplay}>{t("roomPlayAgain")}</Button>
   </div>;
 }
@@ -104,7 +113,7 @@ function HomeView({ music, roomName, queue, onReplay, playingKey }: { music: Roo
   if (library.failed && library.data === null) return <MusicNote text={t("musicLoadFailed")} onRetry={library.retry} />;
   const data = library.data;
   return <>
-    <RoomQueueCard roomName={roomName} queue={queue} onReplay={onReplay} />
+    <RoomQueueCard roomName={roomName} queue={queue} onReplay={onReplay} onOpen={music.openQueue} />
     <div className="music-stations">
       <StationButton icon={<Sparkles />} title={t("musicYourMix")} hint={t("roomPlayIn", { room: roomName })} onPlay={() => music.play({ title: t("musicYourMix"), seed: { kind: "mix" } })} />
       <StationButton icon={<Heart />} title={t("musicLikedSongs")} hint={t("roomPlayIn", { room: roomName })} onPlay={() => music.play({ title: t("musicLikedSongs"), seed: { kind: "liked" } })} />
@@ -248,6 +257,7 @@ export function RoomMusicTab({ roomName, homeRoom, path, onCommand, playingKey }
     <RoomSearchBox value={query} placeholder={music.t("musicSearchPlaceholder")} onSearch={music.search} />
     {music.failure ? <Alert variant="danger" role="alert" className="room-tab__failure">{music.failure}</Alert> : null}
     {kind === "search" && query ? <SearchView music={music} query={query} roomName={roomName} />
+      : kind === "queue" ? <RoomMusicQueue roomName={roomName} playingId={null} onPlaySongs={music.playTracks} />
       : kind && id && ["album", "artist", "genre", "playlist", "mine"].includes(kind) ? <DetailView music={music} kind={kind} id={decodeURIComponent(id)} roomName={roomName} />
       : <HomeView music={music} roomName={roomName} queue={queue} onReplay={replay} playingKey={playingKey} />}
   </div>;

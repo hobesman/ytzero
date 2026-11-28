@@ -264,7 +264,8 @@ to this server's Home Assistant, configured by environment variables), and
 "play my queue", replaced by the next one. `alexa_room_books` is likewise the
 transient book (and optional chapter or start time) a tablet chose for a room's
 "play my book"; the listening place itself lives in Audiobookshelf, not in YT
-Zero. None of them is exposed through settings
+Zero. `alexa_room_history` is a short transient list of what each room's Echo
+played lately, pruned to the newest few per room and skill. None of them is exposed through settings
 or included in any portable backup section; an exact stopped-instance backup
 preserves them.
 

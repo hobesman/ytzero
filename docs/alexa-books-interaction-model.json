@@ -188,6 +188,24 @@
           ]
         },
         {
+          "name": "SeekToIntent",
+          "slots": [
+            {
+              "name": "position",
+              "type": "AMAZON.DURATION"
+            }
+          ],
+          "samples": [
+            "jump to {position}",
+            "go to {position}",
+            "skip to {position}",
+            "play from {position}",
+            "start from {position}",
+            "jump to {position} into the book",
+            "go to {position} into the book"
+          ]
+        },
+        {
           "name": "AMAZON.YesIntent",
           "samples": []
         },

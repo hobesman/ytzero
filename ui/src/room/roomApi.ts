@@ -49,6 +49,8 @@ export type RoomHomeAssistant = {
   volume?: number | null;
   muted?: boolean | null;
   changedAt?: string | null;
+  /** The Echo lets Home Assistant move within what it plays. */
+  canSeek?: boolean;
 };
 
 export type RoomDevice = {
@@ -73,8 +75,15 @@ export type AlexaRooms = {
 };
 
 export type RoomAction = { action: "pause" } | { action: "resume" } | { action: "next" } | { action: "previous" } | { action: "volume"; volume: number }
-  /** Books only: seconds forward, or back when negative. */
-  | { action: "skip"; seconds: number };
+  /** Seconds forward, or back when negative. */
+  | { action: "skip"; seconds: number }
+  /** A place to jump to, in seconds: in the song or video, or in the whole book. */
+  | { action: "seek"; seconds: number };
+
+/** A room's recent plays, newest first. */
+export type RoomHistoryItem = { skill: AlexaSkill; itemId: string; title: string; artist: string; art: string; playedAt: string };
+/** What the room's music plays next: a saved queue's songs, or the one song a station has picked. */
+export type RoomUpcoming = { playing: boolean; station: boolean; songs: { videoId: string; title: string; artist: string; art: string; durationMs: number | null }[] };
 
 /** A station the music skill can start: what the music pages play, less a single track. */
 export type RoomSeed = Exclude<MusicSeed, { kind: "track" }>;
@@ -134,6 +143,8 @@ export const roomApi = {
   /** Saves the room's queue and starts it on the room's Echo. */
   playQueue: (name: string, queue: { title: string } & ({ videoIds: string[] } | { seed: RoomSeed })) =>
     http<{ queue: RoomQueue; error?: string }>(`${room(name)}/queue`, send("PUT", { ...queue, play: true })),
+  history: async (name: string, skill: AlexaSkill) => (await http<{ items: RoomHistoryItem[] }>(`${room(name)}/history?skill=${skill}`)).items,
+  upcoming: (name: string) => http<RoomUpcoming>(`${room(name)}/upcoming`),
   replayQueue: (name: string) => http<{ via: string }>(`${room(name)}/queue/play`, send("POST")),
   playVideo: (name: string, request: RoomVideoRequest) => http<{ via: string }>(`${room(name)}/video`, send("POST", request)),
   homeAssistant: (all = false) => http<HomeAssistantPlayers>(`/alexa/home-assistant${all ? "?all=1" : ""}`),

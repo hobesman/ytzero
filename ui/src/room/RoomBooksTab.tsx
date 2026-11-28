@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Play } from "lucide-react";
+import { BookOpen, ListOrdered, Play } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Alert, Button, EmptyState, List, ListRow, MenuLoading, ProgressBar, SectionHeader } from "../components/ui";
 import { MusicArtwork, MusicCard, MusicDetailHeader, MusicNote, useMusicData } from "../music/MusicParts";
-import { roomBooksApi, type RoomBook, type RoomBookSummary } from "./roomApi";
+import { roomBooksApi, type RoomBook, type RoomBookSummary, type RoomCurrent } from "./roomApi";
 import { clockDuration, roomPath } from "./roomState";
 import type { RoomCommand } from "./useRoomState";
 import { RoomSearchBox } from "./RoomSearchBox";
@@ -43,7 +43,11 @@ function useRoomBook(roomName: string, onCommand: RoomCommand) {
   return { play, failure };
 }
 
-function BookView({ bookId, roomName, play }: { bookId: string; roomName: string; play: (bookId: string, chapter?: number) => void }) {
+function BookView({ bookId, roomName, play, playingChapter }: {
+  bookId: string; roomName: string; play: (bookId: string, chapter?: number) => void;
+  /** The chapter the room's Echo is playing, when it plays this book. */
+  playingChapter: number | null;
+}) {
   const { t } = useI18n();
   const book = useMusicData(useCallback(() => roomBooksApi.book(bookId), [bookId]));
   if (book.failed) return <MusicNote text={t("roomBooksLoadFailed")} onRetry={book.retry} />;
@@ -51,7 +55,7 @@ function BookView({ bookId, roomName, play }: { bookId: string; roomName: string
   const data: RoomBook = book.data;
   const saved = data.progress && !data.progress.isFinished && data.progress.currentTime > 0 ? data.progress.currentTime : null;
   const series = data.series.map((item) => item.sequence ? `${item.name} #${item.sequence}` : item.name).join(", ");
-  const current = saved === null ? -1 : data.chapters.reduce((found, chapter, index) => chapter.start <= saved ? index : found, -1);
+  const current = playingChapter ?? (saved === null ? -1 : data.chapters.reduce((found, chapter, index) => chapter.start <= saved ? index : found, -1));
   return <>
     <MusicDetailHeader art={roomBooksApi.coverUrl(data.id)} title={data.title}
       detail={[data.author, series, bookLength(data.duration, t)].filter(Boolean).join(" · ")}>
@@ -98,7 +102,28 @@ function LibraryShelf({ query, onOpen }: { query: string; onOpen: (book: RoomBoo
  * A book starts by being queued for the room, then "ask hoban books to play
  * my book" is typed to the Echo, the way the music tab's queue works.
  */
-export function RoomBooksTab({ roomName, homeRoom, path, onCommand }: { roomName: string; homeRoom: string; path: string[]; onCommand: RoomCommand }) {
+/** The book playing in the room, as its queue: tapping it opens the chapters to jump to one. */
+function PlayingBookCard({ roomName, current, onOpen }: { roomName: string; current: RoomCurrent; onOpen: () => void }) {
+  const { t } = useI18n();
+  const book = current.book!;
+  const chapter = book.chapterIndex !== null ? t("roomBookChapterOf", { chapter: book.chapterTitle || String(book.chapterIndex + 1), number: book.chapterIndex + 1, count: book.chapterCount }) : null;
+  return <div className="room-music__queue">
+    <button type="button" className="room-music__queue-open" onClick={onOpen} aria-label={t("roomBookChaptersOpen", { title: current.title ?? "" })}>
+      <ListOrdered aria-hidden="true" />
+      <span className="room-music__queue-copy">
+        <span className="room-music__queue-label">{t("roomBookPlayingIn", { room: roomName })}</span>
+        <span className="room-music__queue-title">{current.title}</span>
+        <span className="room-music__queue-detail">{[chapter, t("roomBookChaptersJump")].filter(Boolean).join(" · ")}</span>
+      </span>
+    </button>
+  </div>;
+}
+
+export function RoomBooksTab({ roomName, homeRoom, path, onCommand, current }: {
+  roomName: string; homeRoom: string; path: string[]; onCommand: RoomCommand;
+  /** What the room plays now, when it's a book. */
+  current: RoomCurrent | null;
+}) {
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -111,11 +136,16 @@ export function RoomBooksTab({ roomName, homeRoom, path, onCommand }: { roomName
 
   if (status.data && !status.data.enabled) return <EmptyState icon={<BookOpen />} title={t("roomBooksOff")} description={t("roomBooksOffHint")} />;
   const alert = failure ? <Alert variant="danger" role="alert" className="room-tab__failure">{failure}</Alert> : null;
-  if (path[0] === "book" && path[1]) return <div className="room-books">{alert}<BookView bookId={path[1]} roomName={roomName} play={play} /></div>;
+  const playing = current?.origin === "books" && current.book && current.state !== "finished" ? current : null;
+  if (path[0] === "book" && path[1]) {
+    const chapter = playing?.book?.bookId === path[1] ? playing.book.chapterIndex : null;
+    return <div className="room-books">{alert}<BookView bookId={path[1]} roomName={roomName} play={play} playingChapter={chapter} /></div>;
+  }
   return <div className="room-books">
     <RoomSearchBox value={query} placeholder={t("roomBooksSearchPlaceholder")} onSearch={search} />
     <p className="room-music__hint">{t("roomBooksHint", { room: roomName })}</p>
     {alert}
+    {playing ? <PlayingBookCard roomName={roomName} current={playing} onOpen={() => navigate(roomPath(homeRoom, `books/book/${encodeURIComponent(playing.book!.bookId)}`))} /> : null}
     {!query && continuing.data?.length ? <section className="music-shelf">
       <SectionHeader title={t("roomVideosContinue")} level={2} />
       <div className="music-shelf__row">{continuing.data.map((book) => <BookCard key={book.id} book={book} onOpen={open} />)}</div>

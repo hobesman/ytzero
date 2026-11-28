@@ -137,7 +137,7 @@ export default function RoomPage() {
             {tab === "music" ? <RoomMusicTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command}
               playingKey={room?.current ? `${room.current.title ?? ""}|${room.current.artist ?? ""}` : ""} />
               : tab === "videos" ? <RoomVideoTab roomName={room?.room ?? roomName} onCommand={command} />
-              : <RoomBooksTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command} />}
+              : <RoomBooksTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command} current={room?.current ?? null} />}
           </div>
         </section>}
       </div>

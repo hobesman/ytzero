@@ -306,6 +306,11 @@ export function createAlexaBookSkill(dependencies: AlexaBookSkillDependencies) {
       const change = skipAmount(envelope) * (name === "SkipBackIntent" ? -1 : 1);
       return seekTo(userId, envelope, ({ position }) => position + change, true, "");
     }
+    // "Jump to 2 hours 10 minutes": a place in the whole book, as the tablet's chapter bar sends it.
+    if (name === "SeekToIntent") {
+      const target = isoDurationSeconds(envelope.request?.intent?.slots?.position?.value);
+      return seekTo(userId, envelope, () => target, true, "Where in the book? Say, for example, jump to 2 hours 10 minutes.");
+    }
     if (name === "AMAZON.NextIntent") return nextChapter(userId, envelope, true);
     if (name === "AMAZON.PreviousIntent") return previousChapter(userId, envelope, true);
     if (name === "AMAZON.StartOverIntent") {

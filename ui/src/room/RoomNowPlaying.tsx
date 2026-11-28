@@ -4,7 +4,7 @@ import { useI18n } from "../i18n";
 import { Alert, Badge, IconButton, ProgressBar, Slider } from "../components/ui";
 import { roomApi, type AlexaRoom } from "./roomApi";
 import {
-  clockDuration, liveBookPosition, livePosition, roomArtSource, roomSource, roomVolume, type PendingControl, type RoomDisplay, type RoomSource,
+  bookSeekSeconds, clockDuration, liveBookPosition, livePosition, roomArtSource, roomCanSeek, roomSource, roomVolume, type PendingControl, type RoomDisplay, type RoomSource,
 } from "./roomState";
 import { useNow, type RoomCommand } from "./useRoomState";
 
@@ -33,15 +33,49 @@ function RoomArt({ url }: { url: string | null | undefined }) {
   return <img className="room-now__art" src={source} alt="" referrerPolicy="no-referrer" onError={() => setFailed(true)} />;
 }
 
-function RoomProgress({ current, receivedAt }: { current: NonNullable<AlexaRoom["current"]>; receivedAt: number }) {
+/** After a key press on the bar, how long to wait for another before jumping: each jump is a command typed to the Echo. */
+const KEY_SEEK_WAIT_MS = 800;
+
+/**
+ * The song's, video's or chapter's progress. Where playback can move, it is a
+ * slider: dragging shows the place, and letting go sends one jump. Until the
+ * Echo gets there, the bar stays at the place asked for.
+ */
+function RoomProgress({ current, receivedAt, onSeek, pendingMs }: {
+  current: NonNullable<AlexaRoom["current"]>; receivedAt: number;
+  /** Jumps to a place, in the bar's milliseconds; absent where playback can't move. */
+  onSeek?: (ms: number) => void;
+  pendingMs?: number;
+}) {
   const { t } = useI18n();
-  const now = useNow(1000, current.state === "playing");
+  const [draft, setDraft] = useState<number | null>(null);
+  const draftRef = useRef<number | null>(null);
+  const keyTimer = useRef<number | null>(null);
+  const now = useNow(1000, current.state === "playing" && draft === null);
+  useEffect(() => () => { if (keyTimer.current !== null) window.clearTimeout(keyTimer.current); }, []);
   const position = livePosition(current, receivedAt, now);
   if (!position) return null;
-  return <div className="room-now__progress">
-    <ProgressBar value={position.positionMs} max={position.durationMs ?? Math.max(position.positionMs, 1)} label={t("roomProgress")} />
+  const max = position.durationMs ?? Math.max(position.positionMs, 1);
+  const shown = draft ?? pendingMs ?? position.positionMs;
+  const change = (value: number) => { draftRef.current = value; setDraft(value); };
+  const commit = () => {
+    if (keyTimer.current !== null) { window.clearTimeout(keyTimer.current); keyTimer.current = null; }
+    const value = draftRef.current;
+    draftRef.current = null;
+    setDraft(null);
+    if (value !== null && onSeek) onSeek(value);
+  };
+  const commitSoon = () => {
+    if (keyTimer.current !== null) window.clearTimeout(keyTimer.current);
+    keyTimer.current = window.setTimeout(commit, KEY_SEEK_WAIT_MS);
+  };
+  return <div className={`room-now__progress${onSeek ? " room-now__progress--seek" : ""}`}>
+    {onSeek
+      ? <Slider min={0} max={max} step={1000} value={Math.min(shown, max)} onChange={change} onPointerUp={commit} onTouchEnd={commit} onKeyUp={commitSoon}
+        aria-label={t("roomSeek")} aria-valuetext={clockDuration(shown)} aria-busy={pendingMs !== undefined || undefined} />
+      : <ProgressBar value={position.positionMs} max={max} label={t("roomProgress")} />}
     <div className="room-now__times">
-      <span>{clockDuration(position.positionMs)}</span>
+      <span>{clockDuration(shown)}</span>
       <span>{position.durationMs ? clockDuration(position.durationMs) : ""}</span>
     </div>
   </div>;
@@ -143,10 +177,14 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
     return () => window.clearTimeout(timer);
   }, [failure]);
 
-  const send = (action: "pause" | "resume" | "next" | "previous" | "skip" | "volume", amount?: number) => {
+  /** `shown` is what the page shows while waiting: the volume, or for a seek the place on the bar. */
+  const send = (action: "pause" | "resume" | "next" | "previous" | "skip" | "seek" | "volume", amount?: number, shown?: number) => {
     setFailure(null);
-    const body = action === "volume" ? { action, volume: amount ?? 5 } : action === "skip" ? { action, seconds: amount ?? 30 } : { action };
-    void onCommand(roomName, action, () => roomApi.control(roomName, body), action === "volume" ? amount : undefined).then((error) => {
+    const body = action === "volume" ? { action, volume: amount ?? 5 }
+      : action === "skip" ? { action, seconds: amount ?? 30 }
+      : action === "seek" ? { action, seconds: amount ?? 0 }
+      : { action };
+    void onCommand(roomName, action, () => roomApi.control(roomName, body), action === "volume" ? amount : shown).then((error) => {
       if (error) setFailure(t("roomCommandFailed", { room: roomName, error }));
     });
   };
@@ -158,6 +196,12 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
   const toggleBusy = control?.action === "pause" || control?.action === "resume";
   // A book: next and previous are chapters, with skips of 30 seconds either side of play.
   const book = source?.kind === "books";
+  const current = display.kind === "playing" || display.kind === "paused" ? display.current : null;
+  const pendingMs = control?.action === "seek" ? control.target : undefined;
+  // A book's bar is its chapter's; the skill jumps to a place in the whole book.
+  const seek = current && roomCanSeek(room, current)
+    ? (ms: number) => send("seek", book && current.book ? bookSeekSeconds(current.book, ms) : Math.round(ms / 1000), ms)
+    : undefined;
   const { panel, beside } = useCoverBeside([item?.title, item?.artist, display.kind, control?.action === "play", failure].join(""));
 
   return <section ref={panel} className={`room-now${beside ? " room-now--cover-beside" : ""}`} aria-label={t("roomNowPlaying")} aria-live="polite">
@@ -170,7 +214,7 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
       </div>
       <h1 className="room-now__title">{item?.title || t("roomNothingPlaying")}</h1>
       {item?.artist ? <p className="room-now__artist">{item.artist}</p> : null}
-      {display.kind === "playing" || display.kind === "paused" ? <RoomProgress current={display.current} receivedAt={receivedAt} /> : null}
+      {current ? <RoomProgress current={current} receivedAt={receivedAt} onSeek={seek} pendingMs={pendingMs} /> : null}
       {book && (display.kind === "playing" || display.kind === "paused") ? <RoomBookProgress current={display.current} receivedAt={receivedAt} /> : null}
     </div>
     <div className={`room-now__controls${book ? " room-now__controls--book" : ""}`}>
@@ -178,6 +222,7 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
         <IconButton size="xl" variant="ghost" busy={control?.action === "previous"} label={t("roomPreviousChapter")} icon={<SkipBack />} onClick={() => send("previous")} />
         <IconButton size="xl" variant="secondary" busy={control?.action === "skip"} label={t("roomSkipBack")} icon={<RotateCcw />} onClick={() => send("skip", -30)} />
       </> : null}
+      {!book ? <IconButton size="xl" variant="secondary" busy={control?.action === "previous"} label={t("roomPrevious")} icon={<SkipBack />} onClick={() => send("previous")} /> : null}
       <IconButton size="xl" variant="primary" busy={toggleBusy}
         label={playing ? t("roomPause") : t("roomResume")} icon={playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         onClick={() => send(playing ? "pause" : "resume")} />

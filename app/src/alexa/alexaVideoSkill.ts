@@ -57,7 +57,7 @@ const UNREACHABLE = "Sorry, I couldn't reach YouTube right now. Please try again
 
 const STOP_INTENTS = new Set(["AMAZON.PauseIntent", "AMAZON.StopIntent", "AMAZON.CancelIntent"]);
 const UNSUPPORTED_INTENTS = new Set([
-  "AMAZON.PreviousIntent", "AMAZON.LoopOnIntent", "AMAZON.LoopOffIntent", "AMAZON.ShuffleOnIntent",
+  "AMAZON.LoopOnIntent", "AMAZON.LoopOffIntent", "AMAZON.ShuffleOnIntent",
   "AMAZON.ShuffleOffIntent", "AMAZON.RepeatIntent",
 ]);
 
@@ -214,7 +214,7 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     return null;
   }
 
-  async function seek(userId: number, envelope: AlexaEnvelope, change: number | "start" | "same", speech: boolean): Promise<AlexaResponse> {
+  async function seek(userId: number, envelope: AlexaEnvelope, change: number | "start" | "same" | { to: number }, speech: boolean): Promise<AlexaResponse> {
     const playing = await current(userId, envelope);
     if (!playing && change === "same") {
       const resumed = await resumeLast(userId, envelope, speech);
@@ -223,9 +223,21 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     if (!playing) return speech ? speak(`Nothing is playing. ${ASK}`, ASK) : silent();
     // Resuming goes on from the profile's latest saved place, not the Echo's:
     // the video may have played further on another Echo or in the app since.
-    const target = change === "start" ? 0 : change === "same" ? playing.video.resumeAt ?? playing.offset : playing.offset + change;
+    const target = change === "start" ? 0
+      : change === "same" ? playing.video.resumeAt ?? playing.offset
+      : typeof change === "object" ? change.to
+      : playing.offset + change;
     const limit = playing.video.duration ? Math.max(0, playing.video.duration - 1) : Number.POSITIVE_INFINITY;
     return play(userId, playing.video, Math.min(Math.max(0, target), limit), undefined, { token: playing.token });
+  }
+
+  /** Previous, in a shuffle: the video before this one, from its start. Otherwise this video starts over. */
+  async function previous(userId: number, envelope: AlexaEnvelope, speech: boolean): Promise<AlexaResponse> {
+    const state = decodeShuffleToken(envelope.context?.AudioPlayer?.token);
+    const before = state?.played.at(-1);
+    const video = state && before ? await dependencies.findVideo(userId, before) : null;
+    if (!state || !video?.playable) return seek(userId, envelope, "start", speech);
+    return play(userId, video, 0, undefined, { token: encodeShuffleToken({ channelId: state.channelId, videoId: video.videoId, played: state.played.slice(0, -1) }) });
   }
 
   function skipAmount(envelope: AlexaEnvelope): number {
@@ -281,6 +293,11 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
     if (name === "AMAZON.NoIntent") return speak("Okay.");
     if (name === "SkipForwardIntent") return seek(userId, envelope, skipAmount(envelope), true);
     if (name === "SkipBackIntent") return seek(userId, envelope, -skipAmount(envelope), true);
+    if (name === "SeekToIntent") {
+      const to = isoDurationSeconds(envelope.request?.intent?.slots?.position?.value);
+      return to === null ? speak("Where in the video? Say, for example, jump to 5 minutes.") : seek(userId, envelope, { to }, true);
+    }
+    if (name === "AMAZON.PreviousIntent") return previous(userId, envelope, true);
     if (STOP_INTENTS.has(name)) return silent([stopDirective]);
     if (name === "AMAZON.ResumeIntent") return seek(userId, envelope, "same", true);
     if (name === "AMAZON.StartOverIntent") return seek(userId, envelope, "start", true);
@@ -292,6 +309,7 @@ export function createAlexaVideoSkill(dependencies: AlexaVideoSkillDependencies)
   async function controller(userId: number, envelope: AlexaEnvelope, type: string): Promise<AlexaResponse> {
     if (type === "PlaybackController.PauseCommandIssued") return silent([stopDirective]);
     if (type === "PlaybackController.NextCommandIssued") return skipShuffled(userId, envelope.context?.AudioPlayer?.token, false);
+    if (type === "PlaybackController.PreviousCommandIssued") return previous(userId, envelope, false);
     if (type === "PlaybackController.PlayCommandIssued") return seek(userId, envelope, "same", false);
     return silent();
   }
