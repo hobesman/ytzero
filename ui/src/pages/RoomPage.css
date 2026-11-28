@@ -68,8 +68,10 @@
 
 /* Music and Hoban Tube tabs: the music page's cards and rows, larger for touch. */
 .room-music, .room-videos { display: flex; flex-direction: column; gap: 22px; }
-.room-music__search { display: flex; gap: 10px; }
-.room-music__search .ui-input { flex: 1; }
+.room-search { display: flex; flex-direction: column; gap: 8px; }
+.room-search__row { display: flex; gap: 10px; }
+.room-search__row .ui-input { flex: 1; min-width: 0; }
+.room-search__note { color: var(--text-2); font-size: 15px; margin: 0; }
 .room-music__hint { color: var(--text-2); font-size: 15px; margin: 0; }
 .room-music__station { min-height: 88px; }
 .room-page .music-track { min-height: 64px; }

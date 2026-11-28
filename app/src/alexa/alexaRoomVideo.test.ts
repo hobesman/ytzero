@@ -47,6 +47,18 @@ describe("room video commands", () => {
     await expect(roomVideoCommand("hoban tube", { kind: "video", videoId: "unplayable1" }, lookup)).rejects.toThrow("can't be played");
     await expect(roomVideoCommand("hoban tube", { kind: "latest", channelId: "UCxxxxxxxxxxxxxxxxxxxxxx" }, lookup)).rejects.toThrow("doesn't follow");
   });
+
+  test("plays a search result YT Zero doesn't have by the title and channel the screen showed", async () => {
+    expect(parseRoomVideoRequest({ kind: "video", videoId: "missingvid1", title: " Cats vs. Cucumbers ", channel: "Pet Lab" }))
+      .toEqual({ kind: "video", videoId: "missingvid1", title: "Cats vs. Cucumbers", channel: "Pet Lab" });
+    expect(parseRoomVideoRequest({ kind: "video", videoId: "missingvid1", title: "Only a title" }))
+      .toEqual({ kind: "video", videoId: "missingvid1" });
+    expect(await roomVideoCommand("hoban tube", { kind: "video", videoId: "missingvid1", title: "Cats vs. Cucumbers", channel: "Pet Lab" }, lookup))
+      .toBe("ask hoban tube to play the video cats vs cucumbers from pet lab");
+    // A video YT Zero knows is said as YT Zero has it, whatever the screen sent.
+    expect(await roomVideoCommand("hoban tube", { kind: "video", videoId: "abcdefghijk", title: "Other", channel: "Other" }, lookup))
+      .toBe("ask hoban tube to play the video how i fixed my leaky faucet part 2 from this old house");
+  });
 });
 
 describe("POST /alexa/rooms/:room/video", () => {
