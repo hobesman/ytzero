@@ -262,6 +262,25 @@ describe("room controls through home assistant", () => {
     expect(kitchen.current).toMatchObject({ origin: "music", title: `Song ${id(9)}`, state: "playing" });
   });
 
+  test("between our songs, still shows ours, not the Amazon song Home Assistant last saw", async () => {
+    await setEntity();
+    await rooms.setRoom(1, "music", KITCHEN, "Kitchen", clock);
+    ha.states.set(ENTITY, { entity_id: ENTITY, state: "paused", last_changed: new Date(clock).toISOString(), attributes: { media_title: "Amazon Song", media_artist: "Someone", last_called: true } });
+    clock += 60_000;
+    const played = await say(KITCHEN, "PlayMixIntent");
+    const token = played.response.directives[0].audioItem.stream.token;
+    await startPlaying(token);
+    await send(KITCHEN, { type: "AudioPlayer.PlaybackStopped", token, offsetInMilliseconds: 5000 });
+    let kitchen = (await call("GET", "/alexa/rooms")).body.rooms[0];
+    expect(kitchen.current).toMatchObject({ origin: "music", title: `Song ${id(9)}` });
+
+    // Amazon Music started again afterwards: that is what the room plays.
+    clock += 60_000;
+    ha.states.set(ENTITY, { ...ha.states.get(ENTITY)!, state: "playing", last_changed: new Date(clock).toISOString() });
+    kitchen = (await call("GET", "/alexa/rooms")).body.rooms[0];
+    expect(kitchen.current).toMatchObject({ origin: "home-assistant", title: "Amazon Song", state: "playing" });
+  });
+
   test("queues songs for a room, starts them in one call, and runs into a station after", async () => {
     await setEntity();
     await rooms.setRoom(1, "music", KITCHEN, "Kitchen", clock);

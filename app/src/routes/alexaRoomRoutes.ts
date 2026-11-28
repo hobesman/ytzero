@@ -63,12 +63,16 @@ const publicDevice = (device: AlexaDevice, now: number) => ({
 
 /**
  * What the room's screen should show: our skills' record while it plays, else
- * what Home Assistant sees (Amazon Music, say), else our last record.
+ * what Home Assistant sees (Amazon Music, say), else our last record. Home
+ * Assistant keeps reporting the last Amazon song, paused, after our skill takes
+ * over, so it counts only when it changed after our record did: otherwise the
+ * gap between two of our songs would show that old song.
  */
 function roomCurrent(ours: ReturnType<typeof publicNowPlaying> | null, seen: HomeAssistantReport | null) {
   const fromOurs = ours && { origin: ours.skill, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, durationMs: ours.durationMs, positionMs: ours.positionMs, source: null };
   if (ours?.state === "playing") return fromOurs;
-  if (seen && homeAssistantSeesMedia(seen)) {
+  const stale = ours && seen?.changedAt && Date.parse(seen.changedAt) < Date.parse(ours.updatedAt);
+  if (seen && homeAssistantSeesMedia(seen) && !stale) {
     return { origin: "home-assistant" as const, state: seen.state, title: seen.title, artist: seen.artist, art: seen.art, durationMs: seen.durationMs, positionMs: seen.positionMs, source: seen.source };
   }
   return fromOurs;
