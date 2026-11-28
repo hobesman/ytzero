@@ -10,11 +10,11 @@ type RangeFetcher = (range: string) => Promise<Response | null>;
  * a resume plays from the start. This answers 200 with the file's full length,
  * reading the pieces from the proxy one after another as the Echo reads.
  */
-export async function wholeAudioResponse(fetchRange: RangeFetcher): Promise<Response | null> {
-  const first = await fetchRange("bytes=0-");
+export async function wholeAudioResponse(fetchRange: RangeFetcher, start = 0): Promise<Response | null> {
+  const first = await fetchRange(`bytes=${start}-`);
   const firstRange = parseAudioContentRange(first?.headers.get("content-range") ?? null);
   // Failures and anything unexpected pass through as they are.
-  if (!first?.body || first.status !== 206 || !firstRange || firstRange.start !== 0) return first;
+  if (!first?.body || first.status !== 206 || !firstRange || firstRange.start !== start) return first;
   const { total } = firstRange;
   let reader = first.body.getReader();
   let next = firstRange.end + 1;
@@ -45,13 +45,15 @@ export async function wholeAudioResponse(fetchRange: RangeFetcher): Promise<Resp
       await reader.cancel(reason).catch(() => {});
     },
   }, { highWaterMark: 0 });
+  // From part way in (ffmpeg seeking in a processed stream), the rest of the file as one 206.
   return new Response(body, {
-    status: 200,
+    status: start > 0 ? 206 : 200,
     headers: {
       "Content-Type": first.headers.get("content-type") ?? "audio/mp4",
       "Accept-Ranges": "bytes",
       "Cache-Control": "no-store",
-      "Content-Length": String(total),
+      "Content-Length": String(total - start),
+      ...(start > 0 ? { "Content-Range": `bytes ${start}-${total - 1}/${total}` } : {}),
     },
   });
 }

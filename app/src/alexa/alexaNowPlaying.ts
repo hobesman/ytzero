@@ -46,7 +46,8 @@ export interface NowPlayingChange {
   stopRequested?: boolean;
 }
 
-const AUDIO_PATH = /\/(?:video-)?audio\/([A-Za-z0-9_-]{11})(?:\/index\.m3u8)?(?:[?#]|$)/;
+// A processed stream (cut and levelled; see alexaProcessedAudio.ts) is the same video.
+const AUDIO_PATH = /\/(?:video-)?audio\/([A-Za-z0-9_-]{11})(?:\/index\.m3u8|\/processed)?(?:[?#]|$)/;
 const EVENTS: Record<string, "started" | "stopped" | "finished" | "failed" | "progress"> = {
   "AudioPlayer.PlaybackStarted": "started",
   "AudioPlayer.PlaybackStopped": "stopped",

@@ -24,6 +24,7 @@ import { createAlexaRouter } from "./routes/alexaRoutes";
 import { alexaStartupStatus } from "./alexa/alexaConfig";
 import { startAlexaVideoProgress } from "./alexa/alexaVideoProgress";
 import { startAlexaEchoListening } from "./alexa/alexaEchoListening";
+import { alexaAudioPlans } from "./alexa/alexaAudioPlan";
 import { startLocalDiscovery } from "./localDiscovery";
 
 if (environmentAuthMethod() && !environmentAuthPasswordConfigured()) {
@@ -60,7 +61,8 @@ app.route("/share", createPublicShareRouter(uiDir));
 // The private Alexa skill, off unless YTZERO_ALEXA_* is configured. Like
 // /share it sits outside the API router: Alexa's requests carry Amazon's
 // signature and its audio links their own HMAC, never a session cookie.
-app.route("/alexa", createAlexaRouter());
+// The Echo skills cut SponsorBlock segments and level music as the app's own players do (see alexaAudioPlan.ts).
+app.route("/alexa", createAlexaRouter({ audioPlans: alexaAudioPlans }));
 const alexaStatus = alexaStartupStatus();
 if (alexaStatus?.event === "alexa.enabled") {
   log.info(alexaStatus.event, alexaStatus.fields);
