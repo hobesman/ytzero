@@ -163,6 +163,12 @@ export function createAlexaRoomStore(db: AsyncDatabaseClient = database) {
       return row ? fromNowPlayingRow(row) : null;
     },
 
+    /** Every profile's devices playing this skill now, as their records say. */
+    async playingEverywhere(skill: AlexaSkillKind): Promise<{ userId: number; deviceId: string; record: NowPlaying }[]> {
+      const rows = await db.prepare("SELECT * FROM alexa_now_playing WHERE skill = ? AND state = 'playing'").all<NowPlayingRow & { user_id: number }>(skill);
+      return rows.map((row) => ({ userId: row.user_id, deviceId: row.device_id, record: fromNowPlayingRow(row) }));
+    },
+
     async saveNowPlaying(userId: number, skill: AlexaSkillKind, deviceId: string, record: NowPlaying): Promise<void> {
       await db.prepare(`INSERT INTO alexa_now_playing
         (user_id, skill, device_id, token, video_id, title, artist, art, duration_ms, state, offset_ms, started_at, next_token, updated_at)

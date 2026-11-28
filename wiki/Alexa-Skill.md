@@ -211,9 +211,13 @@ Echo carry on from each other.
   left?" the time left in the chapter and the book.
 
 Pause, resume and stop work as in the other skills. The place is saved in
-Audiobookshelf every minute while a book plays, and again when it pauses,
-stops, fails or finishes, so even a pulled plug loses no more than a minute.
-A book you finish is marked finished there.
+Audiobookshelf when a book pauses, stops, fails or finishes. The Echo doesn't
+report its place while it plays, so YT Zero also works it out from when the
+stream started and saves that every minute. A restart of YT Zero, or a pulled
+plug, therefore loses no more than about a minute. An Echo that drops the
+stream without saying it stopped (unplugged, or off the network) is marked
+stopped after 20 seconds, at the place it had reached. A book you finish is
+marked finished there.
 
 ### Set it up
 

@@ -95,7 +95,8 @@ const FIRST_BYTES_WAIT_MS = 20_000;
 /**
  * The stream as a 200 response, once ffmpeg has produced its first bytes, or
  * a 502 with ffmpeg's complaint (first line only, never the arguments) when it
- * can't. The stream ends with the request.
+ * can't. The stream ends with the request; `onClose` hears how: `ended`
+ * when the whole file went out, otherwise the Echo let go of it first.
  */
 export async function bookStreamResponse(
   source: { url: string; headers: Record<string, string> },
@@ -103,9 +104,13 @@ export async function bookStreamResponse(
   startSeconds: number,
   signal?: AbortSignal,
   spawn: SpawnFfmpeg = defaultSpawn,
+  onClose?: (outcome: { ended: boolean; bytes: number }) => void,
 ): Promise<{ response: Response; error?: string }> {
   const child = spawn(bookStreamArgs(source, codec, startSeconds));
-  const stop = () => { try { child.kill(); } catch { /* already gone */ } };
+  let bytes = 0;
+  let closed = false;
+  const close = (ended: boolean) => { if (!closed) { closed = true; onClose?.({ ended, bytes }); } };
+  const stop = () => { try { child.kill(); } catch { /* already gone */ } close(false); };
   signal?.addEventListener("abort", stop, { once: true });
   const reader = child.stdout.getReader();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -114,6 +119,7 @@ export async function bookStreamResponse(
     new Promise<"timeout">((resolve) => { timer = setTimeout(() => resolve("timeout"), FIRST_BYTES_WAIT_MS); }),
   ]).finally(() => clearTimeout(timer));
   if (first === "timeout" || first.done) {
+    closed = true;
     stop();
     const complaint = first === "timeout" ? "ffmpeg produced no audio in time" : (await new Response(child.stderr).text().catch(() => "")).split("\n")[0]?.trim() || "ffmpeg produced no audio";
     signal?.removeEventListener("abort", stop);
@@ -122,13 +128,19 @@ export async function bookStreamResponse(
   // Drained so ffmpeg never blocks on a full stderr pipe.
   void new Response(child.stderr).arrayBuffer().catch(() => {});
   const body = new ReadableStream<Uint8Array>({
-    start(controller) { controller.enqueue(first.value); },
+    start(controller) { bytes += first.value.byteLength; controller.enqueue(first.value); },
     async pull(controller) {
       try {
         const { done, value } = await reader.read();
-        if (done) controller.close();
-        else controller.enqueue(value);
+        if (done) {
+          close(!signal?.aborted);
+          controller.close();
+        } else {
+          bytes += value.byteLength;
+          controller.enqueue(value);
+        }
       } catch (error) {
+        close(false);
         controller.error(error);
       }
     },
