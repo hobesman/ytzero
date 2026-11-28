@@ -84,7 +84,7 @@ function roomCurrent(ours: (ReturnType<typeof publicNowPlaying> & { book?: BookN
   // A book shows its chapter's progress, and the whole book's beside it.
   const book = ours?.book ?? null;
   const progress = book?.chapterDurationMs != null ? { durationMs: book.chapterDurationMs, positionMs: book.chapterPositionMs } : { durationMs: ours?.durationMs ?? null, positionMs: ours?.positionMs ?? null };
-  const fromOurs = ours && { origin: ours.skill, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, ...progress, source: null, ...(book ? { book } : {}) };
+  const fromOurs = ours && { origin: ours.skill, videoId: ours.videoId, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, ...progress, source: null, ...(book ? { book } : {}) };
   if (ours?.state === "playing") return fromOurs;
   const stale = ours && seen?.changedAt && Date.parse(seen.changedAt) < Date.parse(ours.updatedAt);
   if (seen && homeAssistantSeesMedia(seen) && !stale) {
