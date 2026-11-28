@@ -54,6 +54,10 @@
 .room-now__progress .ui-progress { height: 8px; }
 .room-now__times { color: var(--text-2); display: flex; font-size: 17px; font-variant-numeric: tabular-nums; justify-content: space-between; }
 .room-now__controls { align-items: center; display: flex; gap: 20px; justify-content: center; }
+.room-now__controls--book { gap: 14px; }
+.room-now__book { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.room-now__book .ui-progress { height: 5px; }
+.room-now__chapter { color: var(--text-2); font-size: 17px; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-now__volume { align-items: center; display: flex; gap: 16px; padding-inline: 4px; }
 .room-now__volume svg { color: var(--text-2); flex: 0 0 auto; height: 30px; width: 30px; }
 .room-now__volume .ui-slider { flex: 1; height: 10px; }

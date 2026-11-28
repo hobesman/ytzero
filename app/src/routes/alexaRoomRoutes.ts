@@ -5,6 +5,9 @@ import { createAlexaRoomStore, normalizeRoomName, type AlexaDevice, type AlexaRo
 import { createAlexaRoomSettings, type AlexaRoomSettings } from "../alexa/alexaRoomSettings";
 import { homeAssistantSeesMedia, type HomeAssistantReport } from "../alexa/homeAssistant";
 import { isChildUser } from "../childTime";
+import { bookNowPlaying, type BookNowPlaying } from "../alexa/alexaBookNowPlaying";
+import type { Book } from "../audiobookshelf/audiobookshelfClient";
+import { roomBookLoader } from "./alexaBookApiRoutes";
 import { defaultHomeAssistant, homeAssistantByRoom, registerAlexaRoomControlRoutes, type AlexaRoomControlDependencies } from "./alexaRoomControlRoutes";
 
 type ApiEnvironment = { Variables: { userId: number } };
@@ -20,7 +23,7 @@ export interface AlexaRoomRouteDependencies {
   control?: Partial<Omit<AlexaRoomControlDependencies, "currentUserId" | "rooms" | "settings" | "now">>;
 }
 
-const SKILLS = new Set<AlexaSkillKind>(["music", "video"]);
+const SKILLS = new Set<AlexaSkillKind>(["music", "video", "books"]);
 const parseSkill = (value: unknown): AlexaSkillKind | null => SKILLS.has(value as AlexaSkillKind) ? value as AlexaSkillKind : null;
 const parseDeviceId = (value: unknown): string | null => typeof value === "string" && value && value.length <= 512 ? value : null;
 
@@ -39,6 +42,15 @@ function publicNowPlaying(skill: AlexaSkillKind, record: NowPlaying, now: number
     positionMs: nowPlayingPosition(record, now),
     updatedAt: record.updatedAt,
   };
+}
+
+/** A book's now playing also carries its chapter and its place in the whole book. */
+async function withBook(
+  item: ReturnType<typeof publicNowPlaying>, record: NowPlaying, loadBook: ((bookId: string) => Promise<Book | null>) | null,
+): Promise<ReturnType<typeof publicNowPlaying> & { book?: BookNowPlaying | null }> {
+  if (item.skill !== "books") return item;
+  const book = loadBook ? await loadBook(record.videoId) : null;
+  return { ...item, book: book ? bookNowPlaying(book, record.token, item.positionMs) : null };
 }
 
 /** A play sent but not started anywhere for this long never will be. */
@@ -68,8 +80,11 @@ const publicDevice = (device: AlexaDevice, now: number) => ({
  * over, so it counts only when it changed after our record did: otherwise the
  * gap between two of our songs would show that old song.
  */
-function roomCurrent(ours: ReturnType<typeof publicNowPlaying> | null, seen: HomeAssistantReport | null) {
-  const fromOurs = ours && { origin: ours.skill, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, durationMs: ours.durationMs, positionMs: ours.positionMs, source: null };
+function roomCurrent(ours: (ReturnType<typeof publicNowPlaying> & { book?: BookNowPlaying | null }) | null, seen: HomeAssistantReport | null) {
+  // A book shows its chapter's progress, and the whole book's beside it.
+  const book = ours?.book ?? null;
+  const progress = book?.chapterDurationMs != null ? { durationMs: book.chapterDurationMs, positionMs: book.chapterPositionMs } : { durationMs: ours?.durationMs ?? null, positionMs: ours?.positionMs ?? null };
+  const fromOurs = ours && { origin: ours.skill, state: ours.state, title: ours.title, artist: ours.artist, art: ours.art, ...progress, source: null, ...(book ? { book } : {}) };
   if (ours?.state === "playing") return fromOurs;
   const stale = ours && seen?.changedAt && Date.parse(seen.changedAt) < Date.parse(ours.updatedAt);
   if (seen && homeAssistantSeesMedia(seen) && !stale) {
@@ -117,11 +132,12 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
     const seen = await homeAssistantByRoom(settings, homeAssistant(), userId, at);
     const entities = await settings.entities(userId);
     for (const key of entities.keys()) if (!byRoom.has(key)) byRoom.set(key, []);
-    const list = [...byRoom].map(([key, members]) => {
+    const loadBook = roomBookLoader(dependencies.control?.audiobookshelf);
+    const list = (await Promise.all([...byRoom].map(async ([key, members]) => {
       const playing = roomNowPlaying(members);
       const pending = members.map((device) => publicPending(device, at)).filter((item) => item !== null)
         .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0] ?? null;
-      const nowPlaying = playing ? publicNowPlaying(playing.skill, playing.nowPlaying!, at) : null;
+      const nowPlaying = playing ? await withBook(publicNowPlaying(playing.skill, playing.nowPlaying!, at), playing.nowPlaying!, loadBook) : null;
       const homeAssistantState = seen.get(key) ?? null;
       return {
         room: members[0]?.room ?? entities.get(key)!.room,
@@ -131,7 +147,7 @@ export function registerAlexaRoomRoutes(api: Hono<ApiEnvironment>, dependencies:
         current: roomCurrent(nowPlaying, homeAssistantState?.report ?? null),
         devices: members.map((device) => publicDevice(device, at)),
       };
-    }).sort((a, b) => a.room.localeCompare(b.room));
+    }))).sort((a, b) => a.room.localeCompare(b.room));
     return context.json({
       serverTime: new Date(at).toISOString(),
       rooms: list,

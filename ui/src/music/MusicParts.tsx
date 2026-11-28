@@ -83,7 +83,8 @@ export function MusicShelf({ title, children, count }: { title: string; children
   </section>;
 }
 
-function Card({ art, title, detail, onOpen }: { art: ReactNode; title: string; detail?: string; onOpen: () => void }) {
+/** A tile in a shelf or grid: artwork, a title and a line of detail. */
+export function MusicCard({ art, title, detail, onOpen }: { art: ReactNode; title: string; detail?: string; onOpen: () => void }) {
   return <button type="button" className="music-card" onClick={onOpen}>
     {art}
     <span className="music-card__title">{title}</span>
@@ -97,15 +98,15 @@ export function albumDetail(album: MusicAlbum, t: (key: "musicAlbum" | "musicSin
 
 export const MusicAlbumCard = memo(function MusicAlbumCard({ album, withArtist, onOpen }: { album: MusicAlbum; withArtist: boolean; onOpen: (album: MusicAlbum) => void }) {
   const { t } = useI18n();
-  return <Card art={<MusicArtwork url={album.thumbnail} />} title={album.title} detail={albumDetail(album, t, withArtist)} onOpen={() => onOpen(album)} />;
+  return <MusicCard art={<MusicArtwork url={album.thumbnail} />} title={album.title} detail={albumDetail(album, t, withArtist)} onOpen={() => onOpen(album)} />;
 });
 
 export const MusicArtistCard = memo(function MusicArtistCard({ artist, onOpen }: { artist: MusicArtist; onOpen: (artist: MusicArtist) => void }) {
-  return <Card art={<MusicArtwork url={artist.thumbnail} round />} title={artist.name} onOpen={() => onOpen(artist)} />;
+  return <MusicCard art={<MusicArtwork url={artist.thumbnail} round />} title={artist.name} onOpen={() => onOpen(artist)} />;
 });
 
 export const MusicPlaylistCard = memo(function MusicPlaylistCard({ playlist, onOpen }: { playlist: MusicPlaylist; onOpen: (playlist: MusicPlaylist) => void }) {
-  return <Card art={<MusicArtwork url={playlist.thumbnail} />} title={playlist.title} detail={playlist.subtitle} onOpen={() => onOpen(playlist)} />;
+  return <MusicCard art={<MusicArtwork url={playlist.thumbnail} />} title={playlist.title} detail={playlist.subtitle} onOpen={() => onOpen(playlist)} />;
 });
 
 /** A Moods & genres category, with the colour YouTube Music gives it. */
@@ -159,12 +160,12 @@ export function MusicDetailHeader({ art, round, title, detail, children }: { art
 /** One of the profile's own playlists in the library. */
 export const MusicUserPlaylistCard = memo(function MusicUserPlaylistCard({ playlist, onOpen }: { playlist: MusicUserPlaylist; onOpen: (playlist: MusicUserPlaylist) => void }) {
   const { language } = useI18n();
-  return <Card art={<MusicArtwork url={playlist.thumbnail || null} />} title={playlist.title} detail={formatSongCount(playlist.trackCount, language)} onOpen={() => onOpen(playlist)} />;
+  return <MusicCard art={<MusicArtwork url={playlist.thumbnail || null} />} title={playlist.title} detail={formatSongCount(playlist.trackCount, language)} onOpen={() => onOpen(playlist)} />;
 });
 
 /** The library's "New playlist" tile. */
 export function MusicNewPlaylistCard({ onCreate }: { onCreate: () => void }) {
   const { t } = useI18n();
-  return <Card art={<span className="music-art music-art--empty" aria-hidden="true"><Plus /></span>} title={t("newPlaylist")} onOpen={onCreate} />;
+  return <MusicCard art={<span className="music-art music-art--empty" aria-hidden="true"><Plus /></span>} title={t("newPlaylist")} onOpen={onCreate} />;
 }
 

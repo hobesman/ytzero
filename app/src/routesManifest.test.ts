@@ -102,9 +102,11 @@ describe("HTTP route manifest", () => {
       "GET /alexa/home-assistant", "PUT /alexa/rooms/:room/entity", "POST /alexa/rooms/:room/control", "POST /alexa/rooms/:room/pair",
       "GET /alexa/rooms/:room/queue", "PUT /alexa/rooms/:room/queue", "DELETE /alexa/rooms/:room/queue", "POST /alexa/rooms/:room/queue/play",
       "POST /alexa/rooms/:room/video",
+      "GET /alexa/books", "GET /alexa/books/continue", "GET /alexa/books/library", "GET /alexa/books/items/:id", "GET /alexa/books/items/:id/cover",
+      "GET /alexa/rooms/:room/book", "PUT /alexa/rooms/:room/book", "DELETE /alexa/rooms/:room/book",
     ];
     for (const route of alexaRoomRoutes) expect(routes).toContain(route);
-    expect(routes).toHaveLength(325);
+    expect(routes).toHaveLength(333);
     expect(routes).toContain("GET /videos/:id/live-hls/:file");
     expect(routes).toContain(transcriptRoute);
     expect(routes).toContain(playbackAdjacentRoute);

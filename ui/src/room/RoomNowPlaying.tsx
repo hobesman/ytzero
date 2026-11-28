@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { MicVocal, Music, Pause, Play, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
+import { MicVocal, Music, Pause, Play, RotateCcw, RotateCw, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
 import { useI18n } from "../i18n";
 import { Alert, Badge, IconButton, ProgressBar, Slider } from "../components/ui";
 import { roomApi, type AlexaRoom } from "./roomApi";
-import { clockDuration, livePosition, roomArtSource, roomSource, roomVolume, type PendingControl, type RoomDisplay, type RoomSource } from "./roomState";
+import {
+  clockDuration, liveBookPosition, livePosition, roomArtSource, roomSource, roomVolume, type PendingControl, type RoomDisplay, type RoomSource,
+} from "./roomState";
 import { useNow, type RoomCommand } from "./useRoomState";
 
 /** The skills' names as set in YTZERO_ALEXA_*_INVOCATION, written as a name ("hoban music" is Hoban Music). */
-export type SkillNames = { music: string | null; video: string | null };
+export type SkillNames = { music: string | null; video: string | null; books: string | null };
 
 export function skillName(invocation: string | null | undefined): string | null {
   if (!invocation) return null;
@@ -18,6 +20,7 @@ export function SourceBadge({ source, names }: { source: RoomSource; names: Skil
   const { t } = useI18n();
   const label = source.kind === "music" ? names.music ?? t("roomSourceMusic")
     : source.kind === "video" ? names.video ?? t("roomSourceVideo")
+    : source.kind === "books" ? names.books ?? t("roomSourceBooks")
     : source.source ?? t("roomSourceEcho");
   return <Badge variant={source.kind === "home-assistant" ? "neutral" : "accent"} className="room-now__badge">{label}</Badge>;
 }
@@ -40,6 +43,26 @@ function RoomProgress({ current, receivedAt }: { current: NonNullable<AlexaRoom[
     <div className="room-now__times">
       <span>{clockDuration(position.positionMs)}</span>
       <span>{position.durationMs ? clockDuration(position.durationMs) : ""}</span>
+    </div>
+  </div>;
+}
+
+/** A book's chapter and its place in the whole book, under the chapter's own progress bar. */
+function RoomBookProgress({ current, receivedAt }: { current: NonNullable<AlexaRoom["current"]>; receivedAt: number }) {
+  const { t } = useI18n();
+  const now = useNow(1000, current.state === "playing");
+  const book = current.book;
+  const position = liveBookPosition(current, receivedAt, now);
+  if (!book || !position) return null;
+  const chapter = book.chapterIndex !== null
+    ? t("roomBookChapterOf", { chapter: book.chapterTitle || String(book.chapterIndex + 1), number: book.chapterIndex + 1, count: book.chapterCount })
+    : null;
+  return <div className="room-now__book">
+    {chapter ? <p className="room-now__chapter">{chapter}</p> : null}
+    <ProgressBar value={position.positionMs} max={Math.max(position.durationMs, 1)} label={t("roomBookProgress")} />
+    <div className="room-now__times">
+      <span>{t("roomBookPosition", { position: clockDuration(position.positionMs), duration: clockDuration(position.durationMs) })}</span>
+      <span>{t("roomBookLeft", { time: clockDuration(position.leftMs) })}</span>
     </div>
   </div>;
 }
@@ -120,10 +143,10 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
     return () => window.clearTimeout(timer);
   }, [failure]);
 
-  const send = (action: "pause" | "resume" | "next" | "volume", volume?: number) => {
+  const send = (action: "pause" | "resume" | "next" | "previous" | "skip" | "volume", amount?: number) => {
     setFailure(null);
-    const body = action === "volume" ? { action, volume: volume ?? 5 } : { action };
-    void onCommand(roomName, action, () => roomApi.control(roomName, body), volume).then((error) => {
+    const body = action === "volume" ? { action, volume: amount ?? 5 } : action === "skip" ? { action, seconds: amount ?? 30 } : { action };
+    void onCommand(roomName, action, () => roomApi.control(roomName, body), action === "volume" ? amount : undefined).then((error) => {
       if (error) setFailure(t("roomCommandFailed", { room: roomName, error }));
     });
   };
@@ -133,6 +156,8 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
     : display.kind === "idle" ? null : roomSource(display.current.origin, display.current.source);
   const playing = display.kind === "playing" || display.kind === "starting";
   const toggleBusy = control?.action === "pause" || control?.action === "resume";
+  // A book: next and previous are chapters, with skips of 30 seconds either side of play.
+  const book = source?.kind === "books";
   const { panel, beside } = useCoverBeside([item?.title, item?.artist, display.kind, control?.action === "play", failure].join(""));
 
   return <section ref={panel} className={`room-now${beside ? " room-now--cover-beside" : ""}`} aria-label={t("roomNowPlaying")} aria-live="polite">
@@ -146,13 +171,23 @@ export function RoomNowPlaying({ roomName, room, display, control, receivedAt, n
       <h1 className="room-now__title">{item?.title || t("roomNothingPlaying")}</h1>
       {item?.artist ? <p className="room-now__artist">{item.artist}</p> : null}
       {display.kind === "playing" || display.kind === "paused" ? <RoomProgress current={display.current} receivedAt={receivedAt} /> : null}
+      {book && (display.kind === "playing" || display.kind === "paused") ? <RoomBookProgress current={display.current} receivedAt={receivedAt} /> : null}
     </div>
-    <div className="room-now__controls">
+    <div className={`room-now__controls${book ? " room-now__controls--book" : ""}`}>
+      {book ? <>
+        <IconButton size="xl" variant="ghost" busy={control?.action === "previous"} label={t("roomPreviousChapter")} icon={<SkipBack />} onClick={() => send("previous")} />
+        <IconButton size="xl" variant="secondary" busy={control?.action === "skip"} label={t("roomSkipBack")} icon={<RotateCcw />} onClick={() => send("skip", -30)} />
+      </> : null}
       <IconButton size="xl" variant="primary" busy={toggleBusy}
         label={playing ? t("roomPause") : t("roomResume")} icon={playing ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
         onClick={() => send(playing ? "pause" : "resume")} />
-      <IconButton size="xl" variant="secondary" busy={control?.action === "next"} label={t("roomNext")} icon={<SkipForward />} onClick={() => send("next")} />
-      <IconButton size="xl" variant={lyrics ? "primary" : "ghost"} aria-pressed={lyrics} label={t("musicLyrics")} icon={<MicVocal />} onClick={() => onLyrics(!lyrics)} />
+      {book ? <>
+        <IconButton size="xl" variant="secondary" busy={control?.action === "skip"} label={t("roomSkipForward")} icon={<RotateCw />} onClick={() => send("skip", 30)} />
+        <IconButton size="xl" variant="ghost" busy={control?.action === "next"} label={t("roomNextChapter")} icon={<SkipForward />} onClick={() => send("next")} />
+      </> : <>
+        <IconButton size="xl" variant="secondary" busy={control?.action === "next"} label={t("roomNext")} icon={<SkipForward />} onClick={() => send("next")} />
+        <IconButton size="xl" variant={lyrics ? "primary" : "ghost"} aria-pressed={lyrics} label={t("musicLyrics")} icon={<MicVocal />} onClick={() => onLyrics(!lyrics)} />
+      </>}
     </div>
     <RoomVolume room={room} control={control} onVolume={(volume) => send("volume", volume)} />
     {failure ? <Alert variant="danger" role="alert" className="room-now__failure">{failure}</Alert> : null}

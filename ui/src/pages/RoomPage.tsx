@@ -6,6 +6,7 @@ import { Badge, Button, EmptyState, IconButton, SelectMenu, Tabs } from "../comp
 import { roomApi } from "../room/roomApi";
 import { RoomIdle } from "../room/RoomIdle";
 import { RoomLyrics } from "../room/RoomLyrics";
+import { RoomBooksTab } from "../room/RoomBooksTab";
 import { RoomMusicTab } from "../room/RoomMusicTab";
 import { RoomNowPlaying, skillName, type SkillNames } from "../room/RoomNowPlaying";
 import { RoomSetup } from "../room/RoomSetup";
@@ -24,11 +25,11 @@ function safeStorage(): Storage | null {
 }
 
 function useSkillNames(): SkillNames {
-  const [names, setNames] = useState<SkillNames>({ music: null, video: null });
+  const [names, setNames] = useState<SkillNames>({ music: null, video: null, books: null });
   useEffect(() => {
     roomApi.homeAssistant().then((answer) => {
-      const invocations = (answer as { invocations?: { music?: string | null; video?: string | null } }).invocations;
-      setNames({ music: skillName(invocations?.music), video: skillName(invocations?.video) });
+      const invocations = (answer as { invocations?: { music?: string | null; video?: string | null; books?: string | null } }).invocations;
+      setNames({ music: skillName(invocations?.music), video: skillName(invocations?.video), books: skillName(invocations?.books) });
     }, () => {});
   }, []);
   return names;
@@ -36,7 +37,7 @@ function useSkillNames(): SkillNames {
 
 /**
  * A full-screen page for a wall tablet beside an Echo: the room's now
- * playing with its controls, music and Hoban Tube to start there, and a
+ * playing with its controls, music, Hoban Tube and books to start there, and a
  * switcher for the other rooms. Address: /room/<room>/<tab>.
  */
 export default function RoomPage() {
@@ -130,13 +131,13 @@ export default function RoomPage() {
           <Tabs label={t("roomTabs")} value={tab} onChange={(next) => navigate(roomPath(homeRoom, next === "music" ? undefined : next))} options={[
             { value: "music", label: names.music ?? t("roomSourceMusic"), icon: <Music /> },
             { value: "videos", label: names.video ?? t("roomSourceVideo"), icon: <Tv /> },
-            { value: "books", label: t("roomTabBooks"), icon: <BookOpen /> },
+            { value: "books", label: names.books ?? t("roomTabBooks"), icon: <BookOpen /> },
           ]} className="room-page__tabs" />
           <div className="room-page__panel">
             {tab === "music" ? <RoomMusicTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command}
               playingKey={room?.current ? `${room.current.title ?? ""}|${room.current.artist ?? ""}` : ""} />
               : tab === "videos" ? <RoomVideoTab roomName={room?.room ?? roomName} onCommand={command} />
-              : <EmptyState icon={<BookOpen />} title={t("roomBooksTitle")} description={t("roomBooksHint")} />}
+              : <RoomBooksTab roomName={room?.room ?? roomName} homeRoom={homeRoom} path={parts.slice(2)} onCommand={command} />}
           </div>
         </section>}
       </div>

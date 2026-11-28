@@ -30,6 +30,7 @@ import { defaultMusicAudio } from "./musicRoutes";
 import { wholeAudioResponse } from "../alexa/alexaWholeAudio";
 import { playlistSegmentStart, trimPlaylist } from "../alexa/alexaPlaylistTrim";
 import type { AudioVodPlaylistResult } from "../downloadAudioVodStreaming";
+import { createAlexaBookRoutes, type AlexaBookRouteDependencies } from "./alexaBookRoutes";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 /** How long a play waits to learn where its playlist starts. */
@@ -54,6 +55,8 @@ export interface AlexaRouteDependencies {
   /** Rooms' Home Assistant entities and saved queues. */
   roomSettings?: AlexaRoomSettings;
   describeStream?: NowPlayingTracking["describe"];
+  /** Hoban Books: Audiobookshelf, the rooms' queued books and ffmpeg. */
+  books?: AlexaBookRouteDependencies;
   now?: () => number;
 }
 
@@ -107,7 +110,11 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
   const tracking: NowPlayingTracking = {
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
-    describe: dependencies.describeStream ?? describeStream,
+    describe: dependencies.describeStream ?? (async (skill, userId, token) => {
+      if (skill !== "books") return describeStream(skill, userId, token);
+      const settings = enabled();
+      return settings ? books.describe(settings, token) : null;
+    }),
   };
   const roomSettings = dependencies.roomSettings ?? createAlexaRoomSettings();
   // The music skill sees its own device ID, so the room comes from its pairing.
@@ -174,6 +181,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     const settings = config();
     return "disabled" in settings ? null : settings;
   };
+  const books = createAlexaBookRoutes({ ...dependencies.books, enabled, rooms: tracking.rooms, isChild, now });
 
   router.post("/", async (context) => {
     const settings = enabled();
@@ -194,7 +202,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       return context.json({ error: "invalid signature" }, 400);
     }
     const skillId = envelopeSkillId(envelope);
-    const kind = skillId && skillId === settings.musicSkillId ? "music" : skillId && skillId === settings.videoSkillId ? "video" : null;
+    const kind = !skillId ? null : skillId === settings.musicSkillId ? "music" : skillId === settings.videoSkillId ? "video" : skillId === settings.booksSkillId ? "books" : null;
     if (!kind) {
       log.warn("alexa.request_refused", { reason: "wrong skill" });
       return context.json({ error: "wrong skill" }, 400);
@@ -205,7 +213,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       return context.json(speak("YT Zero can't find the profile this skill is set up to use."));
     }
     if (await isChild(userId)) return context.json(speak("This isn't available on this profile."));
-    const skill = kind === "music" ? musicSkillFor(settings) : videoSkillFor(settings);
+    const skill = kind === "music" ? musicSkillFor(settings) : kind === "video" ? videoSkillFor(settings) : books.skillFor(settings);
     const response = await answerRoomIntent(tracking.rooms, userId, kind, envelope, now()) ?? await skill.handle(userId, envelope);
     await trackDevice(tracking, userId, kind, envelope, response, now());
     log.info("alexa.request", describeAlexaExchange(kind, envelope, response));
@@ -265,6 +273,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   router.get("/audio/:id", serveAudio("music"));
   router.get("/video-audio/:id", serveAudio("video"));
   router.get("/video-audio/:id/index.m3u8", serveAudio("video", true));
+  books.register(router);
 
   return router;
 }

@@ -12,10 +12,11 @@ export interface HomeAssistantConfig {
   token: string;
 }
 
-/** What each skill is called aloud, for a typed command that has to name it. */
+/** What each skill is called aloud, for a typed command that has to name it. Books is Hoban Books, the audiobook skill. */
 export interface AlexaInvocations {
   music: string | null;
   video: string | null;
+  books: string | null;
 }
 
 type Environment = Record<string, string | undefined>;
@@ -38,7 +39,11 @@ export function homeAssistantConfig(environment: Environment = process.env): Hom
 /** Spoken invocation names, lowercase as Alexa hears them; null when not set. */
 export function alexaInvocations(environment: Environment = process.env): AlexaInvocations {
   const name = (value: string | undefined) => unquote(value).toLowerCase().replace(/\s+/g, " ") || null;
-  return { music: name(environment.YTZERO_ALEXA_MUSIC_INVOCATION), video: name(environment.YTZERO_ALEXA_VIDEO_INVOCATION) };
+  return {
+    music: name(environment.YTZERO_ALEXA_MUSIC_INVOCATION),
+    video: name(environment.YTZERO_ALEXA_VIDEO_INVOCATION),
+    books: name(environment.YTZERO_ALEXA_BOOKS_INVOCATION),
+  };
 }
 
 /** One entity as Home Assistant's REST API reports it. */

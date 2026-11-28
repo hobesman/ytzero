@@ -82,8 +82,8 @@ describe("POST /alexa/rooms/:room/video", () => {
     registerAlexaRoomRoutes(api, {
       currentUserId: (context) => context.get("userId"), rooms: createAlexaRoomStore(db), roomSettings: settings, isChild: async () => false, now: () => NOW,
       control: {
-        homeAssistant: () => client, invocations: () => ({ music: "hoban music", video: "hoban tube" }),
-        skills: () => ({ music: true, video: true }), videoLookup: () => lookup,
+        homeAssistant: () => client, invocations: () => ({ music: "hoban music", video: "hoban tube", books: null }),
+        skills: () => ({ music: true, video: true, books: false }), videoLookup: () => lookup,
       },
     });
   });

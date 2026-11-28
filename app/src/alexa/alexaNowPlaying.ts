@@ -1,7 +1,8 @@
+import { BOOK_AUDIO_PATH } from "./alexaBookAudio";
 import type { AlexaResponse } from "./alexaPlayback";
 import type { AlexaEnvelope } from "./alexaSkill";
 
-export type AlexaSkillKind = "music" | "video";
+export type AlexaSkillKind = "music" | "video" | "books";
 export type NowPlayingState = "playing" | "paused" | "stopped" | "finished" | "failed";
 
 /** One device's now playing, as stored. Times are ISO strings. */
@@ -40,17 +41,18 @@ export interface NowPlayingChange {
   /** A stream queued to follow the current one. */
   enqueue?: { token: string };
   /** An event about a stream, with the position it reported. */
-  event?: { kind: "started" | "stopped" | "finished" | "failed"; token: string; offsetMs: number };
+  event?: { kind: "started" | "stopped" | "finished" | "failed" | "progress"; token: string; offsetMs: number };
   /** The listener asked to stop, not pause. */
   stopRequested?: boolean;
 }
 
 const AUDIO_PATH = /\/(?:video-)?audio\/([A-Za-z0-9_-]{11})(?:\/index\.m3u8)?(?:[?#]|$)/;
-const EVENTS: Record<string, "started" | "stopped" | "finished" | "failed"> = {
+const EVENTS: Record<string, "started" | "stopped" | "finished" | "failed" | "progress"> = {
   "AudioPlayer.PlaybackStarted": "started",
   "AudioPlayer.PlaybackStopped": "stopped",
   "AudioPlayer.PlaybackFinished": "finished",
   "AudioPlayer.PlaybackFailed": "failed",
+  "AudioPlayer.ProgressReportIntervalElapsed": "progress",
 };
 const STOP_INTENTS = new Set(["AMAZON.StopIntent", "AMAZON.CancelIntent"]);
 
@@ -78,7 +80,8 @@ export function nowPlayingChange(envelope: AlexaEnvelope, response: AlexaRespons
       change.enqueue = { token };
       continue;
     }
-    const videoId = typeof stream.url === "string" ? stream.url.match(AUDIO_PATH)?.[1] : undefined;
+    // A book stream names its Audiobookshelf item, which stands in for the video.
+    const videoId = typeof stream.url === "string" ? stream.url.match(AUDIO_PATH)?.[1] ?? stream.url.match(BOOK_AUDIO_PATH)?.[1] : undefined;
     if (!videoId) continue;
     const metadata = directive.audioItem?.metadata ?? {};
     change.play = {
@@ -154,6 +157,12 @@ export async function applyNowPlayingChange(
         record.offsetMs = event.offsetMs;
         record.startedAt = iso(times.at - event.offsetMs);
         if (record.nextToken === record.token) record.nextToken = null;
+      }
+    } else if (event.kind === "progress") {
+      // A progress report (books ask for one a minute) puts the live position right.
+      if (record && record.token === event.token && record.state === "playing") {
+        record.offsetMs = event.offsetMs;
+        record.startedAt = iso(times.at - event.offsetMs);
       }
     } else if (record && record.token === event.token) {
       // An event for a stream already replaced (by a skip, say) says nothing about the current one.

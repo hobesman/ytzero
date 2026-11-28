@@ -261,7 +261,10 @@ transient stream sent to an Echo until one reports it started, and
 room's Home Assistant `media_player` entity (machine-bound: the entity belongs
 to this server's Home Assistant, configured by environment variables), and
 `alexa_room_queues` is the transient queue a tablet saved for a room's
-"play my queue", replaced by the next one. None of them is exposed through settings
+"play my queue", replaced by the next one. `alexa_room_books` is likewise the
+transient book (and optional chapter or start time) a tablet chose for a room's
+"play my book"; the listening place itself lives in Audiobookshelf, not in YT
+Zero. None of them is exposed through settings
 or included in any portable backup section; an exact stopped-instance backup
 preserves them.
 

@@ -26,6 +26,15 @@ export function livePosition(current: RoomCurrent | null, receivedAt: number, no
   return { positionMs: durationMs ? Math.min(positionMs, durationMs) : positionMs, durationMs };
 }
 
+/** Where a book is in the whole book now, counted on like livePosition. */
+export function liveBookPosition(current: RoomCurrent | null, receivedAt: number, now: number): { positionMs: number; durationMs: number; leftMs: number } | null {
+  const book = current?.book;
+  if (!book) return null;
+  const elapsed = current.state === "playing" ? Math.max(0, now - receivedAt) : 0;
+  const positionMs = Math.min(book.bookDurationMs, Math.max(0, book.bookPositionMs + elapsed));
+  return { positionMs, durationMs: book.bookDurationMs, leftMs: Math.max(0, book.bookDurationMs - positionMs) };
+}
+
 /** "3:07", or "1:02:45" past an hour. */
 export function clockDuration(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -36,10 +45,10 @@ export function clockDuration(ms: number): string {
 }
 
 /** The badge naming where the sound comes from. Home Assistant names only the Echo's input, if that. */
-export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "home-assistant"; source: string | null };
+export type RoomSource = { kind: "music" } | { kind: "video" } | { kind: "books" } | { kind: "home-assistant"; source: string | null };
 
 export function roomSource(origin: RoomCurrent["origin"] | RoomPendingPlay["skill"], source: string | null = null): RoomSource {
-  if (origin === "music" || origin === "video") return { kind: origin };
+  if (origin === "music" || origin === "video" || origin === "books") return { kind: origin };
   // "Local Speaker" is the Echo's own input (Amazon Music, radio, podcasts): it names nothing a person would recognise.
   return { kind: "home-assistant", source: source && source.trim().toLowerCase() !== "local speaker" ? source : null };
 }
@@ -71,7 +80,7 @@ export function roomVolume(room: AlexaRoom | null): number | null {
 
 /** A command sent from the page, shown as pending until the room's state reflects it. */
 export type PendingControl = {
-  action: "pause" | "resume" | "next" | "volume" | "play";
+  action: "pause" | "resume" | "next" | "previous" | "skip" | "volume" | "play";
   sentAt: number;
   /** For volume: the level asked for, 0–10. */
   volume?: number;
@@ -101,7 +110,8 @@ export function controlConfirmed(control: PendingControl, room: AlexaRoom | null
   switch (control.action) {
     case "pause": return now.state !== "playing";
     case "resume": return now.state === "playing" && !room?.pending;
-    case "next": return startedSomething || (changedItem && now.state === "playing");
+    // A chapter or a skip in a book starts a new stream, which shows as a play waiting to start.
+    case "next": case "previous": case "skip": return startedSomething || (changedItem && now.state === "playing");
     case "play": return startedSomething || (changedItem && now.state === "playing");
     case "volume": {
       const level = roomVolume(room);
@@ -191,7 +201,7 @@ export type RoomLyricsSong =
 
 export function roomLyricsSong(room: AlexaRoom | null): RoomLyricsSong {
   const current = room?.current;
-  if (!current?.title || current.state === "finished") return null;
+  if (!current?.title || current.state === "finished" || current.origin === "books") return null;
   const videoId = current.origin === "home-assistant" ? null : room?.nowPlaying?.videoId;
   if (current.origin === "video") return videoId ? { kind: "video", videoId, key: `video:${videoId}` } : null;
   if (videoId) return { kind: "track", videoId, key: `track:${videoId}` };

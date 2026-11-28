@@ -14,6 +14,8 @@ import {
 } from "../alexa/homeAssistant";
 import { musicTracks } from "../music/musicCatalog";
 import { parseStationSeed } from "../music/musicStation";
+import { registerAlexaBookApiRoutes, type BookClient } from "./alexaBookApiRoutes";
+import type { AlexaRoomBooks } from "../alexa/alexaRoomBooks";
 
 type ApiEnvironment = { Variables: { userId: number } };
 type ApiContext = Context<ApiEnvironment>;
@@ -33,6 +35,9 @@ export interface AlexaRoomControlDependencies {
   pairWaitMs?: number;
   /** The profile's videos and followed channels, for starting a video from a screen. */
   videoLookup?: (userId: number) => RoomVideoLookup;
+  /** Audiobookshelf for the Books tab, and the rooms' queued books. */
+  audiobookshelf?: () => BookClient | { disabled: string };
+  roomBooks?: AlexaRoomBooks;
 }
 
 let defaultClient: { key: string; client: HomeAssistantClient } | null = null;
@@ -46,7 +51,8 @@ function defaultHomeAssistant(): HomeAssistantClient | { disabled: string } {
 
 function defaultSkills(): Record<AlexaSkillKind, boolean> {
   const config = alexaConfig();
-  return "disabled" in config ? { music: false, video: false } : { music: Boolean(config.musicSkillId), video: Boolean(config.videoSkillId) };
+  return "disabled" in config ? { music: false, video: false, books: false }
+    : { music: Boolean(config.musicSkillId), video: Boolean(config.videoSkillId), books: Boolean(config.booksSkillId) };
 }
 
 const defaultVideoLookup = (userId: number): RoomVideoLookup => ({
@@ -155,7 +161,7 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
     const room = roomParam(context);
     const action = parseRoomAction(await body(context));
     if (!room) return context.json({ error: "invalid room" }, 400);
-    if (!action) return context.json({ error: "action must be pause, resume, next, or volume with a volume from 0 to 10" }, 400);
+    if (!action) return context.json({ error: "action must be pause, resume, next, previous, volume with a volume from 0 to 10, or skip with seconds" }, 400);
     const ready = controls();
     if (typeof ready === "string") return context.json({ error: ready }, 503);
     try {
@@ -249,6 +255,10 @@ export function registerAlexaRoomControlRoutes(api: Hono<ApiEnvironment>, depend
     } catch (error) {
       return failure(context, error);
     }
+  });
+
+  registerAlexaBookApiRoutes(api, {
+    currentUserId, rooms, settings, now, controls, audiobookshelf: dependencies.audiobookshelf, roomBooks: dependencies.roomBooks,
   });
 }
 
