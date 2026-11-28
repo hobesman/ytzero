@@ -36,6 +36,7 @@ import { UNCHANGED, type AlexaAudioPlans } from "../alexa/alexaAudioPlan";
 import { envelopeInVideoTime, responseInEchoTime } from "../alexa/alexaAudioTimeline";
 import { alexaInternalAudioLink, alexaProcessedAudioLink, processedStreamArgs } from "../alexa/alexaProcessedAudio";
 import { ffmpegStreamResponse, type SpawnFfmpeg } from "../alexa/alexaBookAudio";
+import { createMusicAlbumArt, type MusicAlbumArt } from "../music/musicAlbumArt";
 
 const MAX_REQUEST_BYTES = 64 * 1024;
 /** How long a play waits to learn where its playlist starts. */
@@ -80,12 +81,13 @@ const NO_PLANS: Pick<AlexaAudioPlans, "get" | "peek"> = { get: async () => UNCHA
 
 const seconds = (value: number | null | undefined) => value ? value * 1000 : null;
 
-/** The video behind a stream token, with what the catalog says about it. */
-const describeStream: NowPlayingTracking["describe"] = async (skill, userId, token) => {
+/** The video behind a stream token, with what the catalog says about it; a song with its album cover. */
+const describeStream = (albumArt: MusicAlbumArt | null): NowPlayingTracking["describe"] => async (skill, userId, token) => {
   if (skill === "music") {
     const videoId = decodePlaybackToken(token)?.videoId;
     const track = videoId ? await musicTrack(videoId) : null;
-    return track && { videoId: track.videoId, item: { title: track.title, artist: track.artist, art: track.thumbnail, durationMs: seconds(track.duration) } };
+    const art = track && albumArt ? await albumArt(userId, track) : track?.thumbnail ?? "";
+    return track && { videoId: track.videoId, item: { title: track.title, artist: track.artist, art, durationMs: seconds(track.duration) } };
   }
   const videoId = decodeVideoToken(token);
   const video = videoId ? await alexaVideo(userId, videoId) : null;
@@ -128,11 +130,14 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
     }
   };
   const videoPlayable = dependencies.videoPlayable ?? (async (userId: number, videoId: string) => Boolean((await alexaVideo(userId, videoId))?.playable));
+  let musicClient: ReturnType<typeof createYouTubeMusicClient> | null = null;
+  const musicClientFor = () => musicClient ??= dependencies.skill?.client as ReturnType<typeof createYouTubeMusicClient> | undefined ?? createYouTubeMusicClient();
+  const albumArt: MusicAlbumArt = dependencies.skill?.albumArt ?? createMusicAlbumArt({ search: (userId, query) => musicClientFor().searchSongs(userId, query) });
   const tracking: NowPlayingTracking = {
     rooms: dependencies.rooms ?? createAlexaRoomStore(),
     history: dependencies.roomHistory ?? createAlexaRoomHistory(),
     describe: dependencies.describeStream ?? (async (skill, userId, token) => {
-      if (skill !== "books") return describeStream(skill, userId, token);
+      if (skill !== "books") return describeStream(albumArt)(skill, userId, token);
       const settings = enabled();
       return settings ? books.describe(settings, token) : null;
     }),
@@ -157,7 +162,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
   let musicSkill: Handler | null = null;
   const musicSkillFor = (settings: AlexaConfig): Handler => {
     if (musicSkill) return musicSkill;
-    const client = dependencies.skill?.client as ReturnType<typeof createYouTubeMusicClient> | undefined ?? createYouTubeMusicClient();
+    const client = musicClientFor();
     const pages = createMusicPages(client);
     return musicSkill = createAlexaSkill({
       client,
@@ -171,6 +176,7 @@ export function createAlexaRouter(dependencies: AlexaRouteDependencies = {}): Ho
       findTrack: dependencies.skill?.findTrack,
       saveTracks: dependencies.skill?.saveTracks,
       queues: dependencies.skill?.queues ?? queues,
+      albumArt,
       findGenre: dependencies.skill?.findGenre ?? ((userId, spoken) => findGenrePlaylist({ genres: pages.genres, genre: pages.genre, searchPlaylists: client.searchPlaylists }, userId, spoken)),
     });
   };

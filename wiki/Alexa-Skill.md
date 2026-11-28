@@ -490,6 +490,11 @@ pairing is for the TV app only: a browser page can't use its token.
 
 **Times** show in the tablet's own time zone, so set it in Android's settings.
 
+**The cover.** A song shows its album's cover, even when what plays is the
+music video: YT Zero finds the album track of the same song, in its own
+catalog or with a YouTube Music search. Tap the cover to open the song's
+album on the music tab, or the book's page on the Books tab.
+
 **Hoban Tube** has no queue, so the tablet tells the Echo what to say (see
 *Play a video* above). It works best with channels the profile follows.
 

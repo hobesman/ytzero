@@ -4,6 +4,7 @@ import { musicTrack } from "../music/musicCatalog";
 import { upstreamFailure } from "../music/musicRouteHelpers";
 import { songKey } from "../music/musicSongKey";
 import { database } from "../database";
+import type { MusicTrackAlbum } from "../music/musicTrackAlbum";
 
 type ApiEnvironment = { Variables: { userId: number } };
 
@@ -23,9 +24,19 @@ async function catalogueTrack(artist: string, title: string, duration: number | 
  * are looked up, by their artist, title, album and length. Registered behind
  * the music routes' child-profile guard.
  */
-export function registerMusicLyricsRoutes(api: Hono<ApiEnvironment>, { currentUserId, lyrics }: {
+export function registerMusicLyricsRoutes(api: Hono<ApiEnvironment>, { currentUserId, lyrics, albumOf }: {
   currentUserId: (context: Context<ApiEnvironment>) => number; lyrics: MusicLyricsService;
+  /** The album a song is on, for the room tablet's now playing; see musicTrackAlbum.ts. */
+  albumOf?: MusicTrackAlbum;
 }): void {
+  api.get("/music/tracks/:id/album", async (context) => {
+    const videoId = context.req.param("id");
+    if (!VIDEO_ID.test(videoId) || !albumOf) return context.json({ error: "not found" }, 404);
+    const track = await musicTrack(videoId);
+    if (!track) return context.json({ error: "not found" }, 404);
+    return context.json({ browseId: await albumOf(currentUserId(context), track) });
+  });
+
   api.get("/music/tracks/:id/lyrics", async (context) => {
     const videoId = context.req.param("id");
     if (!VIDEO_ID.test(videoId)) return context.json({ error: "not found" }, 404);

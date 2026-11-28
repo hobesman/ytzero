@@ -18,6 +18,7 @@ import { registerAlexaRoomRoutes } from "./alexaRoomRoutes";
 import { registerMusicAlbumRoutes } from "./musicAlbumRoutes";
 import { registerMusicGenreRoutes } from "./musicGenreRoutes";
 import { registerMusicLyricsRoutes } from "./musicLyricsRoutes";
+import { createMusicTrackAlbum } from "../music/musicTrackAlbum";
 import { createMusicLyrics, type MusicLyricsService } from "../music/musicLyrics";
 import { registerMusicPlaylistRoutes } from "./musicPlaylistRoutes";
 
@@ -206,7 +207,7 @@ export function registerMusicRoutes(api: Api, dependencies: MusicRouteDependenci
 
   registerMusicAlbumRoutes(api, { currentUserId, pages });
   registerMusicGenreRoutes(api, { currentUserId, pages });
-  registerMusicLyricsRoutes(api, { currentUserId, lyrics: dependencies.lyrics ?? createMusicLyrics({ client }) });
+  registerMusicLyricsRoutes(api, { currentUserId, lyrics: dependencies.lyrics ?? createMusicLyrics({ client }), albumOf: createMusicTrackAlbum({ radio: client.radio, search: client.searchSongs }) });
   registerMusicPlaylistRoutes(api, { currentUserId, pages });
   // The Echo rooms the Alexa skills play in. Registered here because routes.ts is at its size limit.
   registerAlexaRoomRoutes(api, { currentUserId });

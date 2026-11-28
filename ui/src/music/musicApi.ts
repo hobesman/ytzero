@@ -94,6 +94,8 @@ export const musicApi = {
   recordPlay: (play: MusicPlay) => http<{ ok: true }>("/music/plays", json(play)),
   rate: (videoId: string, rating: 1 | 0 | -1) => http<{ ok: true }>(`/music/tracks/${id(videoId)}/rating`, { method: "PUT", body: JSON.stringify({ rating }) }),
   /** Has the server fetch the start of a song ahead of playing it; answers with the song's loudness. */
+  /** The album a song is on, as a browse ID, or null when none is found. */
+  trackAlbum: async (videoId: string) => (await http<{ browseId: string | null }>(`/music/tracks/${id(videoId)}/album`)).browseId,
   prepare: (videoId: string) => http<{ ready: boolean; loudnessDb: number | null }>(`/music/tracks/${id(videoId)}/prepare`, json({})),
   lyrics: (videoId: string) => http<MusicLyrics>(`/music/tracks/${id(videoId)}/lyrics`),
   /** Lyrics for a song by name (one an Echo plays from Amazon Music): the catalogue's track if known, else LRCLIB. */

@@ -34,7 +34,7 @@ describe("YouTube Music parsers", () => {
     const tracks = parseRadioResponse(data);
     expect(tracks.map((track) => track.videoId)).toEqual(["songAAAAAA1", "songBBBBBB2"]);
     expect(tracks[0]).toEqual({
-      videoId: "songAAAAAA1", title: "First", artist: "Artist", artistId: "UCartist", album: "Album", duration: 212,
+      videoId: "songAAAAAA1", title: "First", artist: "Artist", artistId: "UCartist", album: "Album", albumId: "MPREb_x", duration: 212,
       thumbnail: "https://lh3.googleusercontent.com/a=w544-h544-l90-rj", isTopic: true,
     });
     expect(tracks[1].isTopic).toBe(false);
@@ -49,7 +49,7 @@ describe("YouTube Music parsers", () => {
       ],
     } }] };
     expect(parseSearchResponse(data)).toEqual([{
-      videoId: "songDDDDDD4", title: "Duet", artist: "One, Two", artistId: "UCone", album: "Record", duration: 245, thumbnail: "", isTopic: true,
+      videoId: "songDDDDDD4", title: "Duet", artist: "One, Two", artistId: "UCone", album: "Record", albumId: "MPREb_x", duration: 245, thumbnail: "", isTopic: true,
     }]);
   });
 

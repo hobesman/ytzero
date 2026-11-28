@@ -7,6 +7,8 @@ export interface MusicTrack {
   artist: string;
   artistId: string | null;
   album: string | null;
+  /** The album's YouTube Music browse ID, when the response links it. Not stored in the catalog. */
+  albumId?: string;
   /** Whole seconds, when YouTube reports it. */
   duration: number | null;
   thumbnail: string;
@@ -51,10 +53,11 @@ function videoType(endpoint: any): string | undefined {
 }
 
 /** Split a byline such as "Artist & Other • Album • 3:32" into its parts. */
-export function parseByline(runs: any[]): { artist: string; artistId: string | null; album: string | null; duration: number | null } {
+export function parseByline(runs: any[]): { artist: string; artistId: string | null; album: string | null; albumId: string | null; duration: number | null } {
   const artists: string[] = [];
   let artistId: string | null = null;
   let album: string | null = null;
+  let albumId: string | null = null;
   let duration: number | null = null;
   let segment = 0;
   for (const run of runs) {
@@ -66,6 +69,7 @@ export function parseByline(runs: any[]): { artist: string; artistId: string | n
       artistId ??= run.navigationEndpoint.browseEndpoint.browseId ?? null;
     } else if (type === "MUSIC_PAGE_TYPE_ALBUM") {
       album = text;
+      albumId = typeof run.navigationEndpoint?.browseEndpoint?.browseId === "string" ? run.navigationEndpoint.browseEndpoint.browseId : null;
     } else if (parseDurationText(text) !== null) {
       duration = parseDurationText(text);
     } else if (segment === 0 && text && !/^\s*[&,]\s*$/.test(text)) {
@@ -74,7 +78,7 @@ export function parseByline(runs: any[]): { artist: string; artistId: string | n
     }
   }
   const artist = artists.join(", ").replace(/\s+-\s+Topic$/, "").trim();
-  return { artist, artistId, album, duration };
+  return { artist, artistId, album, albumId, duration };
 }
 
 export function parsePanelTrack(renderer: any): MusicTrack | null {
@@ -89,6 +93,7 @@ export function parsePanelTrack(renderer: any): MusicTrack | null {
     artist: byline.artist,
     artistId: byline.artistId,
     album: byline.album,
+    ...(byline.albumId ? { albumId: byline.albumId } : {}),
     duration: parseDurationText(lengthText) ?? byline.duration,
     thumbnail: largestThumbnail(renderer?.thumbnail?.thumbnails),
     isTopic: videoType(renderer?.navigationEndpoint) === "MUSIC_VIDEO_TYPE_ATV",
@@ -127,6 +132,7 @@ export function parseSearchItem(item: any): MusicTrack | null {
     artist: byline.artist,
     artistId: byline.artistId,
     album: byline.album,
+    ...(byline.albumId ? { albumId: byline.albumId } : {}),
     duration: byline.duration ?? parseDurationText(fixedDuration),
     thumbnail: largestThumbnail(item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails),
     isTopic: videoType(titleRun?.navigationEndpoint) === "MUSIC_VIDEO_TYPE_ATV",
